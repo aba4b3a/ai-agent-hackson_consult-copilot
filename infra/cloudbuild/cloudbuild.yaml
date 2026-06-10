@@ -1,0 +1,70 @@
+substitutions:
+  _REGION: asia-northeast1
+  _AR_REPOSITORY: ai-qualityops
+  _BACK_SERVICE: ai-qualityops-back
+  _AGENT_SERVICE: ai-qualityops-agent
+
+steps:
+  - name: node:24
+    dir: front
+    entrypoint: npm
+    args: ["ci"]
+
+  - name: node:24
+    dir: front
+    entrypoint: npm
+    args: ["run", "build"]
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/back:$COMMIT_SHA
+      - ./back
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/back:$COMMIT_SHA
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/agent:$COMMIT_SHA
+      - ./agent
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/agent:$COMMIT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_BACK_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/back:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --min-instances=0
+      - --max-instances=2
+      - --concurrency=40
+      - --timeout=180
+      - --no-allow-unauthenticated
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_AGENT_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/agent:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --min-instances=0
+      - --max-instances=1
+      - --concurrency=10
+      - --timeout=300
+      - --no-allow-unauthenticated
