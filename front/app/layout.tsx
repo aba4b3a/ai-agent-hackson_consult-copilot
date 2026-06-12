@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "AI QualityOps Agent",
-  description: "AI-powered QualityOps dashboard"
+  title: "Continuous Discovery Agent",
+  description: "Consultant-facing organizational learning copilot"
 };
 
 export default function RootLayout({

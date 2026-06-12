@@ -7,7 +7,7 @@
 # Test info
 
 - Name: dashboard.spec.ts >> shows the dashboard
-- Location: tests\e2e\dashboard.spec.ts:3:5
+- Location: ..\..\..\..\..\amariyuta\Apps\ai-agent-hackson_consult-copilot\front\tests\e2e\dashboard.spec.ts:3:5
 
 # Error details
 
