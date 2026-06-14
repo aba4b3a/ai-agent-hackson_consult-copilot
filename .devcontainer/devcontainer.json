@@ -1,0 +1,58 @@
+{
+  "name": "consult-copilot-devcontainer",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "node",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "remoteEnv": {
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-playwright.playwright",
+        "hashicorp.terraform",
+        "googlecloudtools.cloudcode",
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-containers"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.typeCheckingMode": "basic",
+        "typescript.tsdk": "front/node_modules/typescript/lib"
+      }
+    }
+  },
+  "postCreateCommand": "python -m pip install --user uv && make setup",
+  "forwardPorts": [3000, 8000, 8080, 9050],
+  "portsAttributes": {
+    "3000": {
+      "label": "front"
+    },
+    "8000": {
+      "label": "back"
+    },
+    "8080": {
+      "label": "agent"
+    },
+    "9050": {
+      "label": "bigquery-emulator"
+    }
+  }
+}
