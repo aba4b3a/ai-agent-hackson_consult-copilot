@@ -1,0 +1,34 @@
+{
+  "_generated": "Generated from .ai-common. Do not edit directly.",
+  "_doc": "Base MCP policy. Only safe local/read-only servers are active here. Other servers documented under mcp/servers/ are policy reference; activating them is a per-project decision in .ai/overlays/MCP.project.md.",
+  "policy": {
+    "default": "deny",
+    "writeOperations": "human_approval_required",
+    "secretRead": "excluded",
+    "productionDeploy": "excluded",
+    "iamUpdate": "excluded",
+    "terraformApply": "excluded",
+    "destructiveDelete": "excluded",
+    "auditLog": "recommended"
+  },
+  "servers": {
+    "filesystem": {
+      "classification": "read_only",
+      "allowed": ["read_project_files", "list_project_files"],
+      "denied": ["write_files_outside_project", "destructive_delete", "secret_extraction"]
+    },
+    "playwright": {
+      "classification": "read_only",
+      "allowed": ["open_local_or_approved_preview", "capture_screenshot", "run_ui_assertions"],
+      "denied": ["submit_production_mutation", "credential_harvesting", "navigate_unapproved_external_urls"]
+    }
+  },
+  "documentedButInactive": [
+    "github",
+    "gcp-logging",
+    "gcs-artifacts",
+    "firestore",
+    "cloud-build",
+    "billing"
+  ]
+}

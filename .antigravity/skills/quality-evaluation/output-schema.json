@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QualityEvaluation",
+  "type": "object",
+  "required": ["status", "summary", "scores", "findings", "releaseGate"],
+  "properties": {
+    "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+    "summary": { "type": "string" },
+    "scores": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "title", "evidence"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "title": { "type": "string" },
+          "evidence": { "type": "string" },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "releaseGate": {
+      "type": "object",
+      "required": ["decision", "reason"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["allow", "block", "needs_approval"] },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}
