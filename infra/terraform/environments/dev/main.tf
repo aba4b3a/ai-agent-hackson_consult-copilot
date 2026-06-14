@@ -1,3 +1,3 @@
 locals {
-  service_prefix = "ai-qualityops"
+  service_prefix = "consult-copilot"
 }

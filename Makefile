@@ -27,8 +27,8 @@ test:
 
 build:
 	docker compose run --rm --no-deps front npm run build
-	docker build -t ai-qualityops-back:local ./back
-	docker build -t ai-qualityops-agent:local ./agent
+	docker build -t consult-copilot-back:local ./back
+	docker build -t consult-copilot-agent:local ./agent
 
 clean:
 	docker compose down -v

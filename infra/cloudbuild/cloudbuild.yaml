@@ -1,8 +1,8 @@
 substitutions:
   _REGION: asia-northeast1
-  _AR_REPOSITORY: ai-qualityops
-  _BACK_SERVICE: ai-qualityops-back
-  _AGENT_SERVICE: ai-qualityops-agent
+  _AR_REPOSITORY: consult-copilot
+  _BACK_SERVICE: consult-copilot-back
+  _AGENT_SERVICE: consult-copilot-agent
 
 steps:
   - name: node:24

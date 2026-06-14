@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "ai-qualityops-agent"
+name = "consult-copilot-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
