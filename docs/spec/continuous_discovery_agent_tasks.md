@@ -278,12 +278,12 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 7. Gemini-Based Knowledge Extraction
 
-- [ ] 7.1 Define structured extraction schema
+- [x] 7.1 Define structured extraction schema
   - Define JSON schema for observations, entities, relationships, hypotheses, evidence snippets, and recommended follow-up topics.
   - Include `type`, `name`, `summary`, `confidence`, `source_id`, `evidence_quote`, and `fact_or_hypothesis` fields where appropriate.
   - _Requirements: R5, R6_
 
-- [ ] 7.2 Implement extraction prompt builder
+- [x] 7.2 Implement extraction prompt builder
   - Load source text.
   - Load workspace profile and observation policy from BigQuery or LLM Wiki.
   - Add rules that observed facts and hypotheses must be separated.
