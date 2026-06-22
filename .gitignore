@@ -41,3 +41,6 @@ service-account*.json
 tmp/
 reports/
 screenshots/
+
+# local llm
+ollama/

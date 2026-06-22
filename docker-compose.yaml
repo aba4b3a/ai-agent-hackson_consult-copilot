@@ -48,6 +48,16 @@ services:
       - --dataset=qualityops
     ports:
       - "9050:9050"
+  
+  ollama:
+    image: ollama/ollama:0.30.10
+    container_name: ollama-ai
+    ports:
+      - 11434:11434
+    volumes:
+      - ${LOCAL_WORKSPACE_FOLDER:-.}/ollama:/root/.ollama
+    restart: always
+    gpus: all
 
 volumes:
   front_node_modules:
