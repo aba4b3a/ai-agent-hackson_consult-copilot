@@ -10,10 +10,11 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml ./
 RUN uv pip install --system . --group dev
 
+COPY app ./app
 COPY agents ./agents
 COPY tools ./tools
 COPY eval ./eval
 COPY prompts ./prompts
 COPY tests ./tests
 
-CMD ["python", "-m", "agents.quality_eval_agent"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

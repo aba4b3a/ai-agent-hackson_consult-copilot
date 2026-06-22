@@ -21,6 +21,8 @@ from app.schemas.discovery import (
     Workspace,
     WorkspaceCreate,
 )
+from app.schemas.extraction import ExtractedEntity, ExtractedRelationship, ExtractionResult
+from app.services import agent_client
 
 
 class DiscoveryMockRepository:
@@ -32,6 +34,10 @@ class DiscoveryMockRepository:
         self.observations: dict[str, Observation] = {}
         self.hypotheses: dict[str, Hypothesis] = {}
         self.signals: dict[str, DiscoverySignal] = {}
+        # Entities and relationships are persisted from extraction output but not
+        # yet wired into graph_slice (kept derived from observations for now).
+        self.entities: dict[str, dict[str, ExtractedEntity]] = {}
+        self.relationships: dict[str, list[ExtractedRelationship]] = {}
         self._seed()
 
     def _next_id(self, prefix: str) -> str:
@@ -156,45 +162,56 @@ class DiscoveryMockRepository:
             source_uri=f"gs://continuous-discovery-local/raw/{workspace_id}/{source_id}.txt",
         )
         self.sources[source_id] = source
-        self._extract_mock_knowledge(source)
+        self._extract_knowledge(source)
         return source
 
-    def _extract_mock_knowledge(self, source: Source) -> None:
-        body = source.body
-        tags = [
-            tag
-            for tag in ["高齢者", "子育て世帯", "待ち時間", "価格不安", "駅前ドラッグ", "オンライン服薬指導"]
-            if tag in body
-        ]
-        if not tags:
-            tags = ["顧客変化"]
-        observation = Observation(
-            observation_id=self._next_id("obs"),
-            workspace_id=source.workspace_id,
-            source_id=source.source_id,
-            source_type=source.source_type,
-            summary=f"{'、'.join(tags[:3])}に関する現場観察が追加された。",
-            quote=body.splitlines()[0][:160],
-            confidence=0.78,
-            related_entities=tags,
-            evidence_uri=source.source_uri,
-        )
-        self.observations[observation.observation_id] = observation
-        if "競合" in body or "駅前ドラッグ" in body or "オンライン" in body:
+    def _extract_knowledge(self, source: Source) -> None:
+        workspace = self.workspaces[source.workspace_id]
+        result = agent_client.extract_knowledge(source.source_type, source.body, workspace)
+
+        created_observation_ids: list[str] = []
+        for extracted in result.observations:
+            observation = Observation(
+                observation_id=self._next_id("obs"),
+                workspace_id=source.workspace_id,
+                source_id=source.source_id,
+                source_type=source.source_type,
+                summary=extracted.summary,
+                quote=extracted.quote,
+                fact_or_hypothesis=extracted.fact_or_hypothesis,
+                confidence=extracted.confidence,
+                related_entities=extracted.related_entities,
+                evidence_uri=source.source_uri,
+            )
+            self.observations[observation.observation_id] = observation
+            created_observation_ids.append(observation.observation_id)
+
+        for extracted_hypothesis in result.hypotheses:
             hypothesis = Hypothesis(
                 hypothesis_id=self._next_id("hyp"),
                 workspace_id=source.workspace_id,
-                statement="競合の利便性訴求が待ち時間や来店継続への不安を強めている可能性がある。",
+                statement=extracted_hypothesis.statement,
                 status="observing",
-                confidence=0.61,
-                supporting_observation_ids=[observation.observation_id],
-                recommended_observations=[
-                    "競合名が出た場面で比較理由を確認する",
-                    "待ち時間と再来店意向を同じ報告で記録する",
-                    "子育て世帯のオンライン服薬指導ニーズを追加観察する",
-                ],
+                confidence=extracted_hypothesis.confidence,
+                supporting_observation_ids=list(created_observation_ids),
+                recommended_observations=extracted_hypothesis.recommended_observations,
             )
             self.hypotheses[hypothesis.hypothesis_id] = hypothesis
+
+        self._store_graph_knowledge(source.workspace_id, result)
+
+    def _store_graph_knowledge(self, workspace_id: str, result: ExtractionResult) -> None:
+        # Persist entities/relationships for later graph use. Deduped by name.
+        entity_store = self.entities.setdefault(workspace_id, {})
+        for entity in result.entities:
+            existing = entity_store.get(entity.name)
+            if existing is None:
+                entity_store[entity.name] = entity
+                continue
+            for alias in entity.aliases:
+                if alias not in existing.aliases:
+                    existing.aliases.append(alias)
+        self.relationships.setdefault(workspace_id, []).extend(result.relationships)
 
     def list_workspaces(self) -> list[Workspace]:
         return list(self.workspaces.values())
