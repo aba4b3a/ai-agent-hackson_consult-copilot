@@ -1,16 +1,18 @@
+import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
-export const metadata = {
-  title: "Continuous Discovery Agent",
-  description: "Consultant-facing organizational learning copilot"
+export const metadata: Metadata = {
+  title: "Discovery Feed",
+  description: "Consultant discovery dashboard",
 };
 
-export default function RootLayout({
-  children
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
