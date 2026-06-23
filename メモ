@@ -1,0 +1,267 @@
+API検証は、まず DRY_RUN=true のローカル検証で一連の流れを確認し、その後 DRY_RUN=false で BigQuery / Cloud Storage 連携を確認するのが安全です。FastAPI は標準で OpenAPI / Swagger UI を提供でき、通常 /docs でインタラクティブにAPIを試せます。
+
+1. 起動
+
+ZIPを展開して、プロジェクト直下で実行します。
+
+unzip continuous-discovery-agent-fastapi.zip
+cd continuous-discovery-agent-fastapi
+
+cp .env.example .env
+uv sync
+uv run uvicorn app.main:app --reload
+
+起動後、以下を開きます。
+
+http://localhost:8000/docs
+
+まずは DRY_RUN=true のまま検証してください。BigQueryやCloud Storageには実書き込みせず、生成されるDDL・Wiki・保存予定データだけ確認できます。
+
+2. ヘルスチェック
+curl -s http://localhost:8000/api/v1/health | jq
+
+期待値：
+
+{
+  "status": "ok",
+  "app": "Continuous Discovery Agent API",
+  "dry_run": true
+}
+3. 初期オンボーディングの検証
+
+企業IDを company_001 として、初期アンケート・BigQuery基本3テーブルDDL・LLM Wiki初版をまとめて生成します。
+
+curl -s -X POST "http://localhost:8000/api/v1/companies/company_001/onboarding/prepare" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "田中美容室",
+    "industry_hint": "美容院",
+    "size_hint": "従業員5名、1店舗"
+  }' | jq
+
+確認ポイントは以下です。
+
+dataset_id
+core_tables_ddl
+initial_survey
+wiki_markdown
+wiki_json
+human_review_required
+
+ここで core_tables_ddl に以下が含まれていればOKです。
+
+survey_responses
+knowledge_nodes
+knowledge_edges
+CREATE OR REPLACE PROPERTY GRAPH
+
+BigQuery Graph は既存のノード・エッジテーブル上に CREATE PROPERTY GRAPH で論理グラフを定義する方式なので、このDDL生成が最初の検証ポイントです。
+
+4. 初期アンケートだけ取得する
+curl -s "http://localhost:8000/api/v1/companies/company_001/survey/initial" | jq
+
+確認ポイント：
+
+questions[].question_text
+questions[].answer_type
+questions[].qualitative_intent
+questions[].quantitative_intent
+questions[].related_node_types
+questions[].related_edge_types
+
+このAPIでは、単なる自由記述ではなく、定性意図と定量意図を持つ質問になっているかを確認します。
+
+5. アンケート回答を投入する
+
+ここが、Research Agent 的な収集処理と Knowledge Agent 的な抽出処理のMVP検証です。
+
+curl -s -X POST "http://localhost:8000/api/v1/companies/company_001/survey-responses" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_id": "company_001_q003",
+    "respondent_role": "manager",
+    "question_text": "社内で「この人に聞かないと分からない」業務は何ですか？該当者と理由も教えてください。",
+    "answer_type": "text",
+    "raw_answer": "カラー施術後の仕上がり確認は佐藤さんに聞かないと分からないことが多いです。常連のお客様ごとに好みの色味や会話の距離感を覚えていて、リピートにも影響しています。",
+    "survey_frequency": "ad_hoc",
+    "tags": ["暗黙知", "属人化", "美容院"]
+  }' | jq
+
+期待するレスポンス構造：
+
+{
+  "response": {
+    "response_id": "...",
+    "company_id": "company_001",
+    "raw_answer": "...",
+    "qualitative_summary": "...",
+    "quantitative_summary": "..."
+  },
+  "extracted_nodes": [],
+  "extracted_edges": [],
+  "persistence": {}
+}
+
+このMVPでは、回答保存と同時に knowledge_nodes / knowledge_edges の抽出候補を返す想定です。DRY_RUN=true の場合は BigQuery に実保存せず、保存予定の内容が persistence に返ります。
+
+6. BigQuery基本3テーブルDDLを確認する
+curl -s "http://localhost:8000/api/v1/companies/company_001/bigquery/core-tables/ddl" | jq -r .ddl
+
+確認する3テーブル：
+
+survey_responses
+knowledge_nodes
+knowledge_edges
+
+survey_responses はアンケート回答、knowledge_nodes は人物・業務・顧客・商品・KPI・兆候・暗黙知などのノード、knowledge_edges はノード間の関係性です。
+
+7. BigQueryテーブル作成APIを試す
+
+DRY_RUN=true なら実行されず、SQLが返るだけです。
+
+curl -s -X POST "http://localhost:8000/api/v1/companies/company_001/bigquery/core-tables" | jq
+
+本当にBigQueryに作成する場合は、.env を以下のようにします。
+
+DRY_RUN=false
+PROJECT_ID="your-gcp-project"
+LOCATION="asia-northeast1"
+BQ_DATASET_PREFIX="cda"
+BQ_GRAPH_NAME="KnowledgeGraph"
+
+そのうえで、Google Cloud 認証を通してから再実行します。
+
+gcloud auth application-default login
+uv run uvicorn app.main:app --reload
+8. Graph Query生成を確認する
+curl -s "http://localhost:8000/api/v1/companies/company_001/graph/query?keyword=リピート" | jq
+
+返るのは、BigQuery Graphに対するGQLクエリ案です。
+
+{
+  "company_id": "company_001",
+  "graph_query": "...",
+  "note": "..."
+}
+
+BigQuery Graph ではGQLでノード・エッジの関係探索ができます。まずはAPIでクエリ文字列を生成し、その後 BigQuery Studio / Notebook / Console 側で実行する流れを想定します。
+
+9. 任意テーブル提案APIを試す
+
+たとえば美容院向けに、スタッフ教育テーブルを提案させます。
+
+curl -s -X POST "http://localhost:8000/api/v1/companies/company_001/custom-tables/propose" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "table_id": "staff_training_records",
+    "purpose": "スタッフごとの技術・接客スキルの成長と、ベテランの暗黙知伝搬状況を管理する",
+    "columns": [
+      {"name": "staff_id", "type": "STRING"},
+      {"name": "staff_name", "type": "STRING"},
+      {"name": "skill_area", "type": "STRING"},
+      {"name": "current_level", "type": "STRING"},
+      {"name": "target_level", "type": "STRING"},
+      {"name": "observed_behavior", "type": "STRING"},
+      {"name": "trainer_comment", "type": "STRING"},
+      {"name": "next_action", "type": "STRING"},
+      {"name": "recorded_at", "type": "TIMESTAMP"}
+    ]
+  }' | jq
+
+確認ポイント：
+
+ddl
+wiki_update_markdown
+recommended_questions
+human_review_required
+
+このAPIは「ユーザーが任意のテーブルを作れる」要件の検証用です。DDLを即実行せず、まず提案として返します。
+
+10. WikiアップロードAPIを試す
+
+DRY_RUN=true の場合はCloud Storageには保存せず、保存予定パスとプレビューが返ります。
+
+curl -s -X POST "http://localhost:8000/api/v1/companies/company_001/wiki/upload" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "田中美容室",
+    "wiki_markdown": "# 田中美容室 LLM Wiki\n\n## 暗黙知\n佐藤さんのカラー施術ノウハウが重要。",
+    "wiki_json": {
+      "company_id": "company_001",
+      "company_name": "田中美容室",
+      "knowledge": [
+        {
+          "type": "staff_skill",
+          "label": "佐藤さんのカラー施術ノウハウ"
+        }
+      ]
+    },
+    "schema_sql": "CREATE TABLE sample (...);"
+  }' | jq
+
+本番保存する場合は .env に以下を設定します。
+
+DRY_RUN=false
+WIKI_BUCKET="your-cda-wiki-bucket"
+
+Cloud Storageは静的ファイルホスティングに使えるため、wiki.md / wiki.json / wiki.html の置き場所として使う設計です。
+
+11. 推奨する検証シナリオ
+
+API検証はこの順番がよいです。
+
+1. /health
+2. /companies/{company_id}/onboarding/prepare
+3. /companies/{company_id}/survey/initial
+4. /companies/{company_id}/survey-responses
+5. /companies/{company_id}/bigquery/core-tables/ddl
+6. /companies/{company_id}/graph/query
+7. /companies/{company_id}/custom-tables/propose
+8. /companies/{company_id}/wiki/upload
+9. DRY_RUN=false にして BigQuery / Cloud Storage 実連携
+12. Swagger UIでの確認
+
+ブラウザで以下を開くと、全エンドポイントをGUIで試せます。
+
+http://localhost:8000/docs
+
+FastAPIはOpenAPI互換の自動ドキュメントを提供し、通常 /docs でSwagger UI、/redoc でReDocを確認できます。
+
+13. テスト実行
+uv run pytest tests/
+
+最低限、以下が確認できます。
+
+health endpoint が応答すること
+onboarding prepare が期待する構造を返すこと
+14. curlではなくPythonで試す場合
+import requests
+
+base_url = "http://localhost:8000/api/v1"
+company_id = "company_001"
+
+res = requests.post(
+    f"{base_url}/companies/{company_id}/onboarding/prepare",
+    json={
+        "company_name": "田中美容室",
+        "industry_hint": "美容院",
+        "size_hint": "従業員5名、1店舗",
+    },
+)
+print(res.status_code)
+print(res.json().keys())
+15. まず見るべき成功条件
+
+最初の検証では、以下が確認できれば十分です。
+
+観点	成功条件
+API起動	/api/v1/health が ok
+初期調査	initial_survey.questions が返る
+定量・定性	各質問に qualitative_intent / quantitative_intent がある
+BigQuery準備	基本3テーブルDDLが生成される
+Graph前提	CREATE OR REPLACE PROPERTY GRAPH が生成される
+回答保存	survey-responses で回答レコードが返る
+任意テーブル	custom-tables/propose でDDLとWiki更新案が返る
+Wiki	wiki/upload で保存予定パスまたはGCS結果が返る
+
+まずは DRY_RUN=true のまま、/docs から上記の順に叩くのが一番早いです。
