@@ -1,15 +1,12 @@
 from fastapi import FastAPI
+from app.api.v1.router import api_router
+from app.core.config import settings
 
-from app.api.v1 import approvals, costs, discovery, health, quality_runs, webhooks
 
-app = FastAPI(
-    title="Continuous Discovery Agent Backend API",
-    version="0.1.0",
-)
+def create_app() -> FastAPI:
+    app = FastAPI(title=settings.app_name, version='0.2.0', debug=settings.debug)
+    app.include_router(api_router, prefix='/api/v1')
+    return app
 
-app.include_router(health.router)
-app.include_router(discovery.router, prefix="/api", tags=["continuous-discovery"])
-app.include_router(quality_runs.router, prefix="/quality-runs", tags=["quality-runs"])
-app.include_router(approvals.router, prefix="/approvals", tags=["approvals"])
-app.include_router(costs.router, prefix="/costs", tags=["costs"])
-app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+
+app = create_app()
