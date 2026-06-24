@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 RUN pip install --no-cache-dir uv
 
@@ -16,4 +17,4 @@ COPY eval ./eval
 COPY prompts ./prompts
 COPY tests ./tests
 
-CMD ["python", "-m", "agents.quality_eval_agent"]
+CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "/app/agents"]

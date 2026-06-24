@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 from google.cloud import bigquery
-from cda_agents.config import settings
+from agents.config import settings
 
 
 def _client() -> bigquery.Client:
-    return bigquery.Client(project=settings.project_id)
+    """Create a BigQuery client configured for local or production environment."""
+    if settings.app_env == 'local' and settings.bigquery_emulator_host:
+        # Use BigQuery emulator for local development
+        os.environ['BIGQUERY_EMULATOR_HOST'] = settings.bigquery_emulator_host
+        return bigquery.Client(project=settings.project_id, location=settings.location)
+    else:
+        # Use Google Cloud BigQuery for production
+        return bigquery.Client(project=settings.project_id)
 
 
 def _sql_string(value: str | None) -> str:

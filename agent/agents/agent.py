@@ -1,8 +1,8 @@
 from google.adk.agents import Agent
 
-from cda_agents.config import settings
-from cda_agents.prompts import COMMAND_AGENT_INSTRUCTION, RESEARCH_AGENT_INSTRUCTION, KNOWLEDGE_AGENT_INSTRUCTION
-from cda_agents.tools.bigquery_tools import (
+from agents.config import settings
+from prompts.prompts import COMMAND_AGENT_INSTRUCTION, RESEARCH_AGENT_INSTRUCTION, KNOWLEDGE_AGENT_INSTRUCTION
+from tools.bigquery_tools import (
     create_company_dataset,
     generate_core_tables_ddl,
     create_core_tables,
@@ -12,9 +12,9 @@ from cda_agents.tools.bigquery_tools import (
     propose_custom_table_ddl,
     sample_graph_query,
 )
-from cda_agents.tools.storage_tools import upload_company_wiki
-from cda_agents.tools.survey_tools import generate_common_initial_survey
-from cda_agents.tools.wiki_tools import render_wiki_markdown, render_wiki_json, build_custom_table_wiki_update
+from tools.storage_tools import upload_company_wiki
+from tools.survey_tools import generate_common_initial_survey
+from tools.wiki_tools import render_wiki_markdown, render_wiki_json, build_custom_table_wiki_update
 
 research_agent = Agent(
     name="research_agent",

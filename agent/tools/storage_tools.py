@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from google.cloud import storage
-from cda_agents.config import settings
+from agents.config import settings
 
 
 def _client() -> storage.Client:
