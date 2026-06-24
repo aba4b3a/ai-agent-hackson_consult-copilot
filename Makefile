@@ -2,7 +2,7 @@
 
 setup:
 	docker compose build
-	docker compose run --rm --no-deps front npm install
+	# npm install is run during docker compose up in front service
 
 dev:
 	docker compose up --build

@@ -3,7 +3,7 @@ services:
     image: node:24-bookworm
     working_dir: /workspace/front
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/front:/workspace/front
+      - ./front:/workspace/front
       - front_node_modules:/workspace/front/node_modules
     command: sh -c "npm install && npm run dev"
     ports:
@@ -15,49 +15,55 @@ services:
 
   back:
     build:
-      context: ${LOCAL_WORKSPACE_FOLDER:-.}/back
+      context: ./back
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      APP_ENV: local
-      GCP_PROJECT: local-project
-      BIGQUERY_EMULATOR_HOST: http://bigquery-emulator:9050
-      AGENT_BASE_URL: http://agent:8080
+    env_file: ./back/.env
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/back:/app
+      - ./back:/app
     depends_on:
       - bigquery-emulator
+      - ollama
 
   agent:
     build:
-      context: ${LOCAL_WORKSPACE_FOLDER:-.}/agent
+      context: ./agent
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      APP_ENV: local
-      GCP_PROJECT: local-project
+    env_file: ./agent/.env
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/agent:/app
+      - ./agent:/app
+    depends_on:
+      - bigquery-emulator
+      - ollama
 
   bigquery-emulator:
     image: ghcr.io/goccy/bigquery-emulator:latest
     command:
       - --project=local-project
-      - --dataset=qualityops
+      - --dataset=cda
     ports:
       - "9050:9050"
-  
+
   ollama:
     image: ollama/ollama:0.30.10
     container_name: ollama-ai
     ports:
-      - 11434:11434
+      - "11434:11434"
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/ollama:/root/.ollama
+      - ./ollama:/root/.ollama
     restart: always
     gpus: all
+    # GPU support (uncomment if available)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
 volumes:
   front_node_modules:
