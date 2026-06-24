@@ -183,3 +183,23 @@ export const qualityRunSchema = {
     return value;
   },
 };
+
+// Report Chat (アンケート送信フォーム)
+export type SurveyQuestion = {
+  question_id: string;
+  question_text: string;
+  answer_type: string;
+  target_role: string;
+  frequency: string;
+};
+
+export type SurveyFormData = {
+  company_id: string;
+  questions: SurveyQuestion[];
+};
+
+// Report Copilot (チャット)
+export type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+};

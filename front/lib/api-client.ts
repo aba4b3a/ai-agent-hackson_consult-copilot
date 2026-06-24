@@ -1,13 +1,11 @@
-import { qualityRunSchema } from "./schemas";
+const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const companyId = process.env.NEXT_PUBLIC_COMPANY_ID ?? "demo";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
-export async function fetchQualityRun(qualityRunId: string) {
-  const response = await fetch(`${apiBaseUrl}/quality-runs/${qualityRunId}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch quality run: ${response.status}`);
-  }
-
-  return qualityRunSchema.parse(await response.json());
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${apiBase}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
 }
