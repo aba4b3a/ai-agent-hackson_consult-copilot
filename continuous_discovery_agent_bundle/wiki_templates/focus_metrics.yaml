@@ -1,0 +1,15 @@
+focus_metrics:
+  - focus_metric_id: fm_price_mentions
+    name: 価格関連発言数
+    category: customer_voice
+    related_kpis:
+      - kpi_sales
+      - kpi_conversion_rate
+    observation_signals:
+      - price_complaint
+      - discount_request
+      - competitor_price_mention
+    trigger_condition: null
+    followup_policy: 商品、顧客属性、発生頻度、競合名を確認する
+    status: proposed
+    source_refs: []

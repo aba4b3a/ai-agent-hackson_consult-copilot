@@ -1,0 +1,73 @@
+{
+  "company_profile": {
+    "company_id": "company_001",
+    "business_summary": "駅前立地の定食店。ランチ売上比率が高い。会社員と学生が主な顧客。",
+    "customer_summary": "ランチは会社員・学生、夜は近隣住民が中心。",
+    "product_service_summary": "定食メニューが主力。",
+    "competition_summary": "近隣の低価格定食店が競合。",
+    "operation_summary": "ランチ時間帯の混雑が大きい。",
+    "current_issues": ["価格に関する顧客発言が増加している可能性"],
+    "confidence": 0.72,
+    "source_refs": ["gs://cd-agent-knowledge/tenants/company_001/raw/onboarding/fiscal_year=2026/initial_answers/answers.jsonl"]
+  },
+  "kpi_candidates": [
+    {
+      "kpi_candidate_id": "kpic_001",
+      "kpi_name": "ランチ売上",
+      "kpi_domain": "sales",
+      "kpi_type": "lagging",
+      "description": "ランチ時間帯の売上合計",
+      "calculation_hint": "ランチ時間帯のPOS売上合計",
+      "data_source_hint": "POS",
+      "reason": "売上中心がランチであるため",
+      "source_refs": ["ans_002"],
+      "confidence": 0.8,
+      "importance_score": 0.9,
+      "requires_human_review": true
+    }
+  ],
+  "focus_metric_candidates": [
+    {
+      "focus_metric_candidate_id": "fmc_001",
+      "metric_name": "価格関連発言数",
+      "metric_category": "customer_voice",
+      "description": "顧客から価格に関する質問・不満・比較が出た件数",
+      "related_kpi_candidates": ["ランチ売上", "リピート率"],
+      "observation_signal_types": ["price_complaint", "discount_request", "competitor_price_mention"],
+      "calculation_hint": "日報・接客メモから価格関連発言を抽出して件数化",
+      "data_source_hint": "日報、チャット、接客メモ",
+      "measurement_frequency": "weekly",
+      "trigger_condition": "前週比30%以上増加",
+      "followup_policy": "商品、顧客属性、頻度、競合名を確認する",
+      "reason": "価格感度の変化が売上・リピートに影響する可能性があるため",
+      "source_refs": ["ans_007", "ans_018"],
+      "confidence": 0.7,
+      "priority_score": 0.88,
+      "requires_human_review": true
+    }
+  ],
+  "research_plan": [
+    {
+      "research_task_id": "rt_price_001",
+      "target_role": "接客担当",
+      "frequency": "weekly",
+      "question_intent": "価格関連発言の対象商品・顧客層・頻度を把握する",
+      "base_questions": [
+        "今週、価格について聞かれたことはありましたか？",
+        "それはどの商品についてでしたか？"
+      ],
+      "followup_policy": "競合名が出た場合、競合名・比較観点・購買結果を確認する",
+      "related_kpi_candidates": ["ランチ売上", "リピート率"],
+      "related_focus_metric_candidates": ["価格関連発言数"],
+      "priority_score": 0.9
+    }
+  ],
+  "human_review_items": [
+    {
+      "item_type": "focus_metric_candidate",
+      "summary": "価格関連発言数を重点管理指標候補に追加",
+      "reason": "KPIへの影響は仮説段階のため承認が必要",
+      "risk_level": "medium"
+    }
+  ]
+}

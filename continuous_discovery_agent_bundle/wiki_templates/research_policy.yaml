@@ -1,0 +1,20 @@
+research_policy:
+  company_id: company_001
+  generated_at: "2026-06-25T10:00:00Z"
+  max_questions_per_run: 3
+  active_research_tasks:
+    - task_id: rt_price_mentions
+      target_role: 営業担当
+      frequency: weekly
+      purpose: 価格関連発言が成約率・リピート率に与える影響を確認する
+      related_kpis:
+        - kpi_conversion_rate
+        - kpi_repeat_rate
+      related_focus_metrics:
+        - fm_price_mentions
+      base_questions:
+        - 今週、顧客から価格について聞かれたことはありましたか？
+        - それはどの商品・サービスについてでしたか？
+      followup_policy:
+        if_answer_mentions_competitor: 競合名、比較された観点、購買結果を確認する
+        if_answer_mentions_existing_customer: リピート意向や解約兆候を確認する
