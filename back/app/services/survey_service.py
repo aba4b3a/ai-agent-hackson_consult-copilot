@@ -1,27 +1,59 @@
-from app.schemas.survey import SurveyQuestion
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from app.crud.storage_crud import storage_crud
+from app.schemas.survey import SurveyQuestion, SurveyTemplate
+
+
+SEED_TEMPLATE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / 'storage_seed'
+    / 'survey_templates'
+    / 'common_initial_v1.json'
+)
 
 
 class SurveyService:
-    def generate_common_initial_survey(self, company_id: str) -> dict:
-        raw_questions = [
-            ('q001', '主な商品・サービスは何ですか？売上が大きい順に教えてください。可能なら割合も教えてください。', 'owner', 'text', 'ad_hoc', 'Product,Service,KPI', 'IMPACTS,MEASURES'),
-            ('q002', '売上が増減する主な要因を最大3つ挙げ、それぞれ影響度を1〜5で付けてください。', 'owner', 'json', 'ad_hoc', 'KPI,Signal,Process', 'IMPACTS'),
-            ('q003', '社内で「この人に聞かないと分からない」業務は何ですか？該当者、業務、理由、発生頻度を教えてください。', 'manager', 'text', 'ad_hoc', 'Person,Process,TacitKnowledge', 'KNOWS,PERFORMS,DEPENDS_ON'),
-            ('q004', '新人とベテランで判断が分かれる場面はありますか？具体例と月あたりの頻度を教えてください。', 'manager', 'text', 'ad_hoc', 'Skill,Process,TacitKnowledge', 'DEPENDS_ON,TRANSFERS_TO'),
-            ('q005', '顧客が喜ぶ対応にはどのような共通点がありますか？最近の具体例と、おおよその発生件数も教えてください。', 'staff', 'text', 'weekly', 'CustomerSegment,TacitKnowledge,Skill', 'INDICATES,IMPACTS'),
-            ('q006', '顧客が離れる前、失注する前、クレームになる前に見られる兆候はありますか？件数感も教えてください。', 'staff', 'text', 'weekly', 'Signal,Risk,CustomerSegment', 'INDICATES'),
-            ('q007', '最近1か月で、いつもと違う問い合わせ・要望・不満はありましたか？種類と件数感を教えてください。', 'manager', 'text', 'monthly', 'Signal,CustomerSegment,Risk', 'INDICATES,RELATED_TO'),
-            ('q008', '品質・売上・顧客満足に大きく影響するが、現在記録していない情報は何ですか？重要度を1〜5で付けてください。', 'owner', 'text', 'ad_hoc', 'KPI,TacitKnowledge,Question', 'MEASURES,RELATED_TO'),
+    def _template_storage_path(self, survey_type: str = 'common_initial_survey', version: str = 'v1') -> str:
+        return f'survey_templates/{survey_type}/{version}/template.json'
+
+    def ensure_initial_template(self, version: str = 'v1') -> dict:
+        path = self._template_storage_path(version=version)
+        if storage_crud.exists(path):
+            return {'created': False, 'path': path}
+        seed = json.loads(SEED_TEMPLATE_PATH.read_text(encoding='utf-8'))
+        storage_crud.upload_json(path, seed)
+        return {'created': True, 'path': path}
+
+    def get_initial_survey_template(self, company_id: str, version: str = 'v1') -> SurveyTemplate:
+        seed_result = self.ensure_initial_template(version)
+        raw_template = storage_crud.read_json(seed_result['path'])
+        questions = [
+            SurveyQuestion(
+                **{
+                    **question,
+                    'company_id': company_id,
+                    'version': raw_template.get('version', version),
+                    'options': [choice['label'] for choice in question.get('choices', [])],
+                }
+            )
+            for question in raw_template['questions']
         ]
-        questions = []
-        for suffix, text, role, answer_type, freq, node_types, edge_types in raw_questions:
-            questions.append(SurveyQuestion(
-                question_id=f'{company_id}_{suffix}', company_id=company_id, question_text=text,
-                target_role=role, answer_type=answer_type, frequency=freq,
-                qualitative_intent='暗黙知・業務文脈の把握', quantitative_intent='件数・頻度・影響度の把握',
-                related_node_types=node_types.split(','), related_edge_types=edge_types.split(','),
-            ).model_dump())
-        return {'company_id': company_id, 'survey_type': 'common_initial_survey', 'questions': questions}
+        return SurveyTemplate(
+            template_id=raw_template['template_id'],
+            company_id=company_id,
+            survey_type=raw_template['survey_type'],
+            version=raw_template['version'],
+            title=raw_template['title'],
+            description=raw_template['description'],
+            storage_path=seed_result['path'],
+            questions=questions,
+        )
+
+    def generate_common_initial_survey(self, company_id: str) -> dict:
+        return self.get_initial_survey_template(company_id).model_dump()
 
 
 survey_service = SurveyService()

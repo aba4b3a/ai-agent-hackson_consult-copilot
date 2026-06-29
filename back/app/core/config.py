@@ -1,5 +1,7 @@
 from functools import lru_cache
 import os
+from typing import Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -18,10 +20,20 @@ class Settings(BaseSettings):
     bq_dataset_prefix: str = os.getenv('BQ_DATASET_PREFIX', 'cda')
     bq_graph_name: str = os.getenv('BQ_GRAPH_NAME', 'KnowledgeGraph')
     wiki_bucket: str = os.getenv('WIKI_BUCKET', '')
+    storage_emulator_root: str = os.getenv('STORAGE_EMULATOR_ROOT', '.local_storage')
     model_id: str = os.getenv('MODEL_ID', 'gemini-3.1-pro')
     ollama_host: str = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
     bigquery_emulator_host: str = os.getenv('BIGQUERY_EMULATOR_HOST', '')
     agent_base_url: str = os.getenv('AGENT_BASE_URL', 'http://localhost:8080')
+
+    @field_validator('debug', mode='before')
+    @classmethod
+    def parse_debug(cls, value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in {'1', 'true', 'yes', 'on', 'debug', 'local'}
+        return bool(value)
 
     def dataset_id(self, company_id: str) -> str:
         safe = company_id.replace('-', '_').replace('.', '_')

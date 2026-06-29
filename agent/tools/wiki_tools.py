@@ -3,60 +3,244 @@ from __future__ import annotations
 import json
 
 
-def render_wiki_markdown(company_id: str, company_name: str, nodes: list[dict], edges: list[dict], recommended_questions: list[dict], custom_tables: list[dict] | None = None) -> str:
-    custom_tables = custom_tables or []
-    node_lines = "\n".join(f"- `{n.get('node_id')}` [{n.get('node_type')}]: {n.get('label')} - {n.get('description', '')}" for n in nodes) or "- まだ抽出されたノードはありません。"
-    edge_lines = "\n".join(f"- `{e.get('source_node_id')}` -[{e.get('edge_type')}]-> `{e.get('target_node_id')}`: {e.get('description', '')}" for e in edges) or "- まだ抽出された関係性はありません。"
-    question_lines = "\n".join(f"- [{q.get('frequency')}] {q.get('question_text')} / 対象: {q.get('target_role')} / 型: {q.get('answer_type')}" for q in recommended_questions) or "- まだ推奨質問はありません。"
-    table_lines = "\n".join(f"- `{t.get('table_id')}`: {t.get('purpose')}" for t in custom_tables) or "- 任意テーブルはまだありません。"
-    return f"""# LLM Wiki: {company_name}
+def render_company_profile_markdown(company_profile: dict) -> str:
+    issues = company_profile.get("current_issues") or ["TBD"]
+    issue_lines = "\n".join(f"- {issue}" for issue in issues)
+    source_refs = company_profile.get("source_refs") or []
+    source_lines = "\n".join(f"- `{source}`" for source in source_refs) or "- TBD"
+    return f"""# Company Profile
 
-## 1. 目的
+## Business Summary
 
-このWikiは、中小企業内に存在する暗黙知を可視化し、Research Agentによる定期アンケート収集と、Knowledge Agentによる構造化分析の基盤として利用する。
+{company_profile.get("business_summary", "TBD")}
 
-## 2. 企業ID
+## Customer Summary
 
-`{company_id}`
+{company_profile.get("customer_summary", "TBD")}
 
-## 3. 暗黙知ノード
+## Product / Service Summary
 
-{node_lines}
+{company_profile.get("product_service_summary", "TBD")}
 
-## 4. 関係性エッジ
+## Competition Summary
 
-{edge_lines}
+{company_profile.get("competition_summary", "TBD")}
 
-## 5. 推奨アンケート項目
+## Operation Summary
 
-{question_lines}
+{company_profile.get("operation_summary", "TBD")}
 
-## 6. BigQuery Graph
+## Current Issues
 
-基本3テーブル:
+{issue_lines}
 
-- `survey_responses`: 定量・定性アンケート回答
-- `knowledge_nodes`: 暗黙知、人物、業務、顧客、商品、KPI、兆候などのノード
-- `knowledge_edges`: ノード間の関係性
+## Confidence
 
-## 7. 任意テーブル
+{company_profile.get("confidence", 0.0)}
 
-{table_lines}
+## Source References
 
-## 8. 運用ルール
+{source_lines}
 
-- Research Agent はアンケート形式で定量・定性の両方を収集する。
-- Knowledge Agent は回答からノードとエッジを抽出する。
-- BigQuery Graph は暗黙知・業務・顧客・KPI間の関係性可視化に使う。
-- 任意テーブルが追加された場合、Knowledge Agent はこのWikiを更新する。
+## Notes
+
+- confirmed: 原回答に明記された事項
+- inferred: AI推論を含む事項
+- proposed: 人間承認前の仮説/候補
 """
 
 
-def render_wiki_json(company_id: str, company_name: str, nodes: list[dict], edges: list[dict], recommended_questions: list[dict], custom_tables: list[dict] | None = None) -> dict:
+def render_kpi_definitions_yaml(kpi_candidates: list[dict]) -> str:
+    lines = ["kpis:"]
+    if not kpi_candidates:
+        lines.append("  []")
+        return "\n".join(lines) + "\n"
+    for item in kpi_candidates:
+        source_refs = item.get("source_refs") or item.get("source_gcs_uris") or []
+        lines.extend(
+            [
+                f"  - kpi_id: {item.get('kpi_candidate_id')}",
+                f"    name: {item.get('kpi_name')}",
+                f"    domain: {item.get('kpi_domain') or 'unknown'}",
+                f"    type: {item.get('kpi_type') or 'unknown'}",
+                "    unit: null",
+                f"    description: {json.dumps(item.get('description', ''), ensure_ascii=False)}",
+                f"    calculation_formula: {json.dumps(item.get('calculation_hint'), ensure_ascii=False)}",
+                f"    measurement_frequency: {item.get('measurement_frequency') or 'unknown'}",
+                f"    data_source: {json.dumps(item.get('data_source_hint'), ensure_ascii=False)}",
+                f"    status: {item.get('approval_status', 'proposed')}",
+                f"    confidence: {item.get('confidence', 0.0)}",
+                "    source_refs:",
+            ]
+        )
+        lines.extend(f"      - {json.dumps(ref, ensure_ascii=False)}" for ref in source_refs)
+    return "\n".join(lines) + "\n"
+
+
+def render_focus_metrics_yaml(focus_metric_candidates: list[dict]) -> str:
+    lines = ["focus_metrics:"]
+    if not focus_metric_candidates:
+        lines.append("  []")
+        return "\n".join(lines) + "\n"
+    for item in focus_metric_candidates:
+        source_refs = item.get("source_refs") or item.get("source_gcs_uris") or []
+        related_kpis = item.get("related_kpi_candidate_ids") or item.get("related_kpi_candidates") or []
+        lines.extend(
+            [
+                f"  - focus_metric_id: {item.get('focus_metric_candidate_id')}",
+                f"    name: {item.get('metric_name')}",
+                f"    category: {item.get('metric_category') or 'unknown'}",
+                f"    description: {json.dumps(item.get('description', ''), ensure_ascii=False)}",
+                "    related_kpis:",
+            ]
+        )
+        lines.extend(f"      - {json.dumps(kpi, ensure_ascii=False)}" for kpi in related_kpis)
+        lines.append("    observation_signals:")
+        lines.extend(
+            f"      - {json.dumps(signal, ensure_ascii=False)}"
+            for signal in item.get("observation_signal_types", [])
+        )
+        lines.extend(
+            [
+                f"    trigger_condition: {json.dumps(item.get('trigger_condition'), ensure_ascii=False)}",
+                f"    followup_policy: {json.dumps(item.get('followup_policy'), ensure_ascii=False)}",
+                f"    measurement_frequency: {item.get('measurement_frequency') or 'unknown'}",
+                f"    status: {item.get('approval_status', 'proposed')}",
+                f"    confidence: {item.get('confidence', 0.0)}",
+                "    source_refs:",
+            ]
+        )
+        lines.extend(f"      - {json.dumps(ref, ensure_ascii=False)}" for ref in source_refs)
+    return "\n".join(lines) + "\n"
+
+
+def render_research_policy_yaml(company_id: str, research_plan: list[dict]) -> str:
+    lines = [
+        "research_policy:",
+        f"  company_id: {company_id}",
+        "  max_questions_per_run: 3",
+        "  active_research_tasks:",
+    ]
+    if not research_plan:
+        lines.append("    []")
+        return "\n".join(lines) + "\n"
+    for item in research_plan:
+        lines.extend(
+            [
+                f"    - task_id: {item.get('research_task_id')}",
+                f"      target_role: {json.dumps(item.get('target_role'), ensure_ascii=False)}",
+                f"      frequency: {item.get('frequency', 'ad_hoc')}",
+                f"      purpose: {json.dumps(item.get('question_intent'), ensure_ascii=False)}",
+                "      related_kpis:",
+            ]
+        )
+        lines.extend(
+            f"        - {json.dumps(kpi, ensure_ascii=False)}"
+            for kpi in item.get("related_kpi_candidates", [])
+        )
+        lines.append("      related_focus_metrics:")
+        lines.extend(
+            f"        - {json.dumps(metric, ensure_ascii=False)}"
+            for metric in item.get("related_focus_metric_candidates", [])
+        )
+        lines.append("      base_questions:")
+        lines.extend(
+            f"        - {json.dumps(question, ensure_ascii=False)}"
+            for question in item.get("base_questions", [])
+        )
+        lines.append(f"      followup_policy: {json.dumps(item.get('followup_policy'), ensure_ascii=False)}")
+    return "\n".join(lines) + "\n"
+
+
+def render_wiki_files(
+    company_id: str,
+    company_profile: dict,
+    kpi_candidates: list[dict],
+    focus_metric_candidates: list[dict],
+    research_plan: list[dict],
+) -> dict[str, str]:
+    return {
+        "company_profile.md": render_company_profile_markdown(company_profile),
+        "kpi_definitions.yaml": render_kpi_definitions_yaml(kpi_candidates),
+        "focus_metrics.yaml": render_focus_metrics_yaml(focus_metric_candidates),
+        "research_policy.yaml": render_research_policy_yaml(company_id, research_plan),
+        "manifest.json": json.dumps(
+            {
+                "company_id": company_id,
+                "files": [
+                    "company_profile.md",
+                    "kpi_definitions.yaml",
+                    "focus_metrics.yaml",
+                    "research_policy.yaml",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+    }
+
+
+def render_wiki_markdown(
+    company_id: str,
+    company_name: str,
+    nodes: list[dict],
+    edges: list[dict],
+    recommended_questions: list[dict],
+    custom_tables: list[dict] | None = None,
+) -> str:
+    """Backward-compatible graph-oriented wiki renderer."""
+    custom_tables = custom_tables or []
+    node_lines = "\n".join(
+        f"- `{n.get('node_id')}` [{n.get('node_type')}]: {n.get('label')} - {n.get('description', '')}"
+        for n in nodes
+    ) or "- まだ抽出されたノードはありません。"
+    edge_lines = "\n".join(
+        f"- `{e.get('source_node_id')}` -[{e.get('edge_type')}]-> `{e.get('target_node_id')}`: {e.get('description', '')}"
+        for e in edges
+    ) or "- まだ抽出された関係性はありません。"
+    question_lines = "\n".join(
+        f"- [{q.get('frequency')}] {q.get('question_text')} / 対象: {q.get('target_role')} / 型: {q.get('answer_type')}"
+        for q in recommended_questions
+    ) or "- まだ推奨質問はありません。"
+    table_lines = "\n".join(
+        f"- `{t.get('table_id')}`: {t.get('purpose')}" for t in custom_tables
+    ) or "- 任意テーブルはまだありません。"
+    return f"""# LLM Wiki: {company_name}
+
+## Company ID
+
+`{company_id}`
+
+## Knowledge Nodes
+
+{node_lines}
+
+## Knowledge Edges
+
+{edge_lines}
+
+## Recommended Questions
+
+{question_lines}
+
+## Custom Tables
+
+{table_lines}
+"""
+
+
+def render_wiki_json(
+    company_id: str,
+    company_name: str,
+    nodes: list[dict],
+    edges: list[dict],
+    recommended_questions: list[dict],
+    custom_tables: list[dict] | None = None,
+) -> dict:
     return {
         "company_id": company_id,
         "company_name": company_name,
-        "purpose": "SME tacit knowledge discovery and graph-based visualization",
+        "purpose": "Continuous Discovery Agent knowledge map",
         "nodes": nodes,
         "edges": edges,
         "recommended_questions": recommended_questions,
@@ -66,9 +250,9 @@ def render_wiki_json(company_id: str, company_name: str, nodes: list[dict], edge
 
 def build_custom_table_wiki_update(table_proposal: dict) -> str:
     return f"""
-## 任意テーブル追加: `{table_proposal['table_id']}`
+## Custom Table Proposal: `{table_proposal['table_id']}`
 
-### 目的
+### Purpose
 
 {table_proposal['purpose']}
 
@@ -78,11 +262,9 @@ def build_custom_table_wiki_update(table_proposal: dict) -> str:
 {table_proposal['ddl']}
 ```
 
-### 運用
+### Operation
 
-このテーブルは、基本3テーブルでは表現しきれない企業固有の管理対象を扱う。
-Research Agent はこのテーブルに必要な情報をアンケートで収集し、
-Knowledge Agent は回答内容からWikiとGraphノード・エッジを更新する。
+This table proposal requires human review before execution.
 """.strip()
 
 

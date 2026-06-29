@@ -1,24 +1,82 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
 from app.core.config import settings
 from app.db.storage import get_storage_client
 
 
 class StorageCrud:
+    def _use_local_emulator(self) -> bool:
+        return settings.app_env == 'local' or settings.dry_run or not settings.wiki_bucket
+
+    def _local_path(self, path: str) -> Path:
+        safe_path = path.replace('\\', '/').strip('/').replace('..', '_')
+        bucket = settings.wiki_bucket or 'local-cd-agent-knowledge'
+        return Path(settings.storage_emulator_root) / bucket / safe_path
+
     def upload_text(self, path: str, content: str, content_type: str) -> dict:
-        if not settings.wiki_bucket:
-            raise ValueError('WIKI_BUCKET is required')
-        if settings.dry_run:
+        if self._use_local_emulator():
+            target = self._local_path(path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding='utf-8')
             return {
-                'dry_run': True,
-                'bucket': settings.wiki_bucket,
+                'dry_run': settings.dry_run,
+                'emulated': True,
+                'bucket': settings.wiki_bucket or 'local-cd-agent-knowledge',
                 'path': path,
                 'content_type': content_type,
-                'preview': content[:1000],
+                'local_path': str(target),
+                'gs_uri': f'gs://{settings.wiki_bucket or "local-cd-agent-knowledge"}/{path}',
             }
+        if not settings.wiki_bucket:
+            raise ValueError('WIKI_BUCKET is required')
         client = get_storage_client()
         bucket = client.bucket(settings.wiki_bucket)
         blob = bucket.blob(path)
         blob.upload_from_string(content, content_type=content_type)
-        return {'dry_run': False, 'bucket': settings.wiki_bucket, 'path': path, 'gs_uri': f'gs://{settings.wiki_bucket}/{path}'}
+        return {
+            'dry_run': False,
+            'emulated': False,
+            'bucket': settings.wiki_bucket,
+            'path': path,
+            'gs_uri': f'gs://{settings.wiki_bucket}/{path}',
+            'generation': blob.generation,
+        }
+
+    def read_text(self, path: str) -> str:
+        if self._use_local_emulator():
+            target = self._local_path(path)
+            if not target.exists():
+                raise FileNotFoundError(str(target))
+            return target.read_text(encoding='utf-8')
+        if not settings.wiki_bucket:
+            raise ValueError('WIKI_BUCKET is required')
+        client = get_storage_client()
+        bucket = client.bucket(settings.wiki_bucket)
+        blob = bucket.blob(path)
+        return blob.download_as_text(encoding='utf-8')
+
+    def exists(self, path: str) -> bool:
+        if self._use_local_emulator():
+            return self._local_path(path).exists()
+        if not settings.wiki_bucket:
+            raise ValueError('WIKI_BUCKET is required')
+        client = get_storage_client()
+        bucket = client.bucket(settings.wiki_bucket)
+        return bucket.blob(path).exists()
+
+    def upload_json(self, path: str, content: dict[str, Any]) -> dict:
+        return self.upload_text(
+            path,
+            json.dumps(content, ensure_ascii=False, indent=2),
+            'application/json; charset=utf-8',
+        )
+
+    def read_json(self, path: str) -> dict[str, Any]:
+        return json.loads(self.read_text(path))
 
 
 storage_crud = StorageCrud()

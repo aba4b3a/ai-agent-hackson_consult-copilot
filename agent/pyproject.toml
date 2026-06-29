@@ -46,4 +46,5 @@ include = [
   "agents",
   "eval",
   "prompts",
+  "tools",
 ]
