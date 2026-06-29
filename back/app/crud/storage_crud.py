@@ -78,5 +78,43 @@ class StorageCrud:
     def read_json(self, path: str) -> dict[str, Any]:
         return json.loads(self.read_text(path))
 
+    def list_prefix(self, prefix: str) -> list[dict[str, Any]]:
+        safe_prefix = prefix.replace('\\', '/').strip('/').replace('..', '_')
+        if self._use_local_emulator():
+            root = self._local_path(safe_prefix)
+            if not root.exists():
+                return []
+            results: list[dict[str, Any]] = []
+            for path in sorted(root.rglob('*')):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(self._local_path(''))
+                results.append(
+                    {
+                        'bucket': settings.wiki_bucket or 'local-cd-agent-knowledge',
+                        'path': str(rel).replace('\\', '/'),
+                        'size': path.stat().st_size,
+                        'updated': path.stat().st_mtime,
+                        'generation': None,
+                    }
+                )
+            return results
+        if not settings.wiki_bucket:
+            raise ValueError('WIKI_BUCKET is required')
+        client = get_storage_client()
+        bucket = client.bucket(settings.wiki_bucket)
+        items: list[dict[str, Any]] = []
+        for blob in client.list_blobs(bucket, prefix=safe_prefix):
+            items.append(
+                {
+                    'bucket': settings.wiki_bucket,
+                    'path': blob.name,
+                    'size': blob.size,
+                    'updated': blob.updated.isoformat() if blob.updated else None,
+                    'generation': blob.generation,
+                }
+            )
+        return items
+
 
 storage_crud = StorageCrud()

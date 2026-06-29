@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://consult-copilot.example.com/schemas/research_agent_output.schema.json",
+  "title": "ResearchAgentOutput",
+  "type": "object",
+  "required": ["company_id", "followup_questions"],
+  "additionalProperties": true,
+  "properties": {
+    "company_id": { "type": "string", "minLength": 1 },
+    "research_policy_summary": { "type": ["string", "null"] },
+    "followup_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["followup_question_id", "question_text", "target_role"],
+        "additionalProperties": true,
+        "properties": {
+          "followup_question_id": { "type": "string", "minLength": 1 },
+          "question_text": { "type": "string", "minLength": 1 },
+          "question_category": { "type": ["string", "null"] },
+          "target_role": {
+            "type": "string",
+            "enum": ["owner", "manager", "sales", "staff", "ops", "other"]
+          },
+          "reason": { "type": ["string", "null"] },
+          "related_kpi_candidates": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "related_focus_metric_candidates": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "expected_answer_format": { "type": ["string", "null"] },
+          "priority_score": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    }
+  }
+}

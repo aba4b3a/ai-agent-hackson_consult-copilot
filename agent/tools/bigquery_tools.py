@@ -332,6 +332,31 @@ CREATE TABLE IF NOT EXISTS `{tenant}.current_kpi_definitions` (
 )
 CLUSTER BY company_id, status, kpi_domain;
 
+CREATE TABLE IF NOT EXISTS `{tenant}.observation_signals` (
+  observation_signal_id STRING NOT NULL,
+  company_id STRING NOT NULL,
+  signal_name STRING NOT NULL,
+  signal_category STRING,
+  description STRING,
+  related_focus_metric_candidate_ids ARRAY<STRING>,
+  related_kpi_candidate_ids ARRAY<STRING>,
+  detection_rule STRING,
+  expected_source STRING,
+  expected_frequency STRING,
+  severity STRING,
+  reason STRING,
+  source_answer_event_ids ARRAY<STRING>,
+  source_followup_answer_event_ids ARRAY<STRING>,
+  source_gcs_uris ARRAY<STRING>,
+  confidence FLOAT64,
+  approval_status STRING,
+  approved_by STRING,
+  approved_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP
+)
+CLUSTER BY company_id, signal_category, approval_status;
+
 CREATE TABLE IF NOT EXISTS `{tenant}.current_focus_metric_definitions` (
   focus_metric_id STRING NOT NULL,
   company_id STRING NOT NULL,
@@ -612,6 +637,46 @@ def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict
                 "source_gcs_uris": source_columns["source_gcs_uris"],
                 "confidence": float(record.get("confidence", 0.0)),
                 "priority_score": float(record.get("priority_score", 0.0)),
+                "approval_status": record.get("approval_status", "proposed"),
+                "approved_by": record.get("approved_by"),
+                "approved_at": record.get("approved_at"),
+                "created_at": record.get("created_at", now),
+                "updated_at": record.get("updated_at", now),
+            }
+        )
+    return _insert_json_rows(table, rows)
+
+
+def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
+    """Insert proposed observation signals. Approval to a signal is recorded
+    via the back HITL pipeline (approval_status remains 'proposed' here)."""
+    table = f"{_tenant_dataset(company_id)}.observation_signals"
+    now = _now_iso()
+    rows = []
+    for record in records:
+        source_columns = _source_refs_to_columns(record)
+        rows.append(
+            {
+                "observation_signal_id": record["observation_signal_id"],
+                "company_id": company_id,
+                "signal_name": record["signal_name"],
+                "signal_category": record.get("signal_category"),
+                "description": record.get("description", ""),
+                "related_focus_metric_candidate_ids": record.get(
+                    "related_focus_metric_candidate_ids", []
+                ),
+                "related_kpi_candidate_ids": record.get("related_kpi_candidate_ids", []),
+                "detection_rule": record.get("detection_rule"),
+                "expected_source": record.get("expected_source"),
+                "expected_frequency": record.get("expected_frequency"),
+                "severity": record.get("severity"),
+                "reason": record.get("reason", ""),
+                "source_answer_event_ids": source_columns["source_answer_event_ids"],
+                "source_followup_answer_event_ids": source_columns[
+                    "source_followup_answer_event_ids"
+                ],
+                "source_gcs_uris": source_columns["source_gcs_uris"],
+                "confidence": float(record.get("confidence", 0.0)),
                 "approval_status": record.get("approval_status", "proposed"),
                 "approved_by": record.get("approved_by"),
                 "approved_at": record.get("approved_at"),

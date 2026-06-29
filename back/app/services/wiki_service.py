@@ -1,8 +1,48 @@
 import json
+from typing import Any
+
 from app.crud.storage_crud import storage_crud
 
 
 class WikiService:
+    def _tenant_wiki_prefix(self, company_id: str) -> str:
+        safe = company_id.replace('\\', '/').strip('/').replace('..', '_')
+        return f'tenants/{safe}/wiki'
+
+    def list_current_files(self, company_id: str) -> list[dict[str, Any]]:
+        prefix = f'{self._tenant_wiki_prefix(company_id)}/current/'
+        return storage_crud.list_prefix(prefix)
+
+    def list_versions(self, company_id: str) -> list[str]:
+        prefix = f'{self._tenant_wiki_prefix(company_id)}/versions/'
+        items = storage_crud.list_prefix(prefix)
+        versions: set[str] = set()
+        for item in items:
+            parts = item['path'].split('/')
+            try:
+                idx = parts.index('versions')
+                if idx + 1 < len(parts):
+                    versions.add(parts[idx + 1])
+            except ValueError:
+                continue
+        return sorted(versions, reverse=True)
+
+    def list_version_files(self, company_id: str, version: str) -> list[dict[str, Any]]:
+        safe_version = version.replace('/', '').replace('..', '_')
+        prefix = f'{self._tenant_wiki_prefix(company_id)}/versions/{safe_version}/'
+        return storage_crud.list_prefix(prefix)
+
+    def read_current_file(self, company_id: str, relative_path: str) -> str:
+        safe_relative = relative_path.lstrip('/').replace('..', '_')
+        path = f'{self._tenant_wiki_prefix(company_id)}/current/{safe_relative}'
+        return storage_crud.read_text(path)
+
+    def read_version_file(self, company_id: str, version: str, relative_path: str) -> str:
+        safe_version = version.replace('/', '').replace('..', '_')
+        safe_relative = relative_path.lstrip('/').replace('..', '_')
+        path = f'{self._tenant_wiki_prefix(company_id)}/versions/{safe_version}/{safe_relative}'
+        return storage_crud.read_text(path)
+
     def render_initial_wiki(self, company_id: str, company_name: str, initial_survey: dict) -> tuple[str, dict]:
         lines = []
         for q in initial_survey.get('questions', []):
