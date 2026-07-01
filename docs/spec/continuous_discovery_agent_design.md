@@ -1363,3 +1363,29 @@ DESIGN.md（base）は "typed clients generated from the FastAPI OpenAPI spec" �
 ### 23.5 書き込み E2E とモックの扱い
 
 M2 時点では実クラウド（GCS/BigQuery/Elasticsearch）へは接続せず、back の in-memory モックリポジトリが送信を保存し、`agent_client`（mock 時ローカル抽出）が観察/仮説/エンティティを生成する。これによりクラウド不要で「入力 → 抽出 → ダッシュボード反映」の書き込み E2E が成立する。`docker compose`（`make dev`）ではフロントを `NEXT_PUBLIC_MOCK_MODE=false` として back に接続する。フロント単体（`npm run dev`）はフロント内モック（読み取りプレビュー、書き込みは synthetic 応答で非永続）。
+
+### 23.6 抽出経路の分離（実 Gemini 抽出の有効化）
+
+抽出経路を永続化の mock 状態から分離するため、back に `use_agent_extraction` 設定を追加した。`agent_client.extract_knowledge` はこのフラグで分岐する:
+
+- `use_agent_extraction=false`（既定）: back 内のローカルキーワード抽出（`_local_extract`）を使用。ネットワーク・APIキー不要。
+- `use_agent_extraction=true`: agent サービス（`POST /v1/knowledge/extract`）へ委譲。agent 側が `MOCK_MODE=false` かつ `GEMINI_API_KEY` を持つ場合は**実 Gemini（構造化出力）**、それ以外は agent 内モックへ自動フォールバック。agent が到達不能・エラー時は back 側 `_local_extract` へフォールバックする（耐障害性）。
+
+これにより、**永続化を in-memory に保ったまま実 Gemini 抽出だけを有効化**できる。`docker compose` では back `USE_AGENT_EXTRACTION=true` / agent `MOCK_MODE=false` + `GEMINI_API_KEY`（ルート `.env` から補間、未コミット）で全経路を有効化する。`GEMINI_API_KEY` 未設定時はモックに劣化するため、コスト（Cost Guard 方針）は「キーを明示設定したときのみ発生」となる。
+
+**バックエンド選択（Developer API / Vertex AI）**: `google-genai` SDK は2系統の接続先を持つ。agent の `use_vertexai` で切り替える:
+
+- `use_vertexai=false`（既定）: Gemini Developer API（`generativelanguage.googleapis.com`）。AI Studio 系の API キー用。
+- `use_vertexai=true`: Vertex AI（`aiplatform.googleapis.com`）。`genai.Client(vertexai=True, api_key=...)`（express モード）。Vertex AI の API キー用。`docker compose` は既定で `USE_VERTEXAI=true`。
+
+いずれの場合も、API 呼び出しが失敗（403/quota/ネットワーク等）したときは agent 内で例外を捕捉し `_mock_extract` へ劣化する（500 やリトライ嵐を回避）。加えて back 側も agent 到達不能時に `_local_extract` へ二重フォールバックする。
+
+### 23.7 会話フォローアップの動的生成（R12.4 / §5.4）
+
+会話インテーク（`/intake/chat`）のフォローアップ質問を、観測方針と利用者の回答から動的生成する。経路は抽出と同じく agent 集約:
+
+- agent: `POST /v1/intake/followups`（`followup_agent.generate_followups`）。企業コンテキスト（重点観測項目等）＋これまでの回答をプロンプトに与え、Gemini 構造化出力で最大3問を生成。`use_gemini` false / 例外時は §5.4 準拠の定型質問へフォールバック。
+- back: `POST /api/intake/followups`。`use_agent_extraction` で agent 委譲、無効/HTTP エラー時は定型質問。
+- front: 冒頭の固定質問 → 最初の回答後に `getFollowups` を**1回**呼び、返った質問を順に提示（bounded・合計上限あり）。**スキップ可能（R12.8）**。retrieval/方針は in-memory の workspace から供給。
+
+これにより R12.4「曖昧な入力時に観測方針に基づくフォローアップ質問を生成」を満たす。フロント単体（mock）では静的な少数質問を返し、オフラインでも会話が成立する。

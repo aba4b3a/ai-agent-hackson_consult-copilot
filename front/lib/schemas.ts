@@ -218,3 +218,8 @@ export const voiceIntakeCreateSchema = z.object({
   transcript: z.string(),
 });
 export type VoiceIntakeCreate = z.input<typeof voiceIntakeCreateSchema>;
+
+export const followupResponseSchema = z.object({
+  questions: z.array(z.string()),
+});
+export type FollowupResponse = z.infer<typeof followupResponseSchema>;

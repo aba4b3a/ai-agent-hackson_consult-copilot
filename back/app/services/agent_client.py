@@ -1,8 +1,8 @@
 """Client for the agent knowledge-extraction service.
 
-In mock mode, or when the agent service is unreachable, extraction falls back
-to a local keyword-based implementation so seeding, tests, and startup never
-depend on the agent being up.
+When agent extraction is disabled (the default), or when the agent service is
+unreachable, extraction falls back to a local keyword-based implementation so
+seeding, tests, and startup never depend on the agent being up.
 """
 
 from __future__ import annotations
@@ -20,7 +20,16 @@ from app.schemas.extraction import (
 )
 
 _EXTRACT_PATH = "/v1/knowledge/extract"
+_FOLLOWUPS_PATH = "/v1/intake/followups"
 _TIMEOUT = httpx.Timeout(10.0, connect=2.0)
+
+# Deterministic fallback follow-up questions (aligned with §5.4 topics) used
+# when agent extraction is disabled or the agent is unreachable.
+_FALLBACK_FOLLOWUPS = [
+    "それは普段と比べてどう違いましたか。原因に心当たりはありますか。",
+    "どの顧客層・商品・競合名と関係していましたか。",
+    "売上や再来店などの業務への影響につながりそうですか。",
+]
 
 # Generic fallback vocabulary used by the local extractor when the workspace
 # context does not provide entity hints. Mirrors agent/agents/knowledge_agent.py.
@@ -32,7 +41,7 @@ def get_agent_base_url() -> str:
 
 
 def extract_knowledge(source_type: str, body: str, workspace: Workspace) -> ExtractionResult:
-    if settings.mock_mode:
+    if not settings.use_agent_extraction:
         return _local_extract(source_type, body, workspace)
     try:
         response = httpx.post(
@@ -49,6 +58,23 @@ def extract_knowledge(source_type: str, body: str, workspace: Workspace) -> Extr
     except (httpx.HTTPError, ValueError):
         # Resilient fallback: the agent may be down or returned bad data.
         return _local_extract(source_type, body, workspace)
+
+
+def generate_followups(workspace: Workspace, answers: list[str]) -> list[str]:
+    if not settings.use_agent_extraction:
+        return list(_FALLBACK_FOLLOWUPS)
+    try:
+        response = httpx.post(
+            f"{settings.agent_base_url}{_FOLLOWUPS_PATH}",
+            json={"workspace": _workspace_payload(workspace), "answers": answers},
+            timeout=_TIMEOUT,
+        )
+        response.raise_for_status()
+        questions = response.json().get("questions", [])
+        # Guard against an empty/garbled response.
+        return questions or list(_FALLBACK_FOLLOWUPS)
+    except (httpx.HTTPError, ValueError):
+        return list(_FALLBACK_FOLLOWUPS)
 
 
 def _workspace_payload(workspace: Workspace) -> dict[str, object]:

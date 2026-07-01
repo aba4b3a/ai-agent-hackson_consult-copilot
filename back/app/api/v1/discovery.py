@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Query
 from app.schemas.discovery import (
     CopilotAnswer,
     CopilotAsk,
+    FollowupRequest,
+    FollowupResponse,
     GraphSlice,
     ReportForm,
     ReportFormCreate,
@@ -54,6 +56,12 @@ def submit_report(payload: ReportSubmissionCreate) -> Source:
 @router.post("/voice-intakes", response_model=Source)
 def submit_voice(payload: VoiceIntakeCreate) -> Source:
     return discovery_repository.submit_voice(payload)
+
+
+@router.post("/intake/followups", response_model=FollowupResponse)
+def intake_followups(payload: FollowupRequest) -> FollowupResponse:
+    questions = discovery_repository.generate_followups(payload.workspace_id, payload.answers)
+    return FollowupResponse(questions=questions)
 
 
 @router.get("/search/evidence")

@@ -8,8 +8,10 @@ lists (Requirement 6).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+from agents.gemini import build_client
 from app.config import settings
 from app.schemas import (
     ExtractedEntity,
@@ -23,6 +25,8 @@ from app.schemas import (
 )
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "knowledge_extraction.md"
+
+_logger = logging.getLogger(__name__)
 
 # Generic fallback vocabulary used by the mock when the workspace context does
 # not provide entity hints.
@@ -71,20 +75,26 @@ def _build_prompt(request: ExtractionRequest) -> str:
 
 
 def _gemini_extract(request: ExtractionRequest) -> ExtractionResult:
-    # Imported lazily so mock mode and tests do not require the SDK installed.
-    from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
-        model=settings.gemini_model,
-        contents=_build_prompt(request),
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ExtractionPayload,
-        ),
-    )
-    payload = response.parsed
+    try:
+        client = build_client()
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=_build_prompt(request),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ExtractionPayload,
+            ),
+        )
+        payload = response.parsed
+    except Exception:  # noqa: BLE001 - any SDK/API error degrades to mock
+        # A blocked key, quota, network, or bad response must not 500 the
+        # request. Fall back to the deterministic extractor so callers still
+        # get a usable result (back also retries via its own fallback).
+        _logger.warning("Gemini extraction failed; falling back to mock", exc_info=True)
+        return _mock_extract(request)
+
     if not isinstance(payload, ExtractionPayload):
         # Model returned nothing parseable; degrade to mock rather than fail.
         return _mock_extract(request)

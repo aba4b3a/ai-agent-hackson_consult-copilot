@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     gcp_project: str = "local-project"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    # Use the Vertex AI backend (aiplatform.googleapis.com) instead of the
+    # Gemini Developer API. Set true when using a Vertex AI API key.
+    use_vertexai: bool = False
+    gcp_location: str = "global"
 
     @property
     def use_gemini(self) -> bool:
