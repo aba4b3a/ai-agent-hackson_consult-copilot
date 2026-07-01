@@ -141,6 +141,15 @@ class WeeklyReport(BaseModel):
     limitations: list[str]
 
 
+class FollowupRequest(BaseModel):
+    workspace_id: str
+    answers: list[str] = Field(default_factory=list)
+
+
+class FollowupResponse(BaseModel):
+    questions: list[str] = Field(default_factory=list)
+
+
 class CopilotAsk(BaseModel):
     workspace_id: str
     question: str

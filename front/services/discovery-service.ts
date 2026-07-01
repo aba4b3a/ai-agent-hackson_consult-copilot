@@ -7,6 +7,7 @@ import {
   dashboardSchema,
   type EvidenceResult,
   evidenceSearchResponseSchema,
+  followupResponseSchema,
   type GraphSlice,
   graphSliceSchema,
   type ReportForm,
@@ -104,4 +105,17 @@ export async function submitReport(payload: ReportSubmissionCreate): Promise<Sou
 export async function submitVoice(payload: VoiceIntakeCreate): Promise<Source> {
   if (env.mockMode) return discoveryMock.submitVoice(payload);
   return apiPost("/api/voice-intakes", payload, sourceSchema);
+}
+
+export async function getFollowups(
+  workspaceId: string,
+  answers: string[],
+): Promise<string[]> {
+  if (env.mockMode) return discoveryMock.getFollowups(answers);
+  const response = await apiPost(
+    "/api/intake/followups",
+    { workspace_id: workspaceId, answers },
+    followupResponseSchema,
+  );
+  return response.questions;
 }

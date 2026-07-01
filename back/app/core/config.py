@@ -6,6 +6,10 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     mock_mode: bool = True
+    # Route knowledge extraction to the agent service (real Gemini when the
+    # agent has GEMINI_API_KEY). Decoupled from mock_mode so persistence can
+    # stay in-memory while extraction uses the live model.
+    use_agent_extraction: bool = False
     gcp_project: str = "local-project"
     gcs_bucket: str = "continuous-discovery-local"
     bigquery_dataset: str = "continuous_discovery"

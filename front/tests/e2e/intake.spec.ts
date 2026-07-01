@@ -21,11 +21,12 @@ test("business user can complete the conversational intake", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "会話形式の聞き取り" })).toBeVisible();
 
   const input = page.getByPlaceholder("話すように入力してください");
-  for (let i = 0; i < 4; i++) {
-    await input.fill(`回答 ${i + 1}`);
-    await page.getByRole("button", { name: "Send" }).click();
-  }
+  // Answer the opener; dynamic follow-ups are then fetched and asked.
+  await input.fill("競合の話が出た");
+  await page.getByRole("button", { name: "Send" }).click();
 
+  // Skip remaining follow-ups and go to the confirmation view.
+  await page.getByRole("button", { name: /質問をスキップ/ }).click();
   await expect(page.getByText("送信内容の確認")).toBeVisible();
   await page.getByRole("button", { name: "この内容で送信" }).click();
 

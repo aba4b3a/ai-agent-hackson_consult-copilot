@@ -288,6 +288,16 @@ export const discoveryMock = {
       source_uri: "gs://continuous-discovery-local/raw/ws_001/src_mock.txt",
     };
   },
+  getFollowups(answers: string[]): string[] {
+    // Static, policy-aligned follow-ups for offline/demo. Real dynamic
+    // generation happens via the agent when NEXT_PUBLIC_MOCK_MODE=false.
+    const base = [
+      "それは普段と比べてどう違いましたか。原因に心当たりはありますか。",
+      "どの顧客層・商品・競合名と関係していましたか。",
+      "売上や再来店などの業務への影響につながりそうですか。",
+    ];
+    return answers.length > 0 ? base : base.slice(0, 2);
+  },
   submitVoice(payload: VoiceIntakeCreate): Source {
     return {
       source_id: "src_voice_mock",

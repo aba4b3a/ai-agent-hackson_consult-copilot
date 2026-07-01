@@ -221,6 +221,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 ## 5. Conversational Voice Intake
 
 > _M2 Note: テキスト会話インテークで実装（`/intake/chat`）。実音声 STT/TTS（5.2/5.3）は後続。requirements.md R3 の Implementation Note 参照。_
+> _更新: 5.4 のフォローアップは固定文から **Gemini 動的生成**（観測方針ベース）に変更（R12.4 準拠、スキップ可）。詳細は design.md §23.7。_
 
 - [x] 5.1 Implement voice intake screen for business-side users
   - Build a chat-like mobile UI with assistant prompts, user responses, transcript bubbles, and recording controls.
@@ -297,12 +298,13 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Add rules that extraction should prioritize useful knowledge formation over perfect certainty.
   - _Requirements: R5, R6, R10, R12_
 
-- [ ] 7.3 Implement Knowledge Agent extraction worker
+- [x] 7.3 Implement Knowledge Agent extraction worker
   - Call Gemini with the structured schema.
   - Parse and validate returned JSON.
   - Store raw extraction output for debugging.
   - Handle partial extraction results gracefully.
   - _Requirements: R5, R6_
+  - _Note: agent が Gemini 構造化出力(response_schema=ExtractionPayload)で呼び出し・検証・partial/失敗時フォールバックを実装。back は `use_agent_extraction` で経路を切替（design.md §23.6）。raw 出力保存は後続。_
 
 - [ ] 7.4 Implement entity normalization
   - Match extracted entities to existing entities by workspace, type, normalized name, and aliases.
@@ -591,7 +593,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Support both tap-to-record and text fallback.
   - Show extracted temporary summary before submission.
   - _Requirements: R3, R12_
-  - _M2 Note: 会話バブルと送信前の内容確認は実装済み。tap-to-record（音声録音）は 5.2 と併せて後続。_
+  - _M2 Note: 会話バブルと送信前の内容確認は実装済み。フォローアップは Gemini 動的生成 + スキップ可（R12.8）。tap-to-record（音声録音）は 5.2 と併せて後続。_
 
 - [x] 16.3 Add consultant-generated intake links
   - Allow consultant to generate a URL for a specific observation topic.

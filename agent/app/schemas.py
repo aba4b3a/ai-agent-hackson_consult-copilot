@@ -87,3 +87,22 @@ class ExtractionResult(ExtractionPayload):
     # "gemini" when produced by a live model call, "mock" for the deterministic
     # keyword fallback.
     extraction_method: str = "mock"
+
+
+class FollowupRequest(BaseModel):
+    """Context for generating conversational follow-up questions (R12.4)."""
+
+    workspace: WorkspaceContext = Field(default_factory=WorkspaceContext)
+    # Answers collected so far in the conversation (most recent last).
+    answers: list[str] = Field(default_factory=list)
+
+
+class FollowupPayload(BaseModel):
+    """The portion of the follow-up result the model is asked to produce."""
+
+    questions: list[str] = Field(default_factory=list)
+
+
+class FollowupResponse(FollowupPayload):
+    # "gemini" when produced by a live model call, "mock" for the fallback.
+    generation_method: str = "mock"

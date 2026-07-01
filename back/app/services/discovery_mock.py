@@ -145,6 +145,10 @@ class DiscoveryMockRepository:
             body=body,
         )
 
+    def generate_followups(self, workspace_id: str, answers: list[str]) -> list[str]:
+        workspace = self.workspaces[workspace_id]
+        return agent_client.generate_followups(workspace, answers)
+
     def submit_voice(self, payload: VoiceIntakeCreate) -> Source:
         return self._create_source(
             workspace_id=payload.workspace_id,
