@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   color-scheme: light;
   font-family:
@@ -6,6 +10,18 @@
     "Yu Gothic",
     Meiryo,
     sans-serif;
+
+  /* Design tokens (see tailwind.config.ts) */
+  --color-background: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-accent: #0f172a;
+  --color-accent-foreground: #ffffff;
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
 }
 
 * {
@@ -19,8 +35,8 @@ body {
 }
 
 body {
-  background: #f6f7f9;
-  color: #0f172a;
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
 button {
