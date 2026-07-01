@@ -10,6 +10,8 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      # Front runs against local fixtures by default; set to "false" to hit back.
+      NEXT_PUBLIC_MOCK_MODE: "true"
     depends_on:
       - back
 
