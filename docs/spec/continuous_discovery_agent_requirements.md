@@ -235,6 +235,8 @@ If a retrieval use case can be fully satisfied by either BigQuery or Elasticsear
 4. IF transcription confidence is low, THEN the system SHOULD preserve the original transcript and mark the extracted observations with lower confidence.
 5. The system SHALL allow voice input to be associated with company workspace, date, source type, and optional user role.
 
+> **Implementation Note (M2):** M2 ではテキストによる会話インテーク（`/intake/chat`）で本要件を代替する。会話内容は transcript として `voice_transcript` ソースに保存され、テキスト日報と同一の抽出ワークフローを起動する（AC 2, 3, 5 を満たす）。実音声の Speech-to-Text（AC 1）および低信頼度時の扱い（AC 4）は後続マイルストーンで実装する。要件そのものは変更しない。
+
 ## Requirement 4: Source Data Ingestion
 
 **User Story:** As a consultant, I want to upload or collect multiple types of qualitative information, so that the system can form knowledge from offline and external signals.

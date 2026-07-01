@@ -1,6 +1,8 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { Settings } from "lucide-react";
 
 import { useWorkspaces } from "@/hooks/use-workspaces";
 import { AppShell } from "@/components/ui/app-shell";
@@ -17,7 +19,8 @@ import { WorkspaceSummary } from "@/components/feature/workspace-summary";
 
 export default function HomePage() {
   const { data: workspaces } = useWorkspaces();
-  const workspaceId = workspaces?.[0]?.workspace_id ?? "";
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const workspaceId = selectedId ?? workspaces?.[0]?.workspace_id ?? "";
 
   return (
     <AppShell
@@ -26,9 +29,27 @@ export default function HomePage() {
           eyebrow="Continuous Discovery Agent"
           title="Consultant Copilot"
           trailing={
-            <Button variant="outline" size="icon" aria-label="Search">
-              <Search size={18} />
-            </Button>
+            <div className="flex items-center gap-2">
+              {workspaces && workspaces.length > 0 ? (
+                <select
+                  value={workspaceId}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                  aria-label="Select workspace"
+                  className="rounded-md border border-border bg-surface px-2 py-2 text-sm text-text outline-none"
+                >
+                  {workspaces.map((ws) => (
+                    <option key={ws.workspace_id} value={ws.workspace_id}>
+                      {ws.workspace_name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <Link href="/setup" aria-label="Workspace setup">
+                <Button variant="outline" size="icon">
+                  <Settings size={18} />
+                </Button>
+              </Link>
+            </div>
           }
         />
       }

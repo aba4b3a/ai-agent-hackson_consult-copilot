@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.discovery import (
     CopilotAnswer,
@@ -36,6 +36,14 @@ def get_dashboard(workspace_id: str) -> dict[str, object]:
 @router.post("/report-forms", response_model=ReportForm)
 def create_report_form(payload: ReportFormCreate) -> ReportForm:
     return discovery_repository.create_report_form(payload)
+
+
+@router.get("/report-forms/{form_id}", response_model=ReportForm)
+def get_report_form(form_id: str) -> ReportForm:
+    form = discovery_repository.get_report_form(form_id)
+    if form is None:
+        raise HTTPException(status_code=404, detail="report form not found")
+    return form
 
 
 @router.post("/report-submissions", response_model=Source)
