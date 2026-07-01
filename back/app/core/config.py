@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
     bigquery_emulator_host: str | None = None
     agent_base_url: str = "http://localhost:8080"
+    # Browser origins allowed to call this API (front dev server, etc.).
+    cors_allow_origins: list[str] = ["http://localhost:3000"]
 
 
 settings = Settings()

@@ -1339,3 +1339,27 @@ The next `tasks.md` should implement this design in the following order:
 18. Implement correction/supersession endpoints.
 19. Prepare demo dataset.
 20. Prepare hackathon demo scenario.
+
+## 23. Implementation Notes (M2 Intake)
+
+M2（Intake）の実装で、本設計を補足・調整した点を記録する。要件（requirements.md）の意図は変えず、MVP 実装上の判断を明示する。
+
+### 23.1 API 追加: `GET /api/report-forms/{form_id}`
+
+§15.2 は `POST /api/report-forms`（作成）のみを定義していたが、共有 URL フォームを開いた業務側ユーザに対して、その様式の guided questions（観測方針に基づく質問）を表示するために取得系が必要となる。そのため `GET /api/report-forms/{form_id}` を追加し、`ReportForm`（`questions` を含む）を返す。存在しない場合は 404。
+
+### 23.2 Static Export 前提のルーティング
+
+フロントエンドは Next.js の Static Export（`output: "export"`）であり、ビルド時に未知の動的パス（`/intake/{form_id}`）を prerender できない。そのため業務側 URL フォームは **クエリパラメータ方式** `/intake?form=<form_id>`、会話インテークは `/intake/chat?ws=<workspace_id>` で提供する。§15.2 の `ReportForm.url`（パス型の例）は参考値とし、フロントは自身でクエリ型の共有リンクを生成する。
+
+### 23.3 CORS
+
+§19（最小セキュリティ）の実装補足として、ブラウザ上のフロント（既定 `http://localhost:3000`）から Cloud Run / ローカル back API へのクロスオリジン要求を許可するため、back に `CORSMiddleware` を有効化する。許可オリジンは設定値 `cors_allow_origins` で注入する。
+
+### 23.4 フロントエンドの型（OpenAPI 生成の代替）
+
+DESIGN.md（base）は "typed clients generated from the FastAPI OpenAPI spec" を推奨するが、MVP では `front/lib/schemas.ts` に **手書きの zod スキーマ**で FastAPI 契約（`back/app/schemas/discovery.py`）をミラーし、手動同期する方針とする。将来的に OpenAPI からの型生成へ移行可能。
+
+### 23.5 書き込み E2E とモックの扱い
+
+M2 時点では実クラウド（GCS/BigQuery/Elasticsearch）へは接続せず、back の in-memory モックリポジトリが送信を保存し、`agent_client`（mock 時ローカル抽出）が観察/仮説/エンティティを生成する。これによりクラウド不要で「入力 → 抽出 → ダッシュボード反映」の書き込み E2E が成立する。`docker compose`（`make dev`）ではフロントを `NEXT_PUBLIC_MOCK_MODE=false` として back に接続する。フロント単体（`npm run dev`）はフロント内モック（読み取りプレビュー、書き込みは synthetic 応答で非永続）。

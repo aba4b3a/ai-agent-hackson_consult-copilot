@@ -1,10 +1,13 @@
 "use client";
 
-import { Link2, PenLine } from "lucide-react";
+import Link from "next/link";
+import { Link2, MessageSquarePlus } from "lucide-react";
 
 import { useDashboard } from "@/hooks/use-dashboard";
+import { useCreateReportForm } from "@/hooks/use-create-report-form";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
+import { Pill } from "@/components/ui/pill";
 
 const METRIC_LABELS: Record<string, string> = {
   sources_ingested: "Sources",
@@ -22,6 +25,8 @@ const METRIC_CAPTIONS: Record<string, string> = {
 
 export function WorkspaceSummary({ workspaceId }: { workspaceId: string }) {
   const { data, isLoading } = useDashboard(workspaceId);
+  const createForm = useCreateReportForm();
+  const intakePath = createForm.data ? `/intake?form=${createForm.data.form_id}` : null;
 
   if (isLoading || !data) {
     return <p className="text-sm text-text-muted">ワークスペースを読み込み中…</p>;
@@ -51,15 +56,30 @@ export function WorkspaceSummary({ workspaceId }: { workspaceId: string }) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button>
+          <Button
+            disabled={createForm.isPending || !workspaceId}
+            onClick={() => createForm.mutate({ workspace_id: workspaceId })}
+          >
             <Link2 size={16} />
-            Intake link
+            {createForm.isPending ? "生成中…" : "Intake link"}
           </Button>
-          <Button variant="outline" size="icon" aria-label="Add note">
-            <PenLine size={17} />
-          </Button>
+          <Link href={`/intake/chat?ws=${workspaceId}`} aria-label="Conversational intake">
+            <Button variant="outline" size="icon">
+              <MessageSquarePlus size={17} />
+            </Button>
+          </Link>
         </div>
       </div>
+
+      {intakePath ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface p-3">
+          <Pill tone="success">共有リンク</Pill>
+          <Link href={intakePath} className="text-sm text-accent underline">
+            {intakePath}
+          </Link>
+          <span className="text-xs text-text-muted">業務側に共有して日報を集めます</span>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{tiles}</div>
     </section>

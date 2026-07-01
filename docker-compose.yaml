@@ -10,8 +10,9 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-      # Front runs against local fixtures by default; set to "false" to hit back.
-      NEXT_PUBLIC_MOCK_MODE: "true"
+      # Full-stack compose talks to back for the write E2E. For front-only dev
+      # (npm run dev) the .env.example default keeps mock mode on.
+      NEXT_PUBLIC_MOCK_MODE: "false"
     depends_on:
       - back
 

@@ -3,8 +3,14 @@ import type {
   Dashboard,
   EvidenceResult,
   GraphSlice,
+  ReportForm,
+  ReportFormCreate,
+  ReportSubmissionCreate,
+  Source,
+  VoiceIntakeCreate,
   WeeklyReport,
   Workspace,
+  WorkspaceCreate,
 } from "@/lib/schemas";
 
 /**
@@ -215,9 +221,83 @@ function filterEvidence(query: string): EvidenceResult[] {
   );
 }
 
+/**
+ * Synthetic responses for write flows in mock mode. These do NOT persist —
+ * front standalone mock stays a read-only preview. Real write E2E runs against
+ * back (NEXT_PUBLIC_MOCK_MODE=false). Kept just so the form/chat UIs can show a
+ * success state without a backend.
+ */
+function mockQuestions(focusTopics: string[]): string[] {
+  const topics = focusTopics.length > 0 ? focusTopics : ["顧客の変化", "競合名", "業務影響"];
+  return [
+    "今日、顧客から普段と違う反応や相談はありましたか。",
+    `${topics.join("、")}に関係する具体的な発言はありましたか。`,
+    "競合名、商品、顧客層、KPIへの影響が分かれば記録してください。",
+  ];
+}
+
 export const discoveryMock = {
   listWorkspaces(): Workspace[] {
     return [workspace];
+  },
+  createWorkspace(payload: WorkspaceCreate): Workspace {
+    return {
+      workspace_id: "ws_mock",
+      status: "active",
+      workspace_name: payload.workspace_name,
+      business_description: payload.business_description ?? "",
+      products: payload.products ?? [],
+      customer_segments: payload.customer_segments ?? [],
+      competitors: payload.competitors ?? [],
+      known_issues: payload.known_issues ?? [],
+      kpis: payload.kpis ?? [],
+      observation_topics: payload.observation_topics ?? [],
+    };
+  },
+  createReportForm(payload: ReportFormCreate): ReportForm {
+    const formId = "form_mock";
+    return {
+      form_id: formId,
+      workspace_id: payload.workspace_id,
+      url: `/intake?form=${formId}`,
+      target_role: payload.target_role ?? "field_staff",
+      focus_topics: payload.focus_topics ?? [],
+      due_date: payload.due_date ?? null,
+      questions: mockQuestions(payload.focus_topics ?? []),
+    };
+  },
+  getReportForm(formId: string): ReportForm {
+    return {
+      form_id: formId,
+      workspace_id: WORKSPACE_ID,
+      url: `/intake?form=${formId}`,
+      target_role: "field_staff",
+      focus_topics: ["価格比較", "待ち時間"],
+      due_date: null,
+      questions: mockQuestions(["価格比較", "待ち時間"]),
+    };
+  },
+  submitReport(payload: ReportSubmissionCreate): Source {
+    return {
+      source_id: "src_mock",
+      workspace_id: WORKSPACE_ID,
+      source_type: "daily_report",
+      title: "Daily report (mock)",
+      body: payload.free_text,
+      processing_status: "extracted",
+      source_uri: "gs://continuous-discovery-local/raw/ws_001/src_mock.txt",
+    };
+  },
+  submitVoice(payload: VoiceIntakeCreate): Source {
+    return {
+      source_id: "src_voice_mock",
+      workspace_id: payload.workspace_id,
+      source_type: "voice_transcript",
+      title: "Voice transcript (mock)",
+      body: payload.transcript,
+      processing_status: "extracted",
+      source_uri: "gs://continuous-discovery-local/raw/ws_001/src_voice_mock.txt",
+    };
   },
   getDashboard(): Dashboard {
     return dashboard;

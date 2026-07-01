@@ -9,9 +9,17 @@ import {
   evidenceSearchResponseSchema,
   type GraphSlice,
   graphSliceSchema,
+  type ReportForm,
+  type ReportFormCreate,
+  reportFormSchema,
+  type ReportSubmissionCreate,
+  type Source,
+  sourceSchema,
+  type VoiceIntakeCreate,
   type WeeklyReport,
   weeklyReportSchema,
   type Workspace,
+  type WorkspaceCreate,
   workspaceSchema,
 } from "@/lib/schemas";
 import { discoveryMock } from "@/services/mock/discovery-mock";
@@ -69,4 +77,31 @@ export async function askCopilot(
     { workspace_id: workspaceId, question },
     copilotAnswerSchema,
   );
+}
+
+// --- Intake write flows (M2) ------------------------------------------------
+
+export async function createWorkspace(payload: WorkspaceCreate): Promise<Workspace> {
+  if (env.mockMode) return discoveryMock.createWorkspace(payload);
+  return apiPost("/api/workspaces", payload, workspaceSchema);
+}
+
+export async function createReportForm(payload: ReportFormCreate): Promise<ReportForm> {
+  if (env.mockMode) return discoveryMock.createReportForm(payload);
+  return apiPost("/api/report-forms", payload, reportFormSchema);
+}
+
+export async function getReportForm(formId: string): Promise<ReportForm> {
+  if (env.mockMode) return discoveryMock.getReportForm(formId);
+  return apiGet(`/api/report-forms/${formId}`, reportFormSchema);
+}
+
+export async function submitReport(payload: ReportSubmissionCreate): Promise<Source> {
+  if (env.mockMode) return discoveryMock.submitReport(payload);
+  return apiPost("/api/report-submissions", payload, sourceSchema);
+}
+
+export async function submitVoice(payload: VoiceIntakeCreate): Promise<Source> {
+  if (env.mockMode) return discoveryMock.submitVoice(payload);
+  return apiPost("/api/voice-intakes", payload, sourceSchema);
 }

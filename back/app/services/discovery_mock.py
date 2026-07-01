@@ -123,6 +123,9 @@ class DiscoveryMockRepository:
         self.forms[form_id] = form
         return form
 
+    def get_report_form(self, form_id: str) -> ReportForm | None:
+        return self.forms.get(form_id)
+
     def submit_report(self, payload: ReportSubmissionCreate) -> Source:
         form = self.forms[payload.form_id]
         body = "\n".join(

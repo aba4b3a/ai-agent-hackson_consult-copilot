@@ -72,15 +72,16 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 1. Project Foundation
 
-- [ ] 1.1 Create the monorepo or application repository structure
+- [x] 1.1 Create the monorepo or application repository structure
   - Create `apps/web` for the Next.js application.
   - Create `apps/api` or `services/api` for Cloud Run API handlers if separated from Next.js route handlers.
   - Create `services/workers` for ingestion, extraction, indexing, discovery, and report generation workers.
   - Create `infra` for deployment scripts and environment templates.
   - Create `docs` for requirements, design, tasks, architecture notes, and demo scenarios.
   - _Requirements: R19, R20_
+  - _Note: 既存の標準レイアウト `front/` `back/` `agent/` `infra/` `docs/`（AGENTS.md/DESIGN.md 準拠）で充足。`apps/web`/`services/*` への再編は行わない。_
 
-- [ ] 1.2 Configure Next.js, TypeScript, Tailwind CSS, and base UI conventions
+- [x] 1.2 Configure Next.js, TypeScript, Tailwind CSS, and base UI conventions
   - Initialize Next.js with TypeScript.
   - Configure Tailwind CSS.
   - Define mobile-first layout primitives: app shell, sticky header, card, bottom navigation, pill tabs, list item, metric card, graph card, chat bubble.
@@ -88,13 +89,13 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Ensure screens are usable as vertically scrolling mobile web views.
   - _Requirements: R14, R15, R16, R19_
 
-- [ ] 1.3 Create environment configuration
+- [x] 1.3 Create environment configuration
   - Define `.env.example` for local development.
   - Include placeholders for Google Cloud project ID, Cloud Storage bucket, BigQuery dataset, Elasticsearch endpoint, Gemini model, and service credentials.
   - Add runtime validation for required environment variables.
   - _Requirements: R19, R20_
 
-- [ ] 1.4 Create local mock mode
+- [x] 1.4 Create local mock mode
   - Implement a mock data provider for sources, observations, entities, relationships, discovery signals, and reports.
   - Allow the UI to run without live Google Cloud or Elasticsearch dependencies.
   - Use mock mode for early UI and demo development.
@@ -156,14 +157,16 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 3. Workspace Setup and Consultant Onboarding
 
-- [ ] 3.1 Implement workspace setup API
+> _M2 Note: 永続化は back の in-memory モックで代替（実 BigQuery / LLM Wiki は後続）。詳細は design.md §23。_
+
+- [x] 3.1 Implement workspace setup API
   - Create `POST /api/workspaces`.
   - Accept company name, business description, products/services, customer segments, competitors, known issues, KPIs, and initial observation policy.
   - Store setup data in BigQuery.
   - Generate initial LLM Wiki pages in Cloud Storage.
   - _Requirements: R1, R10, R12_
 
-- [ ] 3.2 Implement consultant-facing setup screen
+- [x] 3.2 Implement consultant-facing setup screen
   - Build a mobile-first setup flow for consultants.
   - Include sections for company profile, customer segments, products, competitors, KPIs, and priority observation topics.
   - Show a setup completion summary.
@@ -185,26 +188,28 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 4. Business-Side URL Report Form
 
-- [ ] 4.1 Implement report form creation API
+> _M2 Note: URL は Static Export のためクエリ方式 `/intake?form=<id>`。取得用に `GET /report-forms/{id}` を追加。永続化は in-memory モック。詳細は design.md §23。_
+
+- [x] 4.1 Implement report form creation API
   - Create `POST /api/report-forms`.
   - Generate a shareable URL for a specific workspace and report context.
   - Allow consultant to specify target respondent role, focus topics, and due date.
   - _Requirements: R2, R12_
 
-- [ ] 4.2 Implement URL-based daily report form UI
+- [x] 4.2 Implement URL-based daily report form UI
   - Build a simple mobile-first form intended for business-side users.
   - Include fields for free text, customer type, product/service, issue category, competitor mention, and optional KPI note.
   - Make the form accessible without exposing consultant dashboard features.
   - _Requirements: R2_
 
-- [ ] 4.3 Add guided prompts to the report form
+- [x] 4.3 Add guided prompts to the report form
   - Display targeted questions based on the current observation policy.
   - Prefer a small number of high-value questions.
   - Allow users to skip questions.
   - Prioritize information capture over perfect UX minimalism.
   - _Requirements: R2, R12_
 
-- [ ] 4.4 Implement report form submission API
+- [x] 4.4 Implement report form submission API
   - Create `POST /api/report-submissions`.
   - Persist submitted content to Cloud Storage.
   - Create a `sources` row in BigQuery.
@@ -215,7 +220,9 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 5. Conversational Voice Intake
 
-- [ ] 5.1 Implement voice intake screen for business-side users
+> _M2 Note: テキスト会話インテークで実装（`/intake/chat`）。実音声 STT/TTS（5.2/5.3）は後続。requirements.md R3 の Implementation Note 参照。_
+
+- [x] 5.1 Implement voice intake screen for business-side users
   - Build a chat-like mobile UI with assistant prompts, user responses, transcript bubbles, and recording controls.
   - Include states for listening, transcribing, assistant speaking, and saving.
   - Make it clear that the conversation is for field knowledge collection.
@@ -233,13 +240,13 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Keep prompt turns concise and focused on missing business context.
   - _Requirements: R3, R12_
 
-- [ ] 5.4 Implement conversational follow-up logic
+- [x] 5.4 Implement conversational follow-up logic
   - Ask follow-up questions when user input is too vague, such as "busy today" or "many inquiries".
   - Ask about cause, difference from usual, customer characteristics, product/service, competitor mention, and business impact.
   - Stop after a bounded number of turns to avoid excessive friction.
   - _Requirements: R2, R3, R12_
 
-- [ ] 5.5 Persist voice intake as a source
+- [x] 5.5 Persist voice intake as a source
   - Save transcript, prompt turns, and metadata to Cloud Storage.
   - Create a corresponding `sources` row.
   - Trigger or enqueue extraction.
@@ -574,21 +581,23 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 16. Business-Side Intake UI Refinement
 
-- [ ] 16.1 Separate business-side intake from consultant dashboard
+- [x] 16.1 Separate business-side intake from consultant dashboard
   - Ensure URL form and voice intake do not expose dashboard, graph, search, or copilot views.
   - Use role-appropriate labels for field users.
   - _Requirements: R2, R3, R20_
 
-- [ ] 16.2 Make voice intake feel conversational
+- [x] 16.2 Make voice intake feel conversational
   - Use assistant prompt bubbles and user response bubbles.
   - Support both tap-to-record and text fallback.
   - Show extracted temporary summary before submission.
   - _Requirements: R3, R12_
+  - _M2 Note: 会話バブルと送信前の内容確認は実装済み。tap-to-record（音声録音）は 5.2 と併せて後続。_
 
-- [ ] 16.3 Add consultant-generated intake links
+- [x] 16.3 Add consultant-generated intake links
   - Allow consultant to generate a URL for a specific observation topic.
   - Include focus topics in the intake prompt sequence.
   - _Requirements: R2, R12_
+  - _M2 Note: ダッシュボードの「Intake link」で共有URLを生成。トピック指定（focus topics のUI選択）は後続で、現状は既定質問を使用。_
 
 ---
 

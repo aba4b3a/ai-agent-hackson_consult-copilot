@@ -163,3 +163,58 @@ export const evidenceSearchResponseSchema = z.object({
   results: z.array(evidenceResultSchema),
 });
 export type EvidenceSearchResponse = z.infer<typeof evidenceSearchResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Intake request / response payloads (M2)
+// Mirrors the *Create request models in back/app/schemas/discovery.py.
+// ---------------------------------------------------------------------------
+
+export const workspaceCreateSchema = z.object({
+  workspace_name: z.string().min(1),
+  business_description: z.string().default(""),
+  products: z.array(z.string()).default([]),
+  customer_segments: z.array(z.string()).default([]),
+  competitors: z.array(z.string()).default([]),
+  known_issues: z.array(z.string()).default([]),
+  kpis: z.array(z.string()).default([]),
+  observation_topics: z.array(z.string()).default([]),
+});
+export type WorkspaceCreate = z.input<typeof workspaceCreateSchema>;
+
+export const reportFormCreateSchema = z.object({
+  workspace_id: z.string(),
+  target_role: z.string().default("field_staff"),
+  focus_topics: z.array(z.string()).default([]),
+  due_date: z.string().nullable().optional(),
+});
+export type ReportFormCreate = z.input<typeof reportFormCreateSchema>;
+
+export const reportFormSchema = z.object({
+  form_id: z.string(),
+  workspace_id: z.string(),
+  url: z.string(),
+  target_role: z.string(),
+  focus_topics: z.array(z.string()),
+  due_date: z.string().nullable().optional(),
+  questions: z.array(z.string()),
+});
+export type ReportForm = z.infer<typeof reportFormSchema>;
+
+export const reportSubmissionCreateSchema = z.object({
+  form_id: z.string(),
+  submitted_by_role: z.string().default("field_staff"),
+  free_text: z.string(),
+  customer_type: z.string().default("unknown"),
+  product: z.string().default("unknown"),
+  issue_category: z.string().default("unknown"),
+  competitor: z.string().nullable().optional(),
+  kpi_note: z.string().nullable().optional(),
+});
+export type ReportSubmissionCreate = z.input<typeof reportSubmissionCreateSchema>;
+
+export const voiceIntakeCreateSchema = z.object({
+  workspace_id: z.string(),
+  submitted_by_role: z.string().default("field_staff"),
+  transcript: z.string(),
+});
+export type VoiceIntakeCreate = z.input<typeof voiceIntakeCreateSchema>;
