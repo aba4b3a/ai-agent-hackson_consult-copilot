@@ -515,25 +515,28 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 14. Report Copilot
 
-- [ ] 14.1 Implement copilot question API
+> _Gemini 化済み（design.md §23.8）。retrieval は in-memory 代替（ES/BQ は後続）、証拠は back が付与、失敗時は定型回答にフォールバック。_
+
+- [x] 14.1 Implement copilot question API
   - Create `POST /api/copilot/ask`.
   - Accept question, workspace, optional report ID, and optional context filters.
   - _Requirements: R16_
 
-- [ ] 14.2 Implement retrieval pipeline for copilot
+- [x] 14.2 Implement retrieval pipeline for copilot
   - Retrieve relevant evidence from Elasticsearch.
   - Retrieve related facts, hypotheses, KPI values, and graph relationships from BigQuery.
   - Retrieve observation policy and relevant wiki snippets.
   - _Requirements: R8, R9, R10, R16_
+  - _Note: in-memory から facts/hypotheses/evidence/観測方針を集約（ES/BQ 実接続は後続）。_
 
-- [ ] 14.3 Implement grounded answer generation
+- [x] 14.3 Implement grounded answer generation
   - Answer as a consultant-facing assistant.
   - Separate observed facts, hypotheses, and recommended observations.
   - Include evidence snippets when available.
   - Avoid making business decisions for the user.
   - _Requirements: R6, R16, R20_
 
-- [ ] 14.4 Implement copilot UI
+- [x] 14.4 Implement copilot UI
   - Build mobile-first chat interface for consultants.
   - Include suggested questions such as "なぜ価格関連発言が増えた？", "どの顧客セグメントで変化が大きい？", and "来週何を観測すべき？".
   - Show citations or evidence chips linking to source snippets.

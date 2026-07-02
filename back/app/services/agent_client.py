@@ -10,7 +10,7 @@ from __future__ import annotations
 import httpx
 
 from app.core.config import settings
-from app.schemas.discovery import Workspace
+from app.schemas.discovery import CopilotAnswerPayload, Workspace
 from app.schemas.extraction import (
     ExtractedEntity,
     ExtractedHypothesis,
@@ -21,6 +21,7 @@ from app.schemas.extraction import (
 
 _EXTRACT_PATH = "/v1/knowledge/extract"
 _FOLLOWUPS_PATH = "/v1/intake/followups"
+_COPILOT_PATH = "/v1/copilot/answer"
 _TIMEOUT = httpx.Timeout(10.0, connect=2.0)
 
 # Deterministic fallback follow-up questions (aligned with §5.4 topics) used
@@ -58,6 +59,40 @@ def extract_knowledge(source_type: str, body: str, workspace: Workspace) -> Extr
     except (httpx.HTTPError, ValueError):
         # Resilient fallback: the agent may be down or returned bad data.
         return _local_extract(source_type, body, workspace)
+
+
+def answer_copilot(
+    question: str,
+    facts: list[str],
+    hypotheses: list[str],
+    evidence: list[str],
+    workspace: Workspace,
+) -> CopilotAnswerPayload | None:
+    """Ask the agent to answer a Copilot question grounded in the given context.
+
+    Returns the answer payload, or None when agent extraction is disabled or the
+    agent is unreachable so the caller falls back to a templated answer.
+    """
+    if not settings.use_agent_extraction:
+        return None
+    try:
+        response = httpx.post(
+            f"{settings.agent_base_url}{_COPILOT_PATH}",
+            json={
+                "question": question,
+                "context": {
+                    "facts": facts,
+                    "hypotheses": hypotheses,
+                    "evidence": evidence,
+                    "workspace": _workspace_payload(workspace),
+                },
+            },
+            timeout=_TIMEOUT,
+        )
+        response.raise_for_status()
+        return CopilotAnswerPayload.model_validate(response.json())
+    except (httpx.HTTPError, ValueError):
+        return None
 
 
 def generate_followups(workspace: Workspace, answers: list[str]) -> list[str]:

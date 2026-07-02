@@ -359,7 +359,32 @@ class DiscoveryMockRepository:
         )
 
     def ask_copilot(self, workspace_id: str, question: str) -> CopilotAnswer:
+        workspace = self.workspaces[workspace_id]
         evidence = self.search_evidence(workspace_id, "")
+        facts = [o.summary for o in self.observations.values() if o.workspace_id == workspace_id]
+        hypotheses = [
+            h.statement for h in self.hypotheses.values() if h.workspace_id == workspace_id
+        ]
+
+        # Retrieval (in-memory) + agent-generated grounded answer. Evidence
+        # references are attached here, not fabricated by the model (R16).
+        payload = agent_client.answer_copilot(
+            question=question,
+            facts=facts,
+            hypotheses=hypotheses,
+            evidence=[e.snippet for e in evidence[:5]],
+            workspace=workspace,
+        )
+        if payload is not None:
+            return CopilotAnswer(
+                answer=payload.answer,
+                observed_facts=payload.observed_facts,
+                hypotheses=payload.hypotheses,
+                evidence=evidence[:3],
+                recommended_observations=payload.recommended_observations,
+            )
+
+        # Fallback: templated answer when agent extraction is off/unreachable.
         report = self.weekly_report(workspace_id)
         return CopilotAnswer(
             answer=(
