@@ -47,15 +47,68 @@ export function ReportCopilot({ workspaceId }: { workspaceId: string }) {
         </Button>
 
         {answer ? (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-4">
             <p className="text-sm leading-6 text-text">{answer.answer}</p>
+
+            {answer.observed_facts.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-text-muted">
+                  観察事実
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {answer.observed_facts.map((f) => (
+                    <li key={f} className="text-sm leading-6 text-text">
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {answer.hypotheses.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {answer.hypotheses.map((h) => (
-                  <Pill key={h} tone="warning">
-                    仮説
-                  </Pill>
-                ))}
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-text-muted">
+                  仮説
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {answer.hypotheses.map((h) => (
+                    <li key={h} className="flex items-start gap-2 text-sm leading-6 text-text">
+                      <Pill tone="warning">仮説</Pill>
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {answer.evidence.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-text-muted">
+                  証拠
+                </p>
+                <div className="mt-2 space-y-2">
+                  {answer.evidence.map((e) => (
+                    <article key={e.source_id} className="border-t border-border pt-2">
+                      <p className="text-xs text-text-muted">{e.source_type}</p>
+                      <p className="text-sm leading-6 text-text">{e.snippet}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {answer.recommended_observations.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-text-muted">
+                  推奨観測
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {answer.recommended_observations.map((r) => (
+                    <li key={r} className="text-sm leading-6 text-text-muted">
+                      {r}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
           </div>

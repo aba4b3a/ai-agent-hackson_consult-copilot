@@ -1389,3 +1389,14 @@ M2 時点では実クラウド（GCS/BigQuery/Elasticsearch）へは接続せず
 - front: 冒頭の固定質問 → 最初の回答後に `getFollowups` を**1回**呼び、返った質問を順に提示（bounded・合計上限あり）。**スキップ可能（R12.8）**。retrieval/方針は in-memory の workspace から供給。
 
 これにより R12.4「曖昧な入力時に観測方針に基づくフォローアップ質問を生成」を満たす。フロント単体（mock）では静的な少数質問を返し、オフラインでも会話が成立する。
+
+### 23.8 Report Copilot の根拠付き回答（§14.2 / 14.3, R16）
+
+Report Copilot の回答を、蓄積知識に基づく Gemini 生成にする。経路は抽出と同じく agent 集約:
+
+- back（retrieval）: in-memory から観察事実（facts）・仮説（hypotheses）・証拠スニペット（`search_evidence`）・企業コンテキストを集約（§14.2 の取得層は in-memory 代替。ES/BQ は後続）。
+- agent: `POST /v1/copilot/answer`（`copilot_agent.answer_question`）。Gemini 構造化出力で `answer` / `observed_facts` / `hypotheses` / `recommended_observations` を生成。R16 準拠（事実と仮説を分離・不確実な因果は仮説・経営判断を代行しない・追加観測を提案）。`use_gemini` false / 例外時はモック回答へ劣化。
+- back: `use_agent_extraction` で agent 委譲。無効/HTTP エラー時は従来の定型回答にフォールバック。**証拠（evidence）は back が retrieval 結果から付与し、モデルには捏造させない。**
+- front: `report-copilot.tsx` が回答本文＋観察事実／仮説／証拠チップ／推奨観測を分離表示（§14.4 citations）。
+
+これにより §23「Copilot に質問して事実・仮説・証拠に基づく回答を得る」を満たす。フロント単体（mock）でも定型回答が返りオフラインで成立する。

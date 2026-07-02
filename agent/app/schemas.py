@@ -106,3 +106,35 @@ class FollowupPayload(BaseModel):
 class FollowupResponse(FollowupPayload):
     # "gemini" when produced by a live model call, "mock" for the fallback.
     generation_method: str = "mock"
+
+
+class CopilotContext(BaseModel):
+    """Retrieved knowledge passed to the Copilot for grounding (R16)."""
+
+    facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    workspace: WorkspaceContext = Field(default_factory=WorkspaceContext)
+
+
+class CopilotAnswerRequest(BaseModel):
+    question: str
+    context: CopilotContext = Field(default_factory=CopilotContext)
+
+
+class CopilotAnswerPayload(BaseModel):
+    """The portion of the Copilot answer the model is asked to produce.
+
+    Observed facts and hypotheses are kept separate (R16); evidence references
+    are attached by back/ from what it retrieved, not fabricated by the model.
+    """
+
+    answer: str = ""
+    observed_facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    recommended_observations: list[str] = Field(default_factory=list)
+
+
+class CopilotAnswerResult(CopilotAnswerPayload):
+    # "gemini" when produced by a live model call, "mock" for the fallback.
+    answer_method: str = "mock"

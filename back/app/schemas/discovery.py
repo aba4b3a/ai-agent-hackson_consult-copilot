@@ -150,6 +150,15 @@ class FollowupResponse(BaseModel):
     questions: list[str] = Field(default_factory=list)
 
 
+class CopilotAnswerPayload(BaseModel):
+    """Agent copilot response (evidence is attached by back, not the model)."""
+
+    answer: str = ""
+    observed_facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    recommended_observations: list[str] = Field(default_factory=list)
+
+
 class CopilotAsk(BaseModel):
     workspace_id: str
     question: str

@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 
+from agents.copilot_agent import answer_question
 from agents.followup_agent import generate_followups
 from agents.knowledge_agent import extract_knowledge
 from app.schemas import (
+    CopilotAnswerRequest,
+    CopilotAnswerResult,
     ExtractionRequest,
     ExtractionResult,
     FollowupRequest,
@@ -28,3 +31,8 @@ def knowledge_extract(request: ExtractionRequest) -> ExtractionResult:
 @app.post("/v1/intake/followups", response_model=FollowupResponse)
 def intake_followups(request: FollowupRequest) -> FollowupResponse:
     return generate_followups(request)
+
+
+@app.post("/v1/copilot/answer", response_model=CopilotAnswerResult)
+def copilot_answer(request: CopilotAnswerRequest) -> CopilotAnswerResult:
+    return answer_question(request)
