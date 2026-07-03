@@ -13,7 +13,7 @@ export function EvidenceSearch({ workspaceId }: { workspaceId: string }) {
   const results = data ?? [];
 
   return (
-    <Section title="Evidence Search" icon={<FileSearch size={18} />}>
+    <Section id="evidence" title="Evidence Search" icon={<FileSearch size={18} />}>
       <Card>
         <label className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-text-muted">
           <Search size={16} />

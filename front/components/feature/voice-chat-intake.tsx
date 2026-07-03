@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChatBubble } from "@/components/ui/chat-bubble";
 import { Input } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * Conversational (text) field intake (§5, text-only for M2). The assistant
@@ -34,6 +35,7 @@ export function VoiceChatIntake({ workspaceId }: { workspaceId: string }) {
 
   const followups = useFollowups(workspaceId);
   const submit = useSubmitVoice();
+  const toast = useToast();
 
   const finished = pending === null && !followups.isPending;
   const transcript = useMemo(
@@ -148,7 +150,11 @@ export function VoiceChatIntake({ workspaceId }: { workspaceId: string }) {
             onClick={() =>
               submit.mutate(
                 { workspace_id: workspaceId, transcript, submitted_by_role: "field_staff" },
-                { onSuccess: () => router.push("/") },
+                {
+                  onSuccess: () => router.push("/"),
+                  onError: () =>
+                    toast({ message: "送信に失敗しました。再試行してください。", tone: "danger" }),
+                },
               )
             }
           >

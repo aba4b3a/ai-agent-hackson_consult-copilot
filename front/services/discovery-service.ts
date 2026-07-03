@@ -56,9 +56,14 @@ export async function searchEvidence(
   return response.results;
 }
 
-export async function getGraphSlice(workspaceId: string): Promise<GraphSlice> {
-  if (env.mockMode) return discoveryMock.getGraphSlice();
-  const params = new URLSearchParams({ workspace_id: workspaceId });
+export type GraphView = "customer-issue" | "competitor-impact" | "kpi-causal" | "hypothesis";
+
+export async function getGraphSlice(
+  workspaceId: string,
+  view: GraphView = "customer-issue",
+): Promise<GraphSlice> {
+  if (env.mockMode) return discoveryMock.getGraphSlice(view);
+  const params = new URLSearchParams({ workspace_id: workspaceId, view });
   return apiGet(`/api/graph/slice?${params.toString()}`, graphSliceSchema);
 }
 

@@ -1412,3 +1412,21 @@ Report Copilot の回答を、蓄積知識に基づく Gemini 生成にする。
 閾値はデモが発火するよう低めのコード内定数（構造は §14.3 準拠）。ワークスペース別設定（R11.9）と KPI 連動（§11.5、KPI スナップショット §6.4 が前提）は後続。この集計のため `Observation` に `observed_at`（ISO8601）を追加し、seed 観察を過去週に日付分散させている。
 
 **週次レポート生成（§13）**: back が retrieval（シグナル・事実・仮説・証拠・企業コンテキスト、in-memory）→ agent `POST /v1/reports/weekly`（`weekly_report_agent`、Gemini 構造化出力）→ summary / observed_facts / hypotheses / recommended_observations / limitations を生成。証拠は back が付与。`use_agent_extraction` 無効・agent 障害時は従来テンプレへフォールバック。`POST /api/reports/weekly/generate` を再生成の明示的な口として追加（in-memory ではオンデマンド生成のため GET と同処理）。scheduler / worker 化（§8.2 の週次バッチ）は後続。
+
+### 23.10 視点別グラフスライス（§12 / §15.4, in-memory 版）
+
+グラフビューアのタブを実データ切替に接続する。BigQuery Graph（§10）はフェーズ2で、本実装は `back/app/services/graph_views.py` による in-memory 等価物。
+
+- `GET /api/graph/slice?workspace_id=&view=` に **4視点**: `customer-issue`（顧客層×課題）/ `competitor-impact`（競合×課題×商品）/ `kpi-causal`（課題×KPI）/ `hypothesis`（仮説×支持エンティティ）。不明な view は既定（customer-issue）へ丸め。
+- エッジは2系統をマージ: ①抽出で蓄積した型付き `relationships`（MENTIONS/RELATES_TO/IMPACTS 等）②同一観察内の `related_entities` **共起**（事実エッジ、evidence_count=共起数）。MAY_CAUSE / SUPPORTS は hypothesis 系として返し UI が破線描画（R6 の事実/仮説分離）。
+- デモ密度保護: ノード12・エッジ20 上限（evidence_count 降順、design §10.4）。
+- サマリ（§12.3）: 事実/仮説エッジ数と最多証拠の関連を定型文で提示。`kpi-causal` では「共起・言及に基づく関連であり因果を確定しない」旨を明記（R20.3）。
+- UI（§12.4）: ローディング表示、ノード0件時は「観察データが不足しています」フォールバック。
+- 後続: Gap Graph（知識ギャップ視点）、期間フィルタ、ノード選択時の証拠パネル、BigQuery Graph 化。
+
+### 23.11 コンサルダッシュボードのレイアウト
+
+- **サイドバーナビゲーション**: lg 以上は常設の左サイドバー、lg 未満はヘッダのハンバーガーで開閉するオーバーレイドロワー。各セクション（サマリ/フィード/ナレッジ/グラフ/インテーク/検索/レポート）へのアンカージャンプと、設定・会話聞き取りへのページリンクを提供（§16.1 の quick links を充足）。
+- **配置**: 左カラム=サマリ/Discovery Feed/Knowledge Formation、右カラム上段=Graph Viewer。
+- **Report Copilot**: 画面右下固定の FAB → 展開パネル（フローティングウィジェット）。ダッシュボードのどこからでも壁打ち可能。
+- **フィードバック UI**: Toast（操作結果通知: レポート再生成・送信失敗等）と Skeleton（読み込みプレースホルダ）を導入。Dialog / ScrollSpy は後続。

@@ -7,8 +7,6 @@ from app.schemas.discovery import (
     CopilotAnswer,
     DiscoverySignal,
     EvidenceResult,
-    GraphEdge,
-    GraphNode,
     GraphSlice,
     Hypothesis,
     Observation,
@@ -22,7 +20,7 @@ from app.schemas.discovery import (
     WorkspaceCreate,
 )
 from app.schemas.extraction import ExtractedEntity, ExtractedRelationship, ExtractionResult
-from app.services import agent_client
+from app.services import agent_client, graph_views
 from app.services.discovery_rules import detect_signals
 
 
@@ -35,8 +33,8 @@ class DiscoveryMockRepository:
         self.observations: dict[str, Observation] = {}
         self.hypotheses: dict[str, Hypothesis] = {}
         self.signals: dict[str, DiscoverySignal] = {}
-        # Entities and relationships are persisted from extraction output but not
-        # yet wired into graph_slice (kept derived from observations for now).
+        # Entities and relationships accumulated from extraction output; used by
+        # the view-specific graph slices (graph_views).
         self.entities: dict[str, dict[str, ExtractedEntity]] = {}
         self.relationships: dict[str, list[ExtractedRelationship]] = {}
         self._seed()
@@ -111,6 +109,14 @@ class DiscoveryMockRepository:
             summary="宅配薬局サービス「ヘルスケア便」の話題が顧客から出た。",
             quote="ヘルスケア便なら家まで届くらしい。",
             related_entities=["ヘルスケア便"],
+        )
+        # Issue × KPI co-occurrence so the kpi-causal graph view has an edge.
+        self._seed_observation(
+            workspace_id,
+            observed_at=now.isoformat(),
+            summary="在庫切れが再来店をためらう理由になっているという声があった。",
+            quote="在庫がないとまた来るのが面倒と言われた。",
+            related_entities=["在庫切れ", "再来店率"],
         )
 
     def _seed_observation(
@@ -328,74 +334,14 @@ class DiscoveryMockRepository:
             )
         return results
 
-    def graph_slice(self, workspace_id: str) -> GraphSlice:
-        observations = [o for o in self.observations.values() if o.workspace_id == workspace_id]
-        nodes = {
-            "workspace": GraphNode(
-                id="workspace",
-                type="Workspace",
-                label=self.workspaces[workspace_id].workspace_name,
-                summary="初期設定と観察データの中心ノード",
-            )
-        }
-        edges: list[GraphEdge] = []
-        for observation in observations:
-            obs_id = observation.observation_id
-            nodes[obs_id] = GraphNode(
-                id=obs_id,
-                type="Observation",
-                label=observation.summary,
-                summary=observation.quote,
-            )
-            edges.append(
-                GraphEdge(
-                    source="workspace",
-                    target=obs_id,
-                    type="MENTIONS",
-                    evidence_count=1,
-                    fact_or_hypothesis="fact",
-                )
-            )
-            for entity in observation.related_entities:
-                entity_id = f"ent_{entity}"
-                nodes[entity_id] = GraphNode(
-                    id=entity_id,
-                    type="Entity",
-                    label=entity,
-                    summary="観察から形成された軽量エンティティ",
-                )
-                edges.append(
-                    GraphEdge(
-                        source=obs_id,
-                        target=entity_id,
-                        type="RELATES_TO",
-                        evidence_count=1,
-                        fact_or_hypothesis="fact",
-                    )
-                )
-        for hypothesis in self.hypotheses.values():
-            if hypothesis.workspace_id != workspace_id:
-                continue
-            nodes[hypothesis.hypothesis_id] = GraphNode(
-                id=hypothesis.hypothesis_id,
-                type="Hypothesis",
-                label=hypothesis.statement,
-                summary="観察中の仮説",
-            )
-            for obs_id in hypothesis.supporting_observation_ids:
-                edges.append(
-                    GraphEdge(
-                        source=obs_id,
-                        target=hypothesis.hypothesis_id,
-                        type="SUPPORTS",
-                        evidence_count=1,
-                        fact_or_hypothesis="hypothesis",
-                    )
-                )
-        return GraphSlice(
-            nodes=list(nodes.values()),
-            edges=edges[:50],
-            summary="観察事実を中心に、関連エンティティと観察中の仮説を分離して表示しています。",
+    def graph_slice(self, workspace_id: str, view: str = graph_views.DEFAULT_VIEW) -> GraphSlice:
+        return graph_views.build_graph_slice(
+            view=view,
+            workspace=self.workspaces[workspace_id],
+            entities=self.entities.get(workspace_id, {}),
+            relationships=self.relationships.get(workspace_id, []),
+            observations=[o for o in self.observations.values() if o.workspace_id == workspace_id],
+            hypotheses=[h for h in self.hypotheses.values() if h.workspace_id == workspace_id],
         )
 
     def weekly_report(self, workspace_id: str) -> WeeklyReport:

@@ -19,7 +19,7 @@ export function DiscoveryFeed({ workspaceId }: { workspaceId: string }) {
   const signals = data?.signals ?? [];
 
   return (
-    <Section title="Discovery Feed" icon={<Sparkles size={18} />}>
+    <Section id="discovery" title="Discovery Feed" icon={<Sparkles size={18} />}>
       <div className="space-y-3">
         {signals.map((signal) => (
           <ListItem

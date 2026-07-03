@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getGraphSlice } from "@/services/discovery-service";
+import { getGraphSlice, type GraphView } from "@/services/discovery-service";
 
-export function useGraphSlice(workspaceId: string) {
+export function useGraphSlice(workspaceId: string, view: GraphView) {
   return useQuery({
-    queryKey: ["graph-slice", workspaceId],
-    queryFn: () => getGraphSlice(workspaceId),
+    queryKey: ["graph-slice", workspaceId, view],
+    queryFn: () => getGraphSlice(workspaceId, view),
     enabled: Boolean(workspaceId),
   });
 }

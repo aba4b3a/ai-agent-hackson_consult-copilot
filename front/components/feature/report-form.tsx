@@ -8,6 +8,7 @@ import { useSubmitReport } from "@/hooks/use-submit-report";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * Business-side daily report form (§4.2/4.3). Minimal required fields (only the
@@ -18,6 +19,7 @@ export function ReportForm({ formId }: { formId: string }) {
   const router = useRouter();
   const { data: form, isLoading, isError } = useReportForm(formId);
   const submit = useSubmitReport();
+  const toast = useToast();
 
   const [freeText, setFreeText] = useState("");
   const [customerType, setCustomerType] = useState("");
@@ -44,7 +46,10 @@ export function ReportForm({ formId }: { formId: string }) {
         competitor: competitor.trim() || null,
         kpi_note: kpiNote.trim() || null,
       },
-      { onSuccess: () => router.push("/") },
+      {
+        onSuccess: () => router.push("/"),
+        onError: () => toast({ message: "送信に失敗しました。再試行してください。", tone: "danger" }),
+      },
     );
   }
 

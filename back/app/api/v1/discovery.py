@@ -15,6 +15,7 @@ from app.schemas.discovery import (
     Workspace,
     WorkspaceCreate,
 )
+from app.services import graph_views
 from app.services.discovery_mock import discovery_repository
 
 router = APIRouter(tags=["continuous-discovery"])
@@ -73,8 +74,12 @@ def search_evidence(
 
 
 @router.get("/graph/slice", response_model=GraphSlice)
-def graph_slice(workspace_id: str) -> GraphSlice:
-    return discovery_repository.graph_slice(workspace_id)
+def graph_slice(
+    workspace_id: str,
+    view: str = Query(default=graph_views.DEFAULT_VIEW),
+) -> GraphSlice:
+    # Unknown view values fall back to the default inside the builder.
+    return discovery_repository.graph_slice(workspace_id, view)
 
 
 @router.get("/reports/weekly", response_model=WeeklyReport)

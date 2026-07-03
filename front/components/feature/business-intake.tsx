@@ -12,7 +12,7 @@ import { ChatBubble } from "@/components/ui/chat-bubble";
  */
 export function BusinessIntake() {
   return (
-    <Section title="Business Intake" icon={<AudioLines size={18} />}>
+    <Section id="intake" title="Business Intake" icon={<AudioLines size={18} />}>
       <Card>
         <div className="space-y-3">
           <ChatBubble role="assistant">今日、顧客から普段と違う反応や相談はありましたか。</ChatBubble>
