@@ -138,3 +138,37 @@ class CopilotAnswerPayload(BaseModel):
 class CopilotAnswerResult(CopilotAnswerPayload):
     # "gemini" when produced by a live model call, "mock" for the fallback.
     answer_method: str = "mock"
+
+
+class WeeklyReportContext(BaseModel):
+    """Retrieved knowledge passed to the weekly report generator (§13)."""
+
+    signals: list[str] = Field(default_factory=list)
+    facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    workspace: WorkspaceContext = Field(default_factory=WorkspaceContext)
+
+
+class WeeklyReportRequest(BaseModel):
+    period: str = ""
+    context: WeeklyReportContext = Field(default_factory=WeeklyReportContext)
+
+
+class WeeklyReportPayload(BaseModel):
+    """The portion of the weekly report the model is asked to produce.
+
+    Facts and hypotheses stay separate (R6/R13); evidence references are
+    attached by back/ from what it retrieved, not fabricated by the model.
+    """
+
+    summary: str = ""
+    observed_facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    recommended_observations: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
+class WeeklyReportResult(WeeklyReportPayload):
+    # "gemini" when produced by a live model call, "mock" for the fallback.
+    report_method: str = "mock"

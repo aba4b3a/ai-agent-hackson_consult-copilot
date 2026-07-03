@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from agents.copilot_agent import answer_question
 from agents.followup_agent import generate_followups
 from agents.knowledge_agent import extract_knowledge
+from agents.weekly_report_agent import generate_report
 from app.schemas import (
     CopilotAnswerRequest,
     CopilotAnswerResult,
@@ -10,6 +11,8 @@ from app.schemas import (
     ExtractionResult,
     FollowupRequest,
     FollowupResponse,
+    WeeklyReportRequest,
+    WeeklyReportResult,
 )
 
 app = FastAPI(
@@ -36,3 +39,8 @@ def intake_followups(request: FollowupRequest) -> FollowupResponse:
 @app.post("/v1/copilot/answer", response_model=CopilotAnswerResult)
 def copilot_answer(request: CopilotAnswerRequest) -> CopilotAnswerResult:
     return answer_question(request)
+
+
+@app.post("/v1/reports/weekly", response_model=WeeklyReportResult)
+def weekly_report(request: WeeklyReportRequest) -> WeeklyReportResult:
+    return generate_report(request)
