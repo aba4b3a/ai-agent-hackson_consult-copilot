@@ -68,6 +68,12 @@ export async function getWeeklyReport(workspaceId: string): Promise<WeeklyReport
   return apiGet(`/api/reports/weekly?${params.toString()}`, weeklyReportSchema);
 }
 
+export async function generateWeeklyReport(workspaceId: string): Promise<WeeklyReport> {
+  if (env.mockMode) return discoveryMock.getWeeklyReport();
+  const params = new URLSearchParams({ workspace_id: workspaceId });
+  return apiPost(`/api/reports/weekly/generate?${params.toString()}`, {}, weeklyReportSchema);
+}
+
 export async function askCopilot(
   workspaceId: string,
   question: string,

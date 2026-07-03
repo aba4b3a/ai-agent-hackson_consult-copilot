@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import count
 
 from app.schemas.discovery import (
@@ -23,6 +23,7 @@ from app.schemas.discovery import (
 )
 from app.schemas.extraction import ExtractedEntity, ExtractedRelationship, ExtractionResult
 from app.services import agent_client
+from app.services.discovery_rules import detect_signals
 
 
 class DiscoveryMockRepository:
@@ -81,27 +82,86 @@ class DiscoveryMockRepository:
                 transcript="今日は子育て世帯からオンライン服薬指導についての質問が増えました。通院後に店舗へ寄る時間が取りづらいそうです。",
             )
         )
+        self._seed_history(workspace.workspace_id)
+
+    def _seed_history(self, workspace_id: str) -> None:
+        """Backdated seed observations so weekly discovery rules fire in demo."""
+        now = datetime.now(UTC)
+        # Previous week: baseline mention of 待ち時間 (1 -> 2 this week fires
+        # weekly_increase).
+        self._seed_observation(
+            workspace_id,
+            observed_at=(now - timedelta(weeks=1)).isoformat(),
+            summary="待ち時間に関する軽い言及が日報にあった。",
+            quote="夕方は少し待たせてしまった。",
+            related_entities=["待ち時間"],
+        )
+        # This week: one more 待ち時間 mention plus a brand-new competitor,
+        # which fires new_entity.
+        self._seed_observation(
+            workspace_id,
+            observed_at=now.isoformat(),
+            summary="待ち時間について高齢の顧客から再度の指摘があった。",
+            quote="今日も待ち時間が長いと言われた。",
+            related_entities=["待ち時間", "高齢者"],
+        )
+        self._seed_observation(
+            workspace_id,
+            observed_at=now.isoformat(),
+            summary="宅配薬局サービス「ヘルスケア便」の話題が顧客から出た。",
+            quote="ヘルスケア便なら家まで届くらしい。",
+            related_entities=["ヘルスケア便"],
+        )
+
+    def _seed_observation(
+        self,
+        workspace_id: str,
+        observed_at: str,
+        summary: str,
+        quote: str,
+        related_entities: list[str],
+    ) -> None:
+        source_id = self._next_id("src")
+        source = Source(
+            source_id=source_id,
+            workspace_id=workspace_id,
+            source_type="daily_report",
+            title=f"Seed report {observed_at[:10]}",
+            body=quote,
+            processing_status="extracted",
+            source_uri=f"gs://continuous-discovery-local/raw/{workspace_id}/{source_id}.txt",
+        )
+        self.sources[source_id] = source
+        observation = Observation(
+            observation_id=self._next_id("obs"),
+            workspace_id=workspace_id,
+            source_id=source_id,
+            source_type=source.source_type,
+            observed_at=observed_at,
+            summary=summary,
+            quote=quote,
+            confidence=0.75,
+            related_entities=related_entities,
+            evidence_uri=source.source_uri,
+        )
+        self.observations[observation.observation_id] = observation
 
     def create_workspace(self, payload: WorkspaceCreate) -> Workspace:
         workspace = Workspace(workspace_id=self._next_id("ws"), **payload.model_dump())
         self.workspaces[workspace.workspace_id] = workspace
-        self._create_initial_signal(workspace)
         return workspace
 
-    def _create_initial_signal(self, workspace: Workspace) -> None:
-        signal = DiscoverySignal(
-            signal_id=self._next_id("sig"),
-            workspace_id=workspace.workspace_id,
-            signal_type="weekly_increase",
-            metric_name="competitor_wait_time_mentions",
-            current_value=11,
-            baseline_value=5,
-            change_rate=1.2,
-            related_entities=["待ち時間", "駅前ドラッグ"],
-            evidence_count=4,
-            severity="warning",
-        )
-        self.signals[signal.signal_id] = signal
+    def _refresh_signals(self, workspace_id: str) -> None:
+        """Recompute rule-based discovery signals from current observations."""
+        observations = [o for o in self.observations.values() if o.workspace_id == workspace_id]
+        detected = detect_signals(observations, self.workspaces[workspace_id])
+        self.signals = {
+            signal_id: signal
+            for signal_id, signal in self.signals.items()
+            if signal.workspace_id != workspace_id
+        }
+        for signal in detected:
+            self.signals[f"{workspace_id}_{signal.signal_id}"] = signal
 
     def create_report_form(self, payload: ReportFormCreate) -> ReportForm:
         form_id = self._next_id("form")
@@ -183,6 +243,7 @@ class DiscoveryMockRepository:
                 workspace_id=source.workspace_id,
                 source_id=source.source_id,
                 source_type=source.source_type,
+                observed_at=datetime.now(UTC).isoformat(),
                 summary=extracted.summary,
                 quote=extracted.quote,
                 fact_or_hypothesis=extracted.fact_or_hypothesis,
@@ -224,6 +285,7 @@ class DiscoveryMockRepository:
         return list(self.workspaces.values())
 
     def dashboard(self, workspace_id: str) -> dict[str, object]:
+        self._refresh_signals(workspace_id)
         observations = [o for o in self.observations.values() if o.workspace_id == workspace_id]
         hypotheses = [h for h in self.hypotheses.values() if h.workspace_id == workspace_id]
         signals = [s for s in self.signals.values() if s.workspace_id == workspace_id]
@@ -337,13 +399,47 @@ class DiscoveryMockRepository:
         )
 
     def weekly_report(self, workspace_id: str) -> WeeklyReport:
+        self._refresh_signals(workspace_id)
+        workspace = self.workspaces[workspace_id]
         evidence = self.search_evidence(workspace_id)
         observations = [o.summary for o in self.observations.values() if o.workspace_id == workspace_id]
         hypotheses = [h.statement for h in self.hypotheses.values() if h.workspace_id == workspace_id]
+        signals = [s for s in self.signals.values() if s.workspace_id == workspace_id]
+        signal_lines = [
+            f"{s.signal_type}: {s.metric_name}（{s.baseline_value} → {s.current_value}、"
+            f"変化率 {s.change_rate}、関連: {'、'.join(s.related_entities)}）"
+            for s in signals
+        ]
+        period = self._current_week_period()
+
+        # Retrieval (in-memory) + agent-generated report. Evidence references
+        # are attached here, not fabricated by the model (§13, R13).
+        payload = agent_client.generate_weekly_report(
+            period=period,
+            signals=signal_lines,
+            facts=observations,
+            hypotheses=hypotheses,
+            evidence=[e.snippet for e in evidence[:5]],
+            workspace=workspace,
+        )
+        if payload is not None:
+            return WeeklyReport(
+                report_id="rep_latest",
+                workspace_id=workspace_id,
+                period=period,
+                summary=payload.summary,
+                observed_facts=payload.observed_facts,
+                hypotheses=payload.hypotheses,
+                evidence=evidence[:3],
+                recommended_observations=payload.recommended_observations,
+                limitations=payload.limitations,
+            )
+
+        # Fallback: templated report when agent extraction is off/unreachable.
         return WeeklyReport(
             report_id="rep_latest",
             workspace_id=workspace_id,
-            period="latest_week",
+            period=period,
             summary="待ち時間と競合利便性に関する言及が増えています。因果は未確定のため、次週も比較理由を重点観察します。",
             observed_facts=observations,
             hypotheses=hypotheses,
@@ -357,6 +453,13 @@ class DiscoveryMockRepository:
                 "仮説は観察中であり、確定した事業原因として扱いません。",
             ],
         )
+
+    @staticmethod
+    def _current_week_period() -> str:
+        now = datetime.now(UTC)
+        monday = now - timedelta(days=now.weekday())
+        sunday = monday + timedelta(days=6)
+        return f"{monday.date().isoformat()} – {sunday.date().isoformat()}"
 
     def ask_copilot(self, workspace_id: str, question: str) -> CopilotAnswer:
         workspace = self.workspaces[workspace_id]

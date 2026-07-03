@@ -1,13 +1,15 @@
 "use client";
 
-import { MessageSquareText } from "lucide-react";
+import { MessageSquareText, RefreshCw } from "lucide-react";
 
-import { useWeeklyReport } from "@/hooks/use-weekly-report";
+import { useGenerateWeeklyReport, useWeeklyReport } from "@/hooks/use-weekly-report";
+import { Button } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 
 export function WeeklyReport({ workspaceId }: { workspaceId: string }) {
   const { data } = useWeeklyReport(workspaceId);
+  const generate = useGenerateWeeklyReport(workspaceId);
 
   return (
     <Section title="Weekly Report" icon={<MessageSquareText size={18} />}>
@@ -16,6 +18,21 @@ export function WeeklyReport({ workspaceId }: { workspaceId: string }) {
           {data?.summary ?? "レポートを読み込み中…"}
         </p>
         {data?.period ? <p className="mt-2 text-xs text-text-muted">{data.period}</p> : null}
+
+        {data && data.recommended_observations.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-text-muted">
+              次週の推奨観測
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {data.recommended_observations.map((item) => (
+                <li key={item} className="text-sm leading-6 text-text-muted">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-2">
           <Pill tone="success">Facts separated</Pill>
           <Pill tone="warning">Hypotheses labeled</Pill>
@@ -36,6 +53,16 @@ export function WeeklyReport({ workspaceId }: { workspaceId: string }) {
             </ul>
           </div>
         ) : null}
+
+        <Button
+          variant="outline"
+          className="mt-4 w-full"
+          disabled={generate.isPending || !workspaceId}
+          onClick={() => generate.mutate()}
+        >
+          <RefreshCw size={16} />
+          {generate.isPending ? "生成中…" : "レポートを再生成"}
+        </Button>
       </Card>
     </Section>
   );

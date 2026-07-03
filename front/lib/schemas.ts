@@ -49,6 +49,7 @@ export const observationSchema = z.object({
   workspace_id: z.string(),
   source_id: z.string(),
   source_type: z.string(),
+  observed_at: z.string().optional(),
   summary: z.string(),
   quote: z.string(),
   fact_or_hypothesis: z.string().default("fact"),

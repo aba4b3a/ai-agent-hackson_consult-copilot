@@ -82,6 +82,13 @@ def weekly_report(workspace_id: str) -> WeeklyReport:
     return discovery_repository.weekly_report(workspace_id)
 
 
+@router.post("/reports/weekly/generate", response_model=WeeklyReport)
+def generate_weekly_report(workspace_id: str) -> WeeklyReport:
+    # Explicit regeneration entry point (§13.4). Reports are generated
+    # on-demand in the in-memory MVP, so this shares the GET implementation.
+    return discovery_repository.weekly_report(workspace_id)
+
+
 @router.post("/copilot/ask", response_model=CopilotAnswer)
 def ask_copilot(payload: CopilotAsk) -> CopilotAnswer:
     return discovery_repository.ask_copilot(payload.workspace_id, payload.question)

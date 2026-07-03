@@ -66,6 +66,8 @@ class Observation(BaseModel):
     workspace_id: str
     source_id: str
     source_type: str
+    # ISO8601 timestamp used for weekly discovery aggregation (§11).
+    observed_at: str = ""
     summary: str
     quote: str
     fact_or_hypothesis: str = "fact"
@@ -148,6 +150,16 @@ class FollowupRequest(BaseModel):
 
 class FollowupResponse(BaseModel):
     questions: list[str] = Field(default_factory=list)
+
+
+class WeeklyReportPayload(BaseModel):
+    """Agent weekly-report response (evidence is attached by back, not the model)."""
+
+    summary: str = ""
+    observed_facts: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    recommended_observations: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
 
 
 class CopilotAnswerPayload(BaseModel):

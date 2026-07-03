@@ -1400,3 +1400,15 @@ Report Copilot の回答を、蓄積知識に基づく Gemini 生成にする。
 - front: `report-copilot.tsx` が回答本文＋観察事実／仮説／証拠チップ／推奨観測を分離表示（§14.4 citations）。
 
 これにより §23「Copilot に質問して事実・仮説・証拠に基づく回答を得る」を満たす。フロント単体（mock）でも定型回答が返りオフラインで成立する。
+
+### 23.9 ルールベース発見検出と週次レポート生成（§11 / §13）
+
+**発見検出（in-memory 版 §11）**: `back/app/services/discovery_rules.py` が観察の `related_entities` を ISO 週でバケツ集計し、以下のシグナルを導出する。ダッシュボード/レポート取得時に再計算して置換する（§14.2 の BigQuery SQL 化はフェーズ2）。
+
+- `weekly_increase`: 今週 vs 前週（rate ≥ 0.5 かつ 今週 ≥ 2 件）
+- `rolling_average_increase`: 3週以上の履歴がある場合のみ、今週 vs 過去平均（簡易 §11.3）
+- `new_entity`: 企業初期コンテキストに無い語の今週初出現
+
+閾値はデモが発火するよう低めのコード内定数（構造は §14.3 準拠）。ワークスペース別設定（R11.9）と KPI 連動（§11.5、KPI スナップショット §6.4 が前提）は後続。この集計のため `Observation` に `observed_at`（ISO8601）を追加し、seed 観察を過去週に日付分散させている。
+
+**週次レポート生成（§13）**: back が retrieval（シグナル・事実・仮説・証拠・企業コンテキスト、in-memory）→ agent `POST /v1/reports/weekly`（`weekly_report_agent`、Gemini 構造化出力）→ summary / observed_facts / hypotheses / recommended_observations / limitations を生成。証拠は back が付与。`use_agent_extraction` 無効・agent 障害時は従来テンプレへフォールバック。`POST /api/reports/weekly/generate` を再生成の明示的な口として追加（in-memory ではオンデマンド生成のため GET と同処理）。scheduler / worker 化（§8.2 の週次バッチ）は後続。
