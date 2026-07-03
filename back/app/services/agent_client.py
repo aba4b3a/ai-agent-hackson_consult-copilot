@@ -10,7 +10,7 @@ from __future__ import annotations
 import httpx
 
 from app.core.config import settings
-from app.schemas.discovery import CopilotAnswerPayload, Workspace
+from app.schemas.discovery import CopilotAnswerPayload, WeeklyReportPayload, Workspace
 from app.schemas.extraction import (
     ExtractedEntity,
     ExtractedHypothesis,
@@ -22,6 +22,7 @@ from app.schemas.extraction import (
 _EXTRACT_PATH = "/v1/knowledge/extract"
 _FOLLOWUPS_PATH = "/v1/intake/followups"
 _COPILOT_PATH = "/v1/copilot/answer"
+_WEEKLY_REPORT_PATH = "/v1/reports/weekly"
 _TIMEOUT = httpx.Timeout(10.0, connect=2.0)
 
 # Deterministic fallback follow-up questions (aligned with §5.4 topics) used
@@ -91,6 +92,42 @@ def answer_copilot(
         )
         response.raise_for_status()
         return CopilotAnswerPayload.model_validate(response.json())
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def generate_weekly_report(
+    period: str,
+    signals: list[str],
+    facts: list[str],
+    hypotheses: list[str],
+    evidence: list[str],
+    workspace: Workspace,
+) -> WeeklyReportPayload | None:
+    """Ask the agent to generate the weekly Discovery Report content.
+
+    Returns the report payload, or None when agent extraction is disabled or
+    the agent is unreachable so the caller falls back to a templated report.
+    """
+    if not settings.use_agent_extraction:
+        return None
+    try:
+        response = httpx.post(
+            f"{settings.agent_base_url}{_WEEKLY_REPORT_PATH}",
+            json={
+                "period": period,
+                "context": {
+                    "signals": signals,
+                    "facts": facts,
+                    "hypotheses": hypotheses,
+                    "evidence": evidence,
+                    "workspace": _workspace_payload(workspace),
+                },
+            },
+            timeout=_TIMEOUT,
+        )
+        response.raise_for_status()
+        return WeeklyReportPayload.model_validate(response.json())
     except (httpx.HTTPError, ValueError):
         return None
 

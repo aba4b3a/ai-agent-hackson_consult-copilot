@@ -428,33 +428,35 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 11. Rule-Based Discovery Detection
 
-- [ ] 11.1 Implement discovery threshold configuration
+> _in-memory 実装（design.md §23.9）。BigQuery SQL 化はフェーズ2。閾値はコード内定数（ワークスペース別設定 R11.9 は後続）。_
+
+- [x] 11.1 Implement discovery threshold configuration
   - Define default thresholds for weekly increase, four-week average deviation, new competitor mention, recurring issue count, and KPI-linked signal.
   - Store thresholds in code or a lightweight configuration table.
   - _Requirements: R11, R18_
 
-- [ ] 11.2 Implement weekly count aggregation
+- [x] 11.2 Implement weekly count aggregation
   - Aggregate observations by week, customer segment, issue type, product, competitor, and source type.
   - Compute previous week count and percentage change.
   - _Requirements: R11_
 
-- [ ] 11.3 Implement four-week baseline comparison
+- [x] 11.3 Implement four-week baseline comparison
   - Compute recent count against trailing four-week average.
   - Create signals when thresholds are exceeded.
   - _Requirements: R11_
 
-- [ ] 11.4 Implement new entity and competitor mention detection
+- [x] 11.4 Implement new entity and competitor mention detection
   - Detect newly appearing competitors, issues, or customer needs.
   - Link detected signals to source observations and entities.
   - _Requirements: R11_
 
-- [ ] 11.5 Implement KPI-linked signal detection
+- [ ] 11.5 Implement KPI-linked signal detection <!-- KPIスナップショット（6.4）が前提のため後続 -->
   - Compare discovery signals with KPI snapshots where available.
   - Do not infer causality as fact.
   - Store KPI relationship as hypothesis or possible association.
   - _Requirements: R6, R11, R18_
 
-- [ ] 11.6 Persist discovery signals
+- [x] 11.6 Persist discovery signals
   - Insert generated signals into `discovery_signals`.
   - Include severity, signal type, affected segment, related issue/product/competitor/KPI, and evidence references.
   - _Requirements: R11, R13_
@@ -488,25 +490,27 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 13. Weekly Discovery Report
 
-- [ ] 13.1 Implement report generation worker
+> _Gemini 化済み（design.md §23.9）。オンデマンド生成（scheduler/worker 化は後続）、retrieval は in-memory、証拠は back が付与、失敗時はテンプレにフォールバック。_
+
+- [x] 13.1 Implement report generation worker
   - Load discovery signals, observations, hypotheses, KPI snapshots, graph summaries, and evidence snippets for the target week.
   - Call Gemini to generate report content.
   - Store report in BigQuery and optionally Markdown in Cloud Storage.
   - _Requirements: R13, R18_
 
-- [ ] 13.2 Implement report prompt
+- [x] 13.2 Implement report prompt
   - Require sections for summary, discovery signals, observed facts, hypotheses, evidence, related graph relationships, recommended observation topics, and limitations.
   - Forbid presenting hypotheses as facts.
   - Forbid direct business decision execution.
   - _Requirements: R6, R13, R20_
 
-- [ ] 13.3 Implement report retrieval API
+- [x] 13.3 Implement report retrieval API
   - Create `GET /api/reports/weekly`.
   - Return latest report or report by week.
   - Include links to related observations, sources, and graph slices.
   - _Requirements: R13, R16_
 
-- [ ] 13.4 Implement report regeneration API
+- [x] 13.4 Implement report regeneration API
   - Create `POST /api/reports/weekly/generate`.
   - Allow consultant to regenerate report after new sources or KPI data are added.
   - _Requirements: R13_
@@ -576,11 +580,12 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Allow opening source detail.
   - _Requirements: R8, R15_
 
-- [ ] 15.6 Build weekly report screen
+- [x] 15.6 Build weekly report screen
   - Display report sections in vertically stacked cards.
   - Clearly separate facts, hypotheses, evidence, and recommended observations.
   - Include related graph and evidence links.
   - _Requirements: R6, R13, R16_
+  - _Note: summary / 推奨観測 / limitations / 再生成ボタンを表示。事実・仮説は Knowledge Formation セクションで分離表示済み。グラフリンクは §15.4 と併せて後続。_
 
 ---
 
