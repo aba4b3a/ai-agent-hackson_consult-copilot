@@ -8,6 +8,7 @@ import { useCreateReportForm } from "@/hooks/use-create-report-form";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Pill } from "@/components/ui/pill";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const METRIC_LABELS: Record<string, string> = {
   sources_ingested: "Sources",
@@ -29,7 +30,17 @@ export function WorkspaceSummary({ workspaceId }: { workspaceId: string }) {
   const intakePath = createForm.data ? `/intake?form=${createForm.data.form_id}` : null;
 
   if (isLoading || !data) {
-    return <p className="text-sm text-text-muted">ワークスペースを読み込み中…</p>;
+    return (
+      <section id="summary" className="scroll-mt-20 space-y-5">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-full max-w-2xl" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+      </section>
+    );
   }
 
   const { workspace, metrics } = data;
@@ -45,7 +56,7 @@ export function WorkspaceSummary({ workspaceId }: { workspaceId: string }) {
   ));
 
   return (
-    <section className="space-y-5">
+    <section id="summary" className="scroll-mt-20 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-text-muted">Active workspace</p>

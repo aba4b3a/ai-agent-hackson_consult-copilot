@@ -174,24 +174,58 @@ const evidence: EvidenceResult[] = [
   },
 ];
 
-const graphSlice: GraphSlice = {
-  nodes: [
-    { id: "seg_elderly", type: "CustomerSegment", label: "高齢者", summary: "主要顧客セグメント" },
-    { id: "issue_wait", type: "Issue", label: "待ち時間", summary: "繰り返し観測される課題" },
-    { id: "comp_ekimae", type: "Competitor", label: "駅前ドラッグ", summary: "近隣競合" },
-    { id: "kpi_return", type: "KPI", label: "再来店率", summary: "固定KPI" },
-    { id: "seg_family", type: "CustomerSegment", label: "子育て世帯", summary: "顧客セグメント" },
-    { id: "comp_online", type: "Competitor", label: "オンライン服薬指導", summary: "代替サービス競合" },
-    { id: "hyp_conv", type: "Hypothesis", label: "競合利便性が不満を強める仮説", summary: "観察中の仮説" },
-  ],
-  edges: [
-    { source: "seg_elderly", target: "issue_wait", type: "MENTIONS", evidence_count: 4, fact_or_hypothesis: "fact" },
-    { source: "issue_wait", target: "comp_ekimae", type: "RELATES_TO", evidence_count: 4, fact_or_hypothesis: "fact" },
-    { source: "issue_wait", target: "kpi_return", type: "IMPACTS", evidence_count: 3, fact_or_hypothesis: "fact" },
-    { source: "seg_family", target: "comp_online", type: "MENTIONS", evidence_count: 3, fact_or_hypothesis: "fact" },
-    { source: "hyp_conv", target: "issue_wait", type: "MAY_CAUSE", evidence_count: 2, fact_or_hypothesis: "hypothesis" },
-  ],
-  summary: "観察事実を中心に、関連エンティティと観察中の仮説を分離して表示しています。",
+const graphSlices: Record<string, GraphSlice> = {
+  "customer-issue": {
+    nodes: [
+      { id: "高齢者", type: "CustomerSegment", label: "高齢者", summary: "顧客層" },
+      { id: "子育て世帯", type: "CustomerSegment", label: "子育て世帯", summary: "顧客層" },
+      { id: "待ち時間", type: "Issue", label: "待ち時間", summary: "課題" },
+      { id: "在庫切れ", type: "Issue", label: "在庫切れ", summary: "課題" },
+    ],
+    edges: [
+      { source: "高齢者", target: "待ち時間", type: "MENTIONS", evidence_count: 4, fact_or_hypothesis: "fact" },
+      { source: "子育て世帯", target: "在庫切れ", type: "MENTIONS", evidence_count: 2, fact_or_hypothesis: "fact" },
+    ],
+    summary: "事実の関係 2 件、仮説の関係 0 件を表示しています。",
+  },
+  "competitor-impact": {
+    nodes: [
+      { id: "駅前ドラッグ", type: "Competitor", label: "駅前ドラッグ", summary: "競合" },
+      { id: "オンライン服薬指導サービス", type: "Competitor", label: "オンライン服薬指導サービス", summary: "競合" },
+      { id: "待ち時間", type: "Issue", label: "待ち時間", summary: "課題" },
+      { id: "処方箋受付", type: "Product", label: "処方箋受付", summary: "商品・サービス" },
+    ],
+    edges: [
+      { source: "待ち時間", target: "駅前ドラッグ", type: "RELATES_TO", evidence_count: 4, fact_or_hypothesis: "fact" },
+      { source: "オンライン服薬指導サービス", target: "処方箋受付", type: "COMPETES_WITH", evidence_count: 2, fact_or_hypothesis: "fact" },
+    ],
+    summary: "事実の関係 2 件、仮説の関係 0 件を表示しています。",
+  },
+  "kpi-causal": {
+    nodes: [
+      { id: "待ち時間", type: "Issue", label: "待ち時間", summary: "課題" },
+      { id: "在庫切れ", type: "Issue", label: "在庫切れ", summary: "課題" },
+      { id: "再来店率", type: "KPI", label: "再来店率", summary: "KPI" },
+    ],
+    edges: [
+      { source: "待ち時間", target: "再来店率", type: "RELATES_TO", evidence_count: 3, fact_or_hypothesis: "fact" },
+      { source: "在庫切れ", target: "再来店率", type: "RELATES_TO", evidence_count: 2, fact_or_hypothesis: "fact" },
+    ],
+    summary:
+      "事実の関係 2 件、仮説の関係 0 件を表示しています。表示は共起・言及に基づく関連であり、因果を確定するものではありません。",
+  },
+  hypothesis: {
+    nodes: [
+      { id: "hyp_001", type: "Hypothesis", label: "競合の利便性訴求が、待ち時間への不満を強めている可能性がある。", summary: "観察中の仮説" },
+      { id: "待ち時間", type: "Issue", label: "待ち時間", summary: "課題" },
+      { id: "駅前ドラッグ", type: "Competitor", label: "駅前ドラッグ", summary: "競合" },
+    ],
+    edges: [
+      { source: "待ち時間", target: "hyp_001", type: "SUPPORTS", evidence_count: 2, fact_or_hypothesis: "hypothesis" },
+      { source: "駅前ドラッグ", target: "hyp_001", type: "SUPPORTS", evidence_count: 2, fact_or_hypothesis: "hypothesis" },
+    ],
+    summary: "事実の関係 0 件、仮説の関係 2 件を表示しています。",
+  },
 };
 
 const weeklyReport: WeeklyReport = {
@@ -315,8 +349,8 @@ export const discoveryMock = {
   searchEvidence(query: string): EvidenceResult[] {
     return filterEvidence(query);
   },
-  getGraphSlice(): GraphSlice {
-    return graphSlice;
+  getGraphSlice(view: string): GraphSlice {
+    return graphSlices[view] ?? graphSlices["customer-issue"];
   },
   getWeeklyReport(): WeeklyReport {
     return weeklyReport;

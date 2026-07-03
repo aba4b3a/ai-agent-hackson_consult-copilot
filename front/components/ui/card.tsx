@@ -17,20 +17,23 @@ export function Card({
   );
 }
 
-/** Section wrapper with an icon + title header, used to group related cards. */
+/** Section wrapper with an icon + title header, used to group related cards.
+ *  `id` enables sidebar anchor jumps; scroll-mt offsets the sticky header. */
 export function Section({
+  id,
   title,
   icon,
   children,
   className,
 }: {
+  id?: string;
   title: string;
   icon?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <section className={cn("space-y-4 border-t border-border py-6", className)}>
+    <section id={id} className={cn("scroll-mt-20 space-y-4 border-t border-border py-6", className)}>
       <div className="flex items-center gap-2">
         {icon ? (
           <span className="grid h-9 w-9 place-items-center rounded-md border border-border bg-surface text-text">

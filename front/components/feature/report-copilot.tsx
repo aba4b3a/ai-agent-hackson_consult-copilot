@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot, X } from "lucide-react";
 
 import { useCopilot } from "@/hooks/use-copilot";
 import { Button } from "@/components/ui/button";
-import { Card, Section } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
+import { useToast } from "@/components/ui/toast";
 
 const SUGGESTED = [
   "なぜ価格・待ち時間関連の発言が増えた？",
@@ -14,14 +14,55 @@ const SUGGESTED = [
   "来週何を観測すべき？",
 ];
 
+/**
+ * Report Copilot as a fixed bottom-right assistant: a FAB that expands into a
+ * chat panel. Grounded answers keep observed facts / hypotheses / evidence
+ * separated (R16).
+ */
 export function ReportCopilot({ workspaceId }: { workspaceId: string }) {
+  const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState(SUGGESTED[0]);
   const copilot = useCopilot(workspaceId);
+  const toast = useToast();
   const answer = copilot.data;
 
+  function handleAsk() {
+    copilot.mutate(question, {
+      onError: () => toast({ message: "回答の生成に失敗しました。", tone: "danger" }),
+    });
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        aria-label="Open Report Copilot"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-4 right-4 z-20 grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-foreground shadow-lg hover:opacity-90"
+      >
+        <Bot size={24} />
+      </button>
+    );
+  }
+
   return (
-    <Section title="Report Copilot" icon={<Bot size={18} />}>
-      <Card>
+    <div className="fixed bottom-4 right-4 z-20 flex max-h-[70vh] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-card border border-border bg-surface shadow-lg">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Bot size={18} />
+          <h2 className="text-sm font-semibold">Report Copilot</h2>
+        </div>
+        <button
+          type="button"
+          aria-label="Close Report Copilot"
+          onClick={() => setOpen(false)}
+          className="grid h-8 w-8 place-items-center rounded-md text-text-muted hover:bg-background"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="overflow-y-auto p-4">
         <div className="flex flex-wrap gap-1.5">
           {SUGGESTED.map((item) => (
             <button key={item} type="button" onClick={() => setQuestion(item)}>
@@ -41,7 +82,7 @@ export function ReportCopilot({ workspaceId }: { workspaceId: string }) {
         <Button
           className="mt-3 w-full"
           disabled={copilot.isPending || !question.trim()}
-          onClick={() => copilot.mutate(question)}
+          onClick={handleAsk}
         >
           {copilot.isPending ? "回答生成中…" : "Ask copilot"}
         </Button>
@@ -113,7 +154,7 @@ export function ReportCopilot({ workspaceId }: { workspaceId: string }) {
             ) : null}
           </div>
         ) : null}
-      </Card>
-    </Section>
+      </div>
+    </div>
   );
 }

@@ -6,17 +6,33 @@ import { useGenerateWeeklyReport, useWeeklyReport } from "@/hooks/use-weekly-rep
 import { Button } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 
 export function WeeklyReport({ workspaceId }: { workspaceId: string }) {
-  const { data } = useWeeklyReport(workspaceId);
+  const { data, isLoading } = useWeeklyReport(workspaceId);
   const generate = useGenerateWeeklyReport(workspaceId);
+  const toast = useToast();
+
+  function handleGenerate() {
+    generate.mutate(undefined, {
+      onSuccess: () => toast({ message: "レポートを再生成しました。", tone: "success" }),
+      onError: () => toast({ message: "レポートの再生成に失敗しました。", tone: "danger" }),
+    });
+  }
 
   return (
-    <Section title="Weekly Report" icon={<MessageSquareText size={18} />}>
+    <Section id="report" title="Weekly Report" icon={<MessageSquareText size={18} />}>
       <Card>
-        <p className="text-sm leading-6 text-text">
-          {data?.summary ?? "レポートを読み込み中…"}
-        </p>
+        {isLoading || generate.isPending ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-text">{data?.summary}</p>
+        )}
         {data?.period ? <p className="mt-2 text-xs text-text-muted">{data.period}</p> : null}
 
         {data && data.recommended_observations.length > 0 ? (
@@ -58,7 +74,7 @@ export function WeeklyReport({ workspaceId }: { workspaceId: string }) {
           variant="outline"
           className="mt-4 w-full"
           disabled={generate.isPending || !workspaceId}
-          onClick={() => generate.mutate()}
+          onClick={handleGenerate}
         >
           <RefreshCw size={16} />
           {generate.isPending ? "生成中…" : "レポートを再生成"}

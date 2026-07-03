@@ -465,23 +465,25 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 12. BigQuery Graph Analysis
 
-- [ ] 12.1 Implement graph slice query module
+> _in-memory 版で実装（design.md §23.10、4視点・共起+抽出関係・上限・定型サマリ）。BigQuery Graph 実接続はフェーズ2。_
+
+- [x] 12.1 Implement graph slice query module
   - Query graph-compatible views for selected center node and graph type.
   - Support graph types such as customer-issue, competitor-impact, KPI-causal, hypothesis, and knowledge-gap.
   - _Requirements: R9, R14_
 
-- [ ] 12.2 Implement graph slice API
+- [x] 12.2 Implement graph slice API
   - Create `GET /api/graph/slice`.
   - Accept workspace, graph type, center entity, date range, and limit parameters.
   - Return nodes and edges formatted for frontend graph rendering.
   - _Requirements: R9, R14_
 
-- [ ] 12.3 Implement graph summarization
+- [x] 12.3 Implement graph summarization
   - Generate a short plain-language summary of the graph slice.
   - Separate observed relationships from hypothesis relationships.
   - _Requirements: R6, R9, R14_
 
-- [ ] 12.4 Implement graph latency fallback
+- [x] 12.4 Implement graph latency fallback
   - Add loading, timeout, and cached/mock fallback behavior in UI.
   - Make clear that BigQuery Graph analysis may be slower than operational graph databases.
   - _Requirements: R9, R14, R20_
@@ -550,10 +552,11 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 15. Consultant-Facing Dashboard UI
 
-- [ ] 15.1 Build consultant home dashboard
+- [x] 15.1 Build consultant home dashboard
   - Show active client/workspace selector.
   - Show discovery feed, new signals, unresolved hypotheses, and latest weekly report summary.
   - Include quick links to Knowledge Formation, Graph Viewer, Evidence Search, and Report Copilot.
+  - _Note: quick links はサイドバー（lg以上常設 / 狭幅はハンバーガードロワー）で提供。Copilot は右下固定のフローティングウィジェット（design.md §23.11）。_
   - _Requirements: R13, R14, R15, R16_
 
 - [ ] 15.2 Build knowledge formation screen
@@ -568,11 +571,12 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Emphasize speed of knowledge formation over strict review.
   - _Requirements: R17, R20_
 
-- [ ] 15.4 Build knowledge graph viewer screen
+- [x] 15.4 Build knowledge graph viewer screen
   - Support graph tabs: Customer x Issue, Competitor Impact, KPI Causal, Hypothesis, and Gap Graph.
   - Show mobile-friendly graph cards, mini network views, relationship lists, and key node summaries.
   - Allow graph filter by segment, product, competitor, KPI, and date range.
   - _Requirements: R9, R14_
+  - _Note: 4視点（Customer×Issue / Competitor Impact / KPI Causal / Hypothesis）を実データ切替で実装。Gap Graph・期間/属性フィルタ・ノード詳細パネルは後続。_
 
 - [ ] 15.5 Build search and evidence screen
   - Provide keyword search box and filters.

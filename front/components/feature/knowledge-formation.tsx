@@ -11,7 +11,7 @@ export function KnowledgeFormation({ workspaceId }: { workspaceId: string }) {
   const hypotheses = data?.hypotheses ?? [];
 
   return (
-    <Section title="Knowledge Formation" icon={<ChartNoAxesCombined size={18} />}>
+    <Section id="knowledge" title="Knowledge Formation" icon={<ChartNoAxesCombined size={18} />}>
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <h3 className="font-medium">Observed facts</h3>
