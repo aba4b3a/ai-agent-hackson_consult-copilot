@@ -1,0 +1,13 @@
+{
+  "company_id": "SMB-1042",
+  "company_name": "北斗精密工業",
+  "schema_version": "sample-2026-07-04",
+  "generated_from": "agent.tools.wiki_tools render_wiki_files compatible structure",
+  "files": [
+    "company_profile.md",
+    "kpi_definitions.yaml",
+    "focus_metrics.yaml",
+    "research_policy.yaml",
+    "open_questions.yaml"
+  ]
+}

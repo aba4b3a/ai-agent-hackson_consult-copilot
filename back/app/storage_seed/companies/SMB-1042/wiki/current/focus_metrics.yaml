@@ -1,0 +1,34 @@
+focus_metrics:
+  - focus_metric_id: focus_price_recheck_count
+    name: 価格再確認回数
+    category: pricing_signal
+    description: "顧客が見積後に価格や他社比較を確認した回数。"
+    related_kpis:
+      - "kpi_quote_win_rate"
+      - "kpi_quote_gross_margin"
+    observation_signals:
+      - "price_recheck"
+      - "competitor_comparison"
+    trigger_condition: "週3回以上、または同一顧客で2回以上発生"
+    followup_policy: "営業担当に対象商品、顧客、競合名、値引き要求有無を追加質問する。"
+    measurement_frequency: weekly
+    status: proposed
+    confidence: 0.9
+    source_refs:
+      - "resp_followup_001"
+  - focus_metric_id: focus_small_lot_quote_delay
+    name: 小ロット見積停滞日数
+    category: quote_cycle_signal
+    description: "小ロット案件の見積提出から意思決定までの日数。"
+    related_kpis:
+      - "kpi_quote_win_rate"
+    observation_signals:
+      - "quote_cycle_delay"
+      - "small_lot"
+    trigger_condition: "平均7日超、または前月比20%以上増加"
+    followup_policy: "営業責任者に停滞理由と顧客側の比較条件を確認する。"
+    measurement_frequency: weekly
+    status: proposed
+    confidence: 0.76
+    source_refs:
+      - "resp_onboard_002"

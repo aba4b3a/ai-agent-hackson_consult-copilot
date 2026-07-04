@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import httpx
+from app.services.sample_company_data import sample_company_data
 
 
 def _agent_url() -> str:
@@ -38,7 +39,7 @@ class CopilotService:
                 resp.raise_for_status()
                 reply = _extract_reply(resp.json())
         except Exception as e:
-            reply = f"[Agent unavailable: {e}]"
+            reply = sample_company_data.copilot_answer(company_id, message) or f"[Agent unavailable: {e}]"
 
         return {"company_id": company_id, "session_id": sid, "reply": reply}
 

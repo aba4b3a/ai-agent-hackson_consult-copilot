@@ -3,6 +3,7 @@ DRY_RUN=true or BQ接続失敗時はフォールバックデータを返す。""
 from __future__ import annotations
 from app.core.config import settings
 from app.crud.bigquery_crud import bigquery_crud
+from app.services.sample_company_data import sample_company_data
 
 
 def _query(sql: str) -> list[dict]:
@@ -21,6 +22,7 @@ class DashboardService:
     def get_dashboard(self, company_id: str) -> dict:
         dataset = settings.dataset_id(company_id)
         project = settings.project_id
+        sample_dashboard = sample_company_data.dashboard(company_id)
 
         node_rows = _query(f"""
             SELECT node_type, COUNT(*) AS cnt
@@ -42,6 +44,8 @@ class DashboardService:
         """)
 
         total_nodes = sum(r["cnt"] for r in node_rows)
+        if total_nodes == 0 and sample_dashboard:
+            return sample_dashboard
         insights = [
             {
                 "id": f"sig-{i}",
@@ -74,6 +78,7 @@ class DashboardService:
     def get_knowledge_stats(self, company_id: str) -> dict:
         dataset = settings.dataset_id(company_id)
         project = settings.project_id
+        sample_stats = sample_company_data.knowledge_stats(company_id)
 
         type_rows = _query(f"""
             SELECT node_type, COUNT(*) AS cnt
@@ -93,6 +98,8 @@ class DashboardService:
 
         type_map = {r["node_type"]: r["cnt"] for r in type_rows}
         total_nodes = sum(type_map.values())
+        if total_nodes == 0 and sample_stats:
+            return sample_stats
         total_edges = edge_rows[0]["cnt"] if edge_rows else 0
         total_responses = resp_rows[0]["cnt"] if resp_rows else 0
         score = min(100, int((total_nodes / max(1, total_nodes + 5)) * 100))
@@ -138,6 +145,7 @@ class DashboardService:
     def get_graph_nodes(self, company_id: str) -> dict:
         dataset = settings.dataset_id(company_id)
         project = settings.project_id
+        sample_graph = sample_company_data.graph_nodes(company_id)
 
         node_rows = _query(f"""
             SELECT node_id, node_type, label, confidence
@@ -151,6 +159,8 @@ class DashboardService:
         """)
         total_nodes = len(node_rows)
         total_edges = len(edge_rows)
+        if total_nodes == 0 and sample_graph:
+            return sample_graph
 
         tone_map = {"Signal": "rose", "KPI": "amber", "TacitKnowledge": "violet", "Person": "cyan"}
         positions = ["topLeft", "topRight", "bottomLeft", "bottomRight", "center"]
@@ -198,6 +208,7 @@ class DashboardService:
     def get_weekly_report(self, company_id: str) -> dict:
         dataset = settings.dataset_id(company_id)
         project = settings.project_id
+        sample_report = sample_company_data.weekly_report(company_id)
 
         signal_rows = _query(f"""
             SELECT node_type, label, description, confidence, created_at
@@ -214,6 +225,8 @@ class DashboardService:
             ORDER BY confidence DESC LIMIT 5
         """)
         total_this_week = len(signal_rows) + len(tacit_rows)
+        if total_this_week == 0 and sample_report:
+            return sample_report
 
         highlights = []
         for i, r in enumerate(signal_rows[:3]):

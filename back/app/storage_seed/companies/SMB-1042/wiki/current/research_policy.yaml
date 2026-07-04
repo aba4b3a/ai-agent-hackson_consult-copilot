@@ -1,0 +1,18 @@
+research_policy:
+  company_id: SMB-1042
+  max_questions_per_run: 3
+  active_research_tasks:
+    - task_id: research_sales_weekly_price
+      target_role: "営業担当"
+      frequency: weekly
+      purpose: "価格再確認と競合比較の発生状況を把握する。"
+      related_kpis:
+        - "kpi_quote_win_rate"
+        - "kpi_quote_gross_margin"
+      related_focus_metrics:
+        - "focus_price_recheck_count"
+      base_questions:
+        - "今週、顧客から価格について聞かれたことはありましたか？"
+        - "それはどの商品・案件についてでしたか？"
+        - "競合名や他社見積への言及はありましたか？"
+      followup_policy: "回答が曖昧な場合は、顧客名、商品、回数、値引き要求有無だけを追加で聞く。"

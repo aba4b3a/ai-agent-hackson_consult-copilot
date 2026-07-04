@@ -1,0 +1,11 @@
+open_questions:
+  - question_id: oq_price_recheck_threshold
+    title: "価格再確認回数の閾値"
+    reason: "週3回以上を暫定トリガーにしているが、過去実績との比較が未確認。"
+    owner_role: "営業責任者"
+    status: open
+  - question_id: oq_small_lot_margin_baseline
+    title: "小ロット案件の粗利基準"
+    reason: "見積粗利率の低下を判断する基準値が未承認。"
+    owner_role: "代表取締役"
+    status: open

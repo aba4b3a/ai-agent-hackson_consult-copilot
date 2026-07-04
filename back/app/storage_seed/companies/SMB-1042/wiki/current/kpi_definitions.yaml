@@ -1,0 +1,29 @@
+kpis:
+  - kpi_id: kpi_quote_gross_margin
+    name: 見積粗利率
+    domain: profitability
+    type: result
+    unit: percent
+    description: "見積段階の想定粗利率。小ロット・短納期案件を別集計する。"
+    calculation_formula: "(見積金額 - 想定原価) / 見積金額"
+    measurement_frequency: weekly
+    data_source: "見積台帳 / 原価見積"
+    status: proposed
+    confidence: 0.86
+    source_refs:
+      - "resp_onboard_001"
+      - "resp_onboard_002"
+  - kpi_id: kpi_quote_win_rate
+    name: 見積成約率
+    domain: sales
+    type: result
+    unit: percent
+    description: "提出見積の受注化率。価格再確認回数と競合言及を先行指標として見る。"
+    calculation_formula: "受注見積数 / 提出見積数"
+    measurement_frequency: weekly
+    data_source: "CRM / 見積管理表"
+    status: proposed
+    confidence: 0.82
+    source_refs:
+      - "resp_onboard_002"
+      - "resp_followup_001"

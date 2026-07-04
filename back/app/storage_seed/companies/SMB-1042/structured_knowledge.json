@@ -1,0 +1,250 @@
+{
+  "company": {
+    "company_id": "SMB-1042",
+    "company_name": "北斗精密工業",
+    "industry": "製造業",
+    "segment": "中小製造業 / 精密加工部品",
+    "consulting_theme": "価格交渉力と見積粗利の回復"
+  },
+  "survey_responses": [
+    {
+      "response_id": "resp_onboard_001",
+      "company_id": "SMB-1042",
+      "question_id": "common_initial_q01",
+      "respondent_role": "代表取締役",
+      "collected_at": "2026-07-01T09:30:00Z",
+      "survey_frequency": "initial",
+      "question_text": "主力の商品・サービスと顧客構造を教えてください。",
+      "answer_type": "text",
+      "raw_answer": "売上の約65%は産業機械メーカー向けの精密シャフトと治具部品です。大口3社の発注比率が高く、短納期の追加加工が増えています。",
+      "numeric_value": null,
+      "qualitative_summary": "大口顧客依存と短納期追加加工の増加が事業構造の中心。",
+      "quantitative_summary": "売上65%が主力部品、大口3社依存。",
+      "tags": ["business_structure", "customer_concentration", "short_lead_time"]
+    },
+    {
+      "response_id": "resp_onboard_002",
+      "company_id": "SMB-1042",
+      "question_id": "common_initial_q08",
+      "respondent_role": "営業責任者",
+      "collected_at": "2026-07-01T10:15:00Z",
+      "survey_frequency": "initial",
+      "question_text": "数字には出ていない違和感や現場の変化を教えてください。",
+      "answer_type": "text",
+      "raw_answer": "ここ2か月、見積提出後に『競合はもう少し安い』と言われる回数が増えました。特に小ロット品で価格確認が長引き、成約までの日数が伸びています。",
+      "numeric_value": null,
+      "qualitative_summary": "競合価格への言及と小ロット見積の停滞が増えている。",
+      "quantitative_summary": "直近2か月で価格関連発言が増加。",
+      "tags": ["price_signal", "competitor_mention", "quote_cycle"]
+    },
+    {
+      "response_id": "resp_followup_001",
+      "company_id": "SMB-1042",
+      "question_id": "research_weekly_sales_001",
+      "respondent_role": "営業担当",
+      "collected_at": "2026-07-03T08:50:00Z",
+      "survey_frequency": "weekly",
+      "question_text": "今週、顧客から価格や競合について聞かれたことはありましたか？",
+      "answer_type": "text",
+      "raw_answer": "A社の小ロット案件で価格の再確認が2回ありました。競合名は出ませんでしたが『他社見積と合わせたい』という発言がありました。",
+      "numeric_value": 2,
+      "qualitative_summary": "A社小ロット案件で価格再確認が複数回発生。",
+      "quantitative_summary": "価格再確認2回。",
+      "tags": ["weekly_research", "price_recheck", "small_lot"]
+    }
+  ],
+  "knowledge_nodes": [
+    {
+      "node_id": "node_company_profile_smb_1042",
+      "company_id": "SMB-1042",
+      "node_type": "CompanyProfile",
+      "label": "北斗精密工業",
+      "description": "産業機械メーカー向けの精密シャフトと治具部品を主力とする中小製造業。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.94,
+      "status": "active",
+      "properties": {"source": "onboarding", "confirmed": true}
+    },
+    {
+      "node_id": "node_kpi_quote_gross_margin",
+      "company_id": "SMB-1042",
+      "node_type": "KPI",
+      "label": "見積粗利率",
+      "description": "見積段階で想定される粗利率。短納期追加加工と小ロット案件で低下リスクがある。",
+      "source_response_id": "resp_onboard_002",
+      "confidence": 0.86,
+      "status": "active",
+      "properties": {"domain": "profitability", "kpi_type": "result", "frequency": "weekly"}
+    },
+    {
+      "node_id": "node_kpi_quote_win_rate",
+      "company_id": "SMB-1042",
+      "node_type": "KPI",
+      "label": "見積成約率",
+      "description": "提出見積のうち受注に至った割合。競合価格への言及増加により観測が必要。",
+      "source_response_id": "resp_onboard_002",
+      "confidence": 0.82,
+      "status": "active",
+      "properties": {"domain": "sales", "kpi_type": "result", "frequency": "weekly"}
+    },
+    {
+      "node_id": "node_signal_price_recheck",
+      "company_id": "SMB-1042",
+      "node_type": "Signal",
+      "label": "価格再確認回数",
+      "description": "見積提出後に価格や他社見積との比較を確認される回数。見積成約率の先行指標。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.9,
+      "status": "active",
+      "properties": {"metric_category": "pricing", "latest_value": 2, "unit": "times/week"}
+    },
+    {
+      "node_id": "node_signal_competitor_price_mention",
+      "company_id": "SMB-1042",
+      "node_type": "Signal",
+      "label": "競合価格言及",
+      "description": "顧客が競合や他社見積を理由に価格調整を求める発言。",
+      "source_response_id": "resp_onboard_002",
+      "confidence": 0.84,
+      "status": "active",
+      "properties": {"metric_category": "competition", "observation": "sales_interview"}
+    },
+    {
+      "node_id": "node_tacit_veteran_estimate_adjustment",
+      "company_id": "SMB-1042",
+      "node_type": "TacitKnowledge",
+      "label": "ベテランの見積調整判断",
+      "description": "加工難易度、段取り替え、短納期対応を加味して見積に安全率を乗せる判断が属人化している。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.78,
+      "status": "active",
+      "properties": {"risk": "person_dependency", "owner_role": "工場長"}
+    },
+    {
+      "node_id": "node_research_policy_sales_weekly",
+      "company_id": "SMB-1042",
+      "node_type": "ResearchPolicy",
+      "label": "営業週次価格ヒアリング",
+      "description": "営業担当に週1回、価格再確認、競合言及、対象商品、顧客名を確認する。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.88,
+      "status": "active",
+      "properties": {"frequency": "weekly", "target_role": "sales"}
+    }
+  ],
+  "knowledge_edges": [
+    {
+      "edge_id": "edge_signal_price_to_win_rate",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_signal_price_recheck",
+      "target_node_id": "node_kpi_quote_win_rate",
+      "edge_type": "LEADING_INDICATOR_OF",
+      "description": "価格再確認回数が増えると見積成約率の低下リスクが高まる。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.82,
+      "strength": 0.76,
+      "observed_count": 2,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_competitor_to_margin",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_signal_competitor_price_mention",
+      "target_node_id": "node_kpi_quote_gross_margin",
+      "edge_type": "PRESSURES",
+      "description": "競合価格への言及が値引き圧力となり見積粗利率に影響する。",
+      "source_response_id": "resp_onboard_002",
+      "confidence": 0.79,
+      "strength": 0.72,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_tacit_to_margin",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_tacit_veteran_estimate_adjustment",
+      "target_node_id": "node_kpi_quote_gross_margin",
+      "edge_type": "PROTECTS",
+      "description": "ベテランの見積調整判断は短納期案件の粗利確保に寄与する可能性がある。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.74,
+      "strength": 0.68,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    }
+  ],
+  "kpi_candidates": [
+    {
+      "kpi_candidate_id": "kpi_quote_gross_margin",
+      "kpi_name": "見積粗利率",
+      "kpi_domain": "profitability",
+      "kpi_type": "result",
+      "description": "見積段階の想定粗利率。小ロット・短納期案件を別集計する。",
+      "calculation_hint": "(見積金額 - 想定原価) / 見積金額",
+      "measurement_frequency": "weekly",
+      "data_source_hint": "見積台帳 / 原価見積",
+      "approval_status": "proposed",
+      "confidence": 0.86,
+      "source_refs": ["resp_onboard_001", "resp_onboard_002"]
+    },
+    {
+      "kpi_candidate_id": "kpi_quote_win_rate",
+      "kpi_name": "見積成約率",
+      "kpi_domain": "sales",
+      "kpi_type": "result",
+      "description": "提出見積の受注化率。価格再確認回数と競合言及を先行指標として見る。",
+      "calculation_hint": "受注見積数 / 提出見積数",
+      "measurement_frequency": "weekly",
+      "data_source_hint": "CRM / 見積管理表",
+      "approval_status": "proposed",
+      "confidence": 0.82,
+      "source_refs": ["resp_onboard_002", "resp_followup_001"]
+    }
+  ],
+  "focus_metric_candidates": [
+    {
+      "focus_metric_candidate_id": "focus_price_recheck_count",
+      "metric_name": "価格再確認回数",
+      "metric_category": "pricing_signal",
+      "description": "顧客が見積後に価格や他社比較を確認した回数。",
+      "related_kpi_candidate_ids": ["kpi_quote_win_rate", "kpi_quote_gross_margin"],
+      "observation_signal_types": ["price_recheck", "competitor_comparison"],
+      "trigger_condition": "週3回以上、または同一顧客で2回以上発生",
+      "followup_policy": "営業担当に対象商品、顧客、競合名、値引き要求有無を追加質問する。",
+      "measurement_frequency": "weekly",
+      "approval_status": "proposed",
+      "confidence": 0.9,
+      "source_refs": ["resp_followup_001"]
+    },
+    {
+      "focus_metric_candidate_id": "focus_small_lot_quote_delay",
+      "metric_name": "小ロット見積停滞日数",
+      "metric_category": "quote_cycle_signal",
+      "description": "小ロット案件の見積提出から意思決定までの日数。",
+      "related_kpi_candidate_ids": ["kpi_quote_win_rate"],
+      "observation_signal_types": ["quote_cycle_delay", "small_lot"],
+      "trigger_condition": "平均7日超、または前月比20%以上増加",
+      "followup_policy": "営業責任者に停滞理由と顧客側の比較条件を確認する。",
+      "measurement_frequency": "weekly",
+      "approval_status": "proposed",
+      "confidence": 0.76,
+      "source_refs": ["resp_onboard_002"]
+    }
+  ],
+  "research_plan": [
+    {
+      "research_task_id": "research_sales_weekly_price",
+      "target_role": "営業担当",
+      "frequency": "weekly",
+      "question_intent": "価格再確認と競合比較の発生状況を把握する。",
+      "related_kpi_candidates": ["kpi_quote_win_rate", "kpi_quote_gross_margin"],
+      "related_focus_metric_candidates": ["focus_price_recheck_count"],
+      "base_questions": [
+        "今週、顧客から価格について聞かれたことはありましたか？",
+        "それはどの商品・案件についてでしたか？",
+        "競合名や他社見積への言及はありましたか？"
+      ],
+      "followup_policy": "回答が曖昧な場合は、顧客名、商品、回数、値引き要求有無だけを追加で聞く。"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-export const companyId = process.env.NEXT_PUBLIC_COMPANY_ID ?? "demo";
+export const companyId = process.env.NEXT_PUBLIC_COMPANY_ID ?? "SMB-1042";
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, {

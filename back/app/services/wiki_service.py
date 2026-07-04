@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from app.crud.storage_crud import storage_crud
+from app.services.sample_company_data import sample_company_data
 
 
 class WikiService:
@@ -11,7 +12,8 @@ class WikiService:
 
     def list_current_files(self, company_id: str) -> list[dict[str, Any]]:
         prefix = f'{self._tenant_wiki_prefix(company_id)}/current/'
-        return storage_crud.list_prefix(prefix)
+        items = storage_crud.list_prefix(prefix)
+        return items or sample_company_data.wiki_files(company_id)
 
     def list_versions(self, company_id: str) -> list[str]:
         prefix = f'{self._tenant_wiki_prefix(company_id)}/versions/'
@@ -35,7 +37,13 @@ class WikiService:
     def read_current_file(self, company_id: str, relative_path: str) -> str:
         safe_relative = relative_path.lstrip('/').replace('..', '_')
         path = f'{self._tenant_wiki_prefix(company_id)}/current/{safe_relative}'
-        return storage_crud.read_text(path)
+        try:
+            return storage_crud.read_text(path)
+        except FileNotFoundError:
+            sample_text = sample_company_data.read_wiki_file(company_id, safe_relative)
+            if sample_text is None:
+                raise
+            return sample_text
 
     def read_version_file(self, company_id: str, version: str, relative_path: str) -> str:
         safe_version = version.replace('/', '').replace('..', '_')
