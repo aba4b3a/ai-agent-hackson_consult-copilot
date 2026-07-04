@@ -4,6 +4,6 @@ import { getKnowledgeData } from "@/services/knowledge-service";
 export const useKnowledge = () => {
   return useQuery({
     queryKey: ["knowledge"],
-    queryFn: getKnowledgeData,
+    queryFn: () => getKnowledgeData(),
   });
 };

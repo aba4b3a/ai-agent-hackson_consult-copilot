@@ -5,14 +5,14 @@ import { listWikiFiles, listWikiVersions, readWikiFile } from "@/services/wiki-s
 export const useWikiFiles = () =>
   useQuery({
     queryKey: ["wiki-files"],
-    queryFn: listWikiFiles,
+    queryFn: () => listWikiFiles(),
     staleTime: 30_000,
   });
 
 export const useWikiVersions = () =>
   useQuery({
     queryKey: ["wiki-versions"],
-    queryFn: listWikiVersions,
+    queryFn: () => listWikiVersions(),
     staleTime: 30_000,
   });
 

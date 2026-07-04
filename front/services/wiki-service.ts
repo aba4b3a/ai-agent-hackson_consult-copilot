@@ -25,14 +25,14 @@ export type WikiFileContent = {
   content: string;
 };
 
-export const listWikiFiles = (): Promise<WikiFilesResponse> =>
-  apiFetch(`/api/v1/companies/${companyId}/wiki/files`);
+export const listWikiFiles = (targetCompanyId = companyId): Promise<WikiFilesResponse> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/wiki/files`);
 
-export const listWikiVersions = (): Promise<WikiVersionsResponse> =>
-  apiFetch(`/api/v1/companies/${companyId}/wiki/versions`);
+export const listWikiVersions = (targetCompanyId = companyId): Promise<WikiVersionsResponse> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/wiki/versions`);
 
-export const readWikiFile = (path: string, version?: string): Promise<WikiFileContent> => {
+export const readWikiFile = (path: string, version?: string, targetCompanyId = companyId): Promise<WikiFileContent> => {
   const qs = new URLSearchParams({ path });
   if (version) qs.set("version", version);
-  return apiFetch(`/api/v1/companies/${companyId}/wiki/files/content?${qs.toString()}`);
+  return apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/wiki/files/content?${qs.toString()}`);
 };

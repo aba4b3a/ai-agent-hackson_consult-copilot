@@ -16,7 +16,7 @@ export const CompanySwitcher = () => {
   };
 
   return (
-    <div className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-slate-900 shadow-[0_12px_28px_rgba(15,23,42,0.12)] backdrop-blur md:right-6">
+    <div className="fixed right-4 top-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-slate-900 shadow-[0_12px_28px_rgba(15,23,42,0.12)] backdrop-blur md:right-6 xl:right-[27rem]">
       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-slate-900 text-white">
         <span aria-hidden="true" className="text-xs font-black">
           Co

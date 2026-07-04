@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { CompanySwitcher } from "@/components/feature/auth/CompanySwitcher";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
+import { PersistentAiChat } from "@/components/feature/copilot/PersistentAiChat";
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
@@ -28,6 +29,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
       {!isSignInPage ? <CompanySwitcher /> : null}
+      {!isSignInPage ? <PersistentAiChat /> : null}
       {children}
     </>
   );
