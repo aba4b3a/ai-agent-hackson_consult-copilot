@@ -1,0 +1,11 @@
+open_questions:
+  - question_id: oq_rainy_day_baking_rule
+    title: "雨天日の焼成量調整ルール"
+    reason: "雨の日でも夕方まとめ買いが発生するため、単純な減産では欠品リスクがある。"
+    owner_role: "店長"
+    status: open
+  - question_id: oq_discount_start_time
+    title: "閉店前値引き開始時刻"
+    reason: "値引き開始が遅れると惣菜パン廃棄が増える可能性がある。"
+    owner_role: "販売責任者"
+    status: open

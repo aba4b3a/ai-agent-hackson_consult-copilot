@@ -1,0 +1,19 @@
+research_policy:
+  company_id: SMB-2198
+  max_questions_per_run: 3
+  active_research_tasks:
+    - task_id: research_store_weekly_ops
+      target_role: "店長・販売スタッフ"
+      frequency: weekly
+      purpose: "欠品、廃棄、天候、値引き判断のズレを把握する。"
+      related_kpis:
+        - "kpi_average_ticket"
+        - "kpi_waste_rate"
+      related_focus_metrics:
+        - "focus_15_stockout_count"
+        - "focus_closing_waste_count"
+      base_questions:
+        - "今週、15時時点で欠品していた売れ筋商品はありましたか？"
+        - "閉店前に廃棄が多かった商品カテゴリは何ですか？"
+        - "天候や近隣イベントで客数にいつもと違う動きはありましたか？"
+      followup_policy: "回答が曖昧な場合は、商品名、時間帯、個数、値引き開始時刻だけを追加で聞く。"

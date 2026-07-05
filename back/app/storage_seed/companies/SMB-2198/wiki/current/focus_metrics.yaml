@@ -1,0 +1,33 @@
+focus_metrics:
+  - focus_metric_id: focus_15_stockout_count
+    name: 15時時点欠品数
+    category: stockout_signal
+    description: "15時時点で売れ筋商品が欠品している数。"
+    related_kpis:
+      - "kpi_average_ticket"
+    observation_signals:
+      - "stockout"
+      - "time_band"
+    trigger_condition: "人気商品2品以上が15時台に欠品"
+    followup_policy: "販売スタッフに欠品商品、時間帯、買い逃し発言、追加焼成可否を確認する。"
+    measurement_frequency: daily
+    status: proposed
+    confidence: 0.91
+    source_refs:
+      - "resp_aoba_followup_001"
+  - focus_metric_id: focus_closing_waste_count
+    name: 閉店前廃棄数
+    category: waste_signal
+    description: "閉店時に廃棄した商品数。値引き開始と焼成量調整の先行確認に使う。"
+    related_kpis:
+      - "kpi_waste_rate"
+    observation_signals:
+      - "waste"
+      - "discount_timing"
+    trigger_condition: "1日10個以上、または同一カテゴリで3日連続発生"
+    followup_policy: "店長に天候、焼成量、値引き開始時刻、残ったカテゴリを確認する。"
+    measurement_frequency: daily
+    status: proposed
+    confidence: 0.9
+    source_refs:
+      - "resp_aoba_followup_001"

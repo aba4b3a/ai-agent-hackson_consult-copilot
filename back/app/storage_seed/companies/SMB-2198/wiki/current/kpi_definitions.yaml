@@ -1,0 +1,27 @@
+kpis:
+  - kpi_id: kpi_average_ticket
+    name: 客単価
+    domain: sales
+    type: result
+    unit: yen
+    description: "1会計あたりの平均購入金額。欠品やついで買い減少を検知する。"
+    calculation_formula: "売上 / 会計数"
+    measurement_frequency: daily
+    data_source: "POS"
+    status: proposed
+    confidence: 0.88
+    source_refs:
+      - "resp_aoba_onboard_002"
+  - kpi_id: kpi_waste_rate
+    name: 廃棄率
+    domain: operations
+    type: result
+    unit: percent
+    description: "製造数に対する閉店時廃棄数の割合。"
+    calculation_formula: "廃棄数 / 製造数"
+    measurement_frequency: daily
+    data_source: "製造記録 / POS / 廃棄記録"
+    status: proposed
+    confidence: 0.9
+    source_refs:
+      - "resp_aoba_followup_001"

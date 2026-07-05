@@ -1,0 +1,289 @@
+{
+  "company": {
+    "company_id": "SMB-2198",
+    "company_name": "青葉ベーカリー&カフェ",
+    "industry": "飲食・小売",
+    "segment": "ベーカリー併設カフェ / 路面店2店舗",
+    "consulting_theme": "客単価、廃棄率、リピート来店率の改善"
+  },
+  "ui": {
+    "dashboard_summary": "雨天時の客数減、15時以降の欠品、閉店前廃棄が、客単価と廃棄率の先行シグナルになっています。",
+    "knowledge_status": "青葉ベーカリー&カフェのKPI候補・重点管理指標候補を読込済み",
+    "gap_description": "雨天時の販促判断と焼成量調整の基準は、店長経験に依存しており承認前の未確定情報です。",
+    "gap_tags": [
+      {"id": "gap-rain", "label": "rainy day demand", "tone": "blue"},
+      {"id": "gap-waste", "label": "waste threshold", "tone": "rose"}
+    ],
+    "graph_filters": ["全て", "天候", "欠品", "廃棄", "リピート"],
+    "graph_title": "Cafe Retail Signal Map",
+    "graph_customers": "夕方来店客 / 常連客 / 雨天時の近隣客",
+    "graph_hypothesis": "15時以降の欠品と雨天時の来店減が、客単価とリピート来店率を押し下げる可能性があります。",
+    "graph_lens": [
+      {"id": "l1", "label": "Fact graph", "value": "POS・店長メモから確認した客数、欠品、廃棄"},
+      {"id": "l2", "label": "Hypothesis graph", "value": "雨天販促とリピート率の関係"},
+      {"id": "l3", "label": "Gap graph", "value": "天候別焼成量と閉店前値引き基準が未整理"},
+      {"id": "l4", "label": "KPI graph", "value": "客単価・廃棄率・リピート来店率との関連"}
+    ],
+    "report_period": "SMB-2198 / 2026-07-01 - 2026-07-04",
+    "weekly_summary": "雨天日に客数が落ち、15時台の人気商品欠品と閉店前廃棄が同時に発生。焼成量と販促の重点観測が必要です。",
+    "report_snippets": [
+      "雨天日の14時以降、カフェ席の利用が通常より約25%少ない。",
+      "クロワッサンと塩パンが15時台に欠品し、夕方来店客の買い逃しが発生。",
+      "閉店前に惣菜パンの廃棄が12個発生し、値引き判断が遅れた可能性。"
+    ],
+    "recommendation": "店長と販売スタッフへ、天候、15時時点の欠品、閉店前廃棄、値引き判断を週次で確認してください。",
+    "copilot_conclusion": "現時点では「15時時点欠品数」「閉店前廃棄数」「雨天時客数差」を先行指標として、客単価・廃棄率・リピート来店率を観測するのが妥当です。"
+  },
+  "survey_responses": [
+    {
+      "response_id": "resp_aoba_onboard_001",
+      "company_id": "SMB-2198",
+      "question_id": "common_initial_q01",
+      "respondent_role": "オーナー",
+      "collected_at": "2026-07-01T09:00:00Z",
+      "survey_frequency": "initial",
+      "question_text": "主力の商品・サービスと顧客構造を教えてください。",
+      "answer_type": "text",
+      "raw_answer": "駅前と住宅街に2店舗あるベーカリー併設カフェです。朝は通勤客、昼は近隣オフィス、夕方は常連の持ち帰りが中心です。クロワッサン、塩パン、季節の惣菜パンが売れ筋です。",
+      "numeric_value": null,
+      "qualitative_summary": "時間帯ごとに顧客層と売れ筋が変わる飲食・小売店舗。",
+      "quantitative_summary": "2店舗運営。",
+      "tags": ["business_structure", "retail", "food_service", "time_band"]
+    },
+    {
+      "response_id": "resp_aoba_onboard_002",
+      "company_id": "SMB-2198",
+      "question_id": "common_initial_q08",
+      "respondent_role": "店長",
+      "collected_at": "2026-07-01T10:20:00Z",
+      "survey_frequency": "initial",
+      "question_text": "数字には出ていない違和感や現場の変化を教えてください。",
+      "answer_type": "text",
+      "raw_answer": "雨の日は客数が落ちますが、夕方に常連さんがまとめ買いする日もあります。15時台に人気商品が欠品すると、ついで買いも減っている気がします。",
+      "numeric_value": null,
+      "qualitative_summary": "天候と15時台の欠品が客単価・リピートに影響している可能性。",
+      "quantitative_summary": "雨天影響と15時欠品を要観測。",
+      "tags": ["weather_signal", "stockout", "repeat_customer"]
+    },
+    {
+      "response_id": "resp_aoba_followup_001",
+      "company_id": "SMB-2198",
+      "question_id": "research_weekly_store_001",
+      "respondent_role": "販売スタッフ",
+      "collected_at": "2026-07-03T18:30:00Z",
+      "survey_frequency": "weekly",
+      "question_text": "今週、欠品や廃棄で気になった商品はありましたか？",
+      "answer_type": "text",
+      "raw_answer": "金曜は15時半にクロワッサンと塩パンが欠品しました。雨で客数は少なかったのに、閉店前に惣菜パンが12個残りました。値引き開始が少し遅かったです。",
+      "numeric_value": 12,
+      "qualitative_summary": "人気商品欠品と惣菜パン廃棄が同日に発生。",
+      "quantitative_summary": "閉店前廃棄12個。",
+      "tags": ["weekly_research", "stockout", "waste", "discount_timing"]
+    }
+  ],
+  "knowledge_nodes": [
+    {
+      "node_id": "node_company_profile_smb_2198",
+      "company_id": "SMB-2198",
+      "node_type": "CompanyProfile",
+      "label": "青葉ベーカリー&カフェ",
+      "description": "駅前と住宅街に2店舗を持つベーカリー併設カフェ。時間帯により顧客層と購買目的が変わる。",
+      "source_response_id": "resp_aoba_onboard_001",
+      "confidence": 0.94,
+      "status": "active",
+      "properties": {"source": "onboarding", "confirmed": true}
+    },
+    {
+      "node_id": "node_kpi_average_ticket",
+      "company_id": "SMB-2198",
+      "node_type": "KPI",
+      "label": "客単価",
+      "description": "1会計あたりの平均購入金額。欠品やついで買い減少の影響を見る。",
+      "source_response_id": "resp_aoba_onboard_002",
+      "confidence": 0.88,
+      "status": "active",
+      "properties": {"domain": "sales", "kpi_type": "result", "frequency": "daily"}
+    },
+    {
+      "node_id": "node_kpi_waste_rate",
+      "company_id": "SMB-2198",
+      "node_type": "KPI",
+      "label": "廃棄率",
+      "description": "製造数に対する閉店時廃棄数の割合。焼成量と値引き開始判断の妥当性を見る。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.9,
+      "status": "active",
+      "properties": {"domain": "operations", "kpi_type": "result", "frequency": "daily"}
+    },
+    {
+      "node_id": "node_signal_15_stockout",
+      "company_id": "SMB-2198",
+      "node_type": "Signal",
+      "label": "15時時点欠品数",
+      "description": "15時台に人気商品が欠品している数。夕方のついで買いとリピート来店率の先行指標。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.91,
+      "status": "active",
+      "properties": {"metric_category": "stockout", "latest_value": 2, "unit": "items"}
+    },
+    {
+      "node_id": "node_signal_closing_waste",
+      "company_id": "SMB-2198",
+      "node_type": "Signal",
+      "label": "閉店前廃棄数",
+      "description": "閉店時に残った商品の廃棄数。焼成量、天候、値引き判断のズレを示す。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.9,
+      "status": "active",
+      "properties": {"metric_category": "waste", "latest_value": 12, "unit": "pieces"}
+    },
+    {
+      "node_id": "node_signal_rain_customer_gap",
+      "company_id": "SMB-2198",
+      "node_type": "Signal",
+      "label": "雨天時客数差",
+      "description": "雨天日の時間帯別客数が通常日からどれだけ下がるか。焼成量と販促判断に使う。",
+      "source_response_id": "resp_aoba_onboard_002",
+      "confidence": 0.8,
+      "status": "active",
+      "properties": {"metric_category": "weather", "observation": "pos_and_staff_note"}
+    },
+    {
+      "node_id": "node_tacit_baking_adjustment",
+      "company_id": "SMB-2198",
+      "node_type": "TacitKnowledge",
+      "label": "店長の焼成量調整",
+      "description": "天候、曜日、近隣イベント、前日廃棄を見て焼成量を調整する判断が店長経験に依存している。",
+      "source_response_id": "resp_aoba_onboard_002",
+      "confidence": 0.79,
+      "status": "active",
+      "properties": {"risk": "person_dependency", "owner_role": "店長"}
+    },
+    {
+      "node_id": "node_research_policy_store_weekly",
+      "company_id": "SMB-2198",
+      "node_type": "ResearchPolicy",
+      "label": "店舗週次オペレーション質問",
+      "description": "店長と販売スタッフに週1回、欠品、廃棄、天候、値引き判断を確認する。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.87,
+      "status": "active",
+      "properties": {"frequency": "weekly", "target_role": "store_manager"}
+    }
+  ],
+  "knowledge_edges": [
+    {
+      "edge_id": "edge_stockout_to_ticket",
+      "company_id": "SMB-2198",
+      "source_node_id": "node_signal_15_stockout",
+      "target_node_id": "node_kpi_average_ticket",
+      "edge_type": "LEADING_INDICATOR_OF",
+      "description": "15時時点の人気商品欠品が、夕方のついで買い減少を通じて客単価に影響する可能性。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.83,
+      "strength": 0.78,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_waste_to_waste_rate",
+      "company_id": "SMB-2198",
+      "source_node_id": "node_signal_closing_waste",
+      "target_node_id": "node_kpi_waste_rate",
+      "edge_type": "MEASURES",
+      "description": "閉店前廃棄数は廃棄率の直接的な観測シグナル。",
+      "source_response_id": "resp_aoba_followup_001",
+      "confidence": 0.9,
+      "strength": 0.88,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_rain_to_baking_adjustment",
+      "company_id": "SMB-2198",
+      "source_node_id": "node_signal_rain_customer_gap",
+      "target_node_id": "node_tacit_baking_adjustment",
+      "edge_type": "INFORMS",
+      "description": "雨天時客数差は店長の焼成量調整判断に使われる。",
+      "source_response_id": "resp_aoba_onboard_002",
+      "confidence": 0.77,
+      "strength": 0.7,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    }
+  ],
+  "kpi_candidates": [
+    {
+      "kpi_candidate_id": "kpi_average_ticket",
+      "kpi_name": "客単価",
+      "kpi_domain": "sales",
+      "kpi_type": "result",
+      "description": "1会計あたりの平均購入金額。欠品やついで買い減少を検知する。",
+      "calculation_hint": "売上 / 会計数",
+      "measurement_frequency": "daily",
+      "data_source_hint": "POS",
+      "approval_status": "proposed",
+      "confidence": 0.88,
+      "source_refs": ["resp_aoba_onboard_002"]
+    },
+    {
+      "kpi_candidate_id": "kpi_waste_rate",
+      "kpi_name": "廃棄率",
+      "kpi_domain": "operations",
+      "kpi_type": "result",
+      "description": "製造数に対する閉店時廃棄数の割合。",
+      "calculation_hint": "廃棄数 / 製造数",
+      "measurement_frequency": "daily",
+      "data_source_hint": "製造記録 / POS / 廃棄記録",
+      "approval_status": "proposed",
+      "confidence": 0.9,
+      "source_refs": ["resp_aoba_followup_001"]
+    }
+  ],
+  "focus_metric_candidates": [
+    {
+      "focus_metric_candidate_id": "focus_15_stockout_count",
+      "metric_name": "15時時点欠品数",
+      "metric_category": "stockout_signal",
+      "description": "15時時点で売れ筋商品が欠品している数。",
+      "related_kpi_candidate_ids": ["kpi_average_ticket"],
+      "observation_signal_types": ["stockout", "time_band"],
+      "trigger_condition": "人気商品2品以上が15時台に欠品",
+      "followup_policy": "販売スタッフに欠品商品、時間帯、買い逃し発言、追加焼成可否を確認する。",
+      "measurement_frequency": "daily",
+      "approval_status": "proposed",
+      "confidence": 0.91,
+      "source_refs": ["resp_aoba_followup_001"]
+    },
+    {
+      "focus_metric_candidate_id": "focus_closing_waste_count",
+      "metric_name": "閉店前廃棄数",
+      "metric_category": "waste_signal",
+      "description": "閉店時に廃棄した商品数。値引き開始と焼成量調整の先行確認に使う。",
+      "related_kpi_candidate_ids": ["kpi_waste_rate"],
+      "observation_signal_types": ["waste", "discount_timing"],
+      "trigger_condition": "1日10個以上、または同一カテゴリで3日連続発生",
+      "followup_policy": "店長に天候、焼成量、値引き開始時刻、残ったカテゴリを確認する。",
+      "measurement_frequency": "daily",
+      "approval_status": "proposed",
+      "confidence": 0.9,
+      "source_refs": ["resp_aoba_followup_001"]
+    }
+  ],
+  "research_plan": [
+    {
+      "research_task_id": "research_store_weekly_ops",
+      "target_role": "店長・販売スタッフ",
+      "frequency": "weekly",
+      "question_intent": "欠品、廃棄、天候、値引き判断のズレを把握する。",
+      "related_kpi_candidates": ["kpi_average_ticket", "kpi_waste_rate"],
+      "related_focus_metric_candidates": ["focus_15_stockout_count", "focus_closing_waste_count"],
+      "base_questions": [
+        "今週、15時時点で欠品していた売れ筋商品はありましたか？",
+        "閉店前に廃棄が多かった商品カテゴリは何ですか？",
+        "天候や近隣イベントで客数にいつもと違う動きはありましたか？"
+      ],
+      "followup_policy": "回答が曖昧な場合は、商品名、時間帯、個数、値引き開始時刻だけを追加で聞く。"
+    }
+  ]
+}

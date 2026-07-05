@@ -1,0 +1,13 @@
+{
+  "company_id": "SMB-2198",
+  "company_name": "青葉ベーカリー&カフェ",
+  "schema_version": "sample-2026-07-05",
+  "generated_from": "agent.tools.wiki_tools render_wiki_files compatible structure",
+  "files": [
+    "company_profile.md",
+    "kpi_definitions.yaml",
+    "focus_metrics.yaml",
+    "research_policy.yaml",
+    "open_questions.yaml"
+  ]
+}

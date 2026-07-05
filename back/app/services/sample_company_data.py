@@ -73,6 +73,7 @@ class SampleCompanyData:
         nodes = data.get('knowledge_nodes', [])
         signals = [n for n in nodes if n.get('node_type') == 'Signal']
         company = data.get('company', {})
+        ui = data.get('ui', {})
         insights = [
             {
                 'id': node.get('node_id', f'sig-{index}'),
@@ -92,17 +93,17 @@ class SampleCompanyData:
             'hero': {
                 'title': '今週の重要発見',
                 'count': len(signals),
-                'summary': '価格再確認と競合価格言及が、見積成約率と見積粗利率の先行シグナルになっています。',
+                'summary': ui.get('dashboard_summary', '重点管理指標の変化がKPI候補の先行シグナルになっています。'),
             },
             'insights': insights,
             'portfolio': [
                 {'id': company_id, 'name': company.get('company_name', company_id), 'status': company.get('segment', 'sample company')},
-                {'id': 'SMB-2198', 'name': '青葉フーズ', 'status': '未接続 / サンプル切替候補'},
+                {'id': 'SMB-2198', 'name': '青葉ベーカリー&カフェ', 'status': '飲食・小売 / サンプル切替候補'},
                 {'id': 'SMB-3307', 'name': 'みなとケア', 'status': '未接続 / サンプル切替候補'},
             ],
-            'nextActions': [
-                {'id': 'act-1', 'title': '価格再確認の週次質問を確認', 'description': '営業担当に価格再確認回数、商品、競合名を聞く。'},
-                {'id': 'act-2', 'title': '見積粗利率の承認判断', 'description': 'KPI候補を人間承認し、current_kpi_definitions へ反映する。'},
+            'nextActions': ui.get('next_actions') or [
+                {'id': 'act-1', 'title': '週次質問を確認', 'description': '重点管理指標の変化と背景を現場担当に聞く。'},
+                {'id': 'act-2', 'title': 'KPI候補の承認判断', 'description': 'KPI候補を人間承認し、current_kpi_definitions へ反映する。'},
             ],
         }
 
@@ -110,6 +111,7 @@ class SampleCompanyData:
         data = self.structured(company_id)
         if not data:
             return None
+        ui = data.get('ui', {})
         nodes = data.get('knowledge_nodes', [])
         edges = data.get('knowledge_edges', [])
         responses = data.get('survey_responses', [])
@@ -127,7 +129,7 @@ class SampleCompanyData:
                 'title': 'Knowledge Formation',
                 'subtitle': 'LLM Wiki と BigQuery seed に基づくサンプル企業ナレッジ',
                 'statusLabel': 'Seeded Knowledge Asset',
-                'statusDescription': '北斗精密工業のKPI候補・重点管理指標候補を読込済み',
+                'statusDescription': ui.get('knowledge_status', f"{data.get('company', {}).get('company_name', company_id)} のKPI候補・重点管理指標候補を読込済み"),
             },
             'health': {
                 'score': 78,
@@ -146,10 +148,10 @@ class SampleCompanyData:
             ],
             'gap': {
                 'title': 'Knowledge Gaps',
-                'description': '小ロット案件の粗利基準と価格再確認回数の閾値は、承認前の未確定情報です。',
-                'tags': [
+                'description': ui.get('gap_description', 'KPI候補と重点管理指標候補の一部は、承認前の未確定情報です。'),
+                'tags': ui.get('gap_tags') or [
                     {'id': 'gap-1', 'label': 'gross margin baseline', 'tone': 'rose'},
-                    {'id': 'gap-2', 'label': 'price signal threshold', 'tone': 'blue'},
+                    {'id': 'gap-2', 'label': 'signal threshold', 'tone': 'blue'},
                 ],
             },
             'recentKnowledge': [
@@ -162,6 +164,7 @@ class SampleCompanyData:
         data = self.structured(company_id)
         if not data:
             return None
+        ui = data.get('ui', {})
         nodes = data.get('knowledge_nodes', [])
         edges = data.get('knowledge_edges', [])
         tone_map = {'Signal': 'rose', 'KPI': 'amber', 'TacitKnowledge': 'violet', 'CompanyProfile': 'cyan', 'ResearchPolicy': 'blue'}
@@ -178,9 +181,9 @@ class SampleCompanyData:
         top_edge = edges[0] if edges else {}
         return {
             'header': {'title': 'Knowledge Graph', 'subtitle': 'BigQuery Graph seed による関係可視化'},
-            'filters': ['全て', '価格', '競合', 'KPI因果', '暗黙知'],
+            'filters': ui.get('graph_filters') or ['全て', '価格', '競合', 'KPI因果', '暗黙知'],
             'map': {
-                'title': 'KPI Signal Map',
+                'title': ui.get('graph_title', 'KPI Signal Map'),
                 'nodes': display_nodes,
                 'stats': f"Nodes {len(nodes)} / Relations {len(edges)}",
             },
@@ -193,12 +196,12 @@ class SampleCompanyData:
             'relation': {
                 'title': 'Selected relation',
                 'segment': top_edge.get('edge_type', 'LEADING_INDICATOR_OF'),
-                'evidence': top_edge.get('description', '価格再確認回数とKPI候補の関係を観測します。'),
-                'customers': 'A社 / 小ロット案件',
-                'hypothesis': '価格再確認が増えると見積成約率が下がる可能性があります。',
+                'evidence': top_edge.get('description', '重点管理指標とKPI候補の関係を観測します。'),
+                'customers': ui.get('graph_customers', ''),
+                'hypothesis': ui.get('graph_hypothesis', '重点管理指標の変化がKPIに影響する可能性があります。'),
                 'confidence': int(float(top_edge.get('confidence', 0.78)) * 100),
             },
-            'lens': [
+            'lens': ui.get('graph_lens') or [
                 {'id': 'l1', 'label': 'Fact graph', 'value': '回答イベントから確認済みの顧客発言と見積状況'},
                 {'id': 'l2', 'label': 'Hypothesis graph', 'value': '価格再確認と成約率低下の仮説'},
                 {'id': 'l3', 'label': 'Gap graph', 'value': '粗利基準と閾値は未承認'},
@@ -210,6 +213,7 @@ class SampleCompanyData:
         data = self.structured(company_id)
         if not data:
             return None
+        ui = data.get('ui', {})
         signals = [n for n in data.get('knowledge_nodes', []) if n.get('node_type') in {'Signal', 'KPI'}]
         tacit = [n for n in data.get('knowledge_nodes', []) if n.get('node_type') == 'TacitKnowledge']
         highlights = [
@@ -227,18 +231,18 @@ class SampleCompanyData:
             'header': {'title': 'Report Copilot', 'subtitle': '事実と仮説を分けてコンサルに提示'},
             'weekly': {
                 'title': 'Weekly Discovery',
-                'period': f'{company_id} / 2026-07-01 - 2026-07-04',
-                'summary': '価格再確認2回、競合価格言及1件。見積成約率と見積粗利率の重点観測が必要です。',
+                'period': ui.get('report_period', f'{company_id} / 2026-07-01 - 2026-07-04'),
+                'summary': ui.get('weekly_summary', '重点管理指標の変化を継続観測する必要があります。'),
             },
             'highlights': highlights,
-            'snippets': [
+            'snippets': ui.get('report_snippets') or [
                 'A社の小ロット案件で価格の再確認が2回発生。',
                 '「他社見積と合わせたい」という競合比較の発言あり。',
                 'ベテランの見積調整判断が粗利確保に寄与する可能性。',
             ],
             'recommendation': {
                 'title': 'Recommended observation',
-                'description': '営業担当へ週次で価格再確認、競合名、対象商品、値引き要求有無を確認してください。',
+                'description': ui.get('recommendation', '現場担当へ週次で重点管理指標の変化と背景を確認してください。'),
                 'actionLabel': 'Research Agentに質問を登録',
             },
             'ctaLabel': 'Generate report',
@@ -250,6 +254,7 @@ class SampleCompanyData:
             return None
         kpis = ', '.join(item.get('kpi_name', '') for item in data.get('kpi_candidates', []))
         focus_metrics = ', '.join(item.get('metric_name', '') for item in data.get('focus_metric_candidates', []))
+        ui = data.get('ui', {})
         return (
             'サンプルデータに基づく回答です。\n\n'
             f'- 参照企業: {data.get("company", {}).get("company_name", company_id)}\n'
@@ -257,7 +262,7 @@ class SampleCompanyData:
             f'- BigQuery seed: onboarding_answer_events、kpi_candidates、focus_metric_candidates、knowledge_nodes、knowledge_edges 相当の構造化データを参照しています。\n'
             f'- KPI候補: {kpis}\n'
             f'- 重点管理指標候補: {focus_metrics}\n\n'
-            '現時点では「価格再確認回数」と「競合価格言及」を先行指標として見積成約率・見積粗利率を観測するのが妥当です。'
+            f"{ui.get('copilot_conclusion', '現時点では重点管理指標候補を先行指標としてKPI候補を観測するのが妥当です。')}"
             'ただし正式採用と current 定義への反映は人間承認待ちとして扱ってください。'
         )
 
