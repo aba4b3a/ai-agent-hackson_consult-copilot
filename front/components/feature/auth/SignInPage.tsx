@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
-import { consultantCompanies } from "@/lib/auth-session";
 
 const platformSignals = [
   { label: "初期ヒアリング", detail: "18問から企業モデルを作成", mark: "01" },
@@ -13,10 +12,10 @@ const platformSignals = [
 
 export const SignInPage = () => {
   const router = useRouter();
-  const { session, signIn } = useAuth();
+  const { session, signIn, companies } = useAuth();
   const [consultantName, setConsultantName] = useState("佐藤 里奈");
   const [email, setEmail] = useState("rina.sato@example.com");
-  const [companyCode, setCompanyCode] = useState(consultantCompanies[0].code);
+  const [companyCode, setCompanyCode] = useState(companies[0].code);
 
   useEffect(() => {
     if (session) {
@@ -30,7 +29,7 @@ export const SignInPage = () => {
     router.push("/");
   };
 
-  const selectedCompany = consultantCompanies.find((company) => company.code === companyCode) ?? consultantCompanies[0];
+  const selectedCompany = companies.find((company) => company.code === companyCode) ?? companies[0];
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -112,7 +111,7 @@ export const SignInPage = () => {
                   value={companyCode}
                   onChange={(event) => setCompanyCode(event.target.value)}
                 >
-                  {consultantCompanies.map((company) => (
+                  {companies.map((company) => (
                     <option key={company.code} value={company.code}>
                       {company.code} / {company.name}
                     </option>

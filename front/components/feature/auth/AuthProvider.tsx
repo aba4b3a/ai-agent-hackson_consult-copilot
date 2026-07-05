@@ -1,41 +1,55 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { authSessionStorageKey, consultantCompanies, type AuthSession } from "@/lib/auth-session";
+import {
+  authSessionStorageKey,
+  consultantCompanies,
+  loadCustomCompanies,
+  saveCustomCompanies,
+  type AuthSession,
+  type CompanyOption,
+} from "@/lib/auth-session";
+
+type RegisterCompanyResult = { ok: true } | { ok: false; error: string };
 
 type AuthContextValue = {
   session: AuthSession | null;
   isReady: boolean;
-  activeCompany: (typeof consultantCompanies)[number];
+  companies: CompanyOption[];
+  activeCompany: CompanyOption;
   signIn: (input: Pick<AuthSession, "consultantName" | "email" | "companyCode">) => void;
   signOut: () => void;
   switchCompany: (companyCode: string) => void;
+  registerCompany: (input: CompanyOption, options?: { switchTo?: boolean }) => RegisterCompanyResult;
 };
 
 const fallbackCompany = consultantCompanies[0];
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const normalizeSession = (session: AuthSession): AuthSession => {
-  const companyExists = consultantCompanies.some((company) => company.code === session.companyCode);
-
-  return {
-    consultantName: session.consultantName.trim() || "Consultant",
-    email: session.email.trim(),
-    companyCode: companyExists ? session.companyCode : fallbackCompany.code,
-  };
-};
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [customCompanies, setCustomCompanies] = useState<CompanyOption[]>([]);
+
+  const companies = useMemo(() => [...consultantCompanies, ...customCompanies], [customCompanies]);
 
   useEffect(() => {
+    const loadedCustomCompanies = loadCustomCompanies();
+    setCustomCompanies(loadedCustomCompanies);
+
     const storedSession = window.localStorage.getItem(authSessionStorageKey);
 
     if (storedSession) {
       try {
-        setSession(normalizeSession(JSON.parse(storedSession) as AuthSession));
+        const parsed = JSON.parse(storedSession) as AuthSession;
+        const allCompanies = [...consultantCompanies, ...loadedCustomCompanies];
+        const companyExists = allCompanies.some((company) => company.code === parsed.companyCode);
+        setSession({
+          consultantName: parsed.consultantName?.trim() || "Consultant",
+          email: parsed.email?.trim() || "",
+          companyCode: companyExists ? parsed.companyCode : fallbackCompany.code,
+        });
       } catch {
         window.localStorage.removeItem(authSessionStorageKey);
       }
@@ -57,9 +71,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = useCallback(
     (input: Pick<AuthSession, "consultantName" | "email" | "companyCode">) => {
-      persistSession(normalizeSession(input));
+      const companyExists = companies.some((company) => company.code === input.companyCode);
+      persistSession({
+        consultantName: input.consultantName.trim() || "Consultant",
+        email: input.email.trim(),
+        companyCode: companyExists ? input.companyCode : fallbackCompany.code,
+      });
     },
-    [persistSession],
+    [companies, persistSession],
   );
 
   const signOut = useCallback(() => {
@@ -69,21 +88,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const switchCompany = useCallback(
     (companyCode: string) => {
       if (!session) return;
-      const companyExists = consultantCompanies.some((company) => company.code === companyCode);
+      const companyExists = companies.some((company) => company.code === companyCode);
       if (!companyExists) return;
 
       persistSession({ ...session, companyCode });
     },
-    [persistSession, session],
+    [companies, persistSession, session],
+  );
+
+  const registerCompany = useCallback(
+    (input: CompanyOption, options?: { switchTo?: boolean }): RegisterCompanyResult => {
+      const code = input.code.trim().toUpperCase();
+      const name = input.name.trim();
+
+      if (!code) return { ok: false, error: "企業コードを入力してください。" };
+      if (!name) return { ok: false, error: "企業名を入力してください。" };
+      if (companies.some((company) => company.code === code)) {
+        return { ok: false, error: "この企業コードは既に登録されています。" };
+      }
+
+      const nextCompany: CompanyOption = { code, name, segment: input.segment.trim() || "新規登録企業" };
+      const nextCustomCompanies = [...customCompanies, nextCompany];
+      setCustomCompanies(nextCustomCompanies);
+      saveCustomCompanies(nextCustomCompanies);
+
+      if (options?.switchTo !== false && session) {
+        persistSession({ ...session, companyCode: nextCompany.code });
+      }
+
+      return { ok: true };
+    },
+    [companies, customCompanies, persistSession, session],
   );
 
   const activeCompany = useMemo(() => {
-    return consultantCompanies.find((company) => company.code === session?.companyCode) ?? fallbackCompany;
-  }, [session?.companyCode]);
+    return companies.find((company) => company.code === session?.companyCode) ?? fallbackCompany;
+  }, [companies, session?.companyCode]);
 
   const value = useMemo(
-    () => ({ session, isReady, activeCompany, signIn, signOut, switchCompany }),
-    [activeCompany, isReady, session, signIn, signOut, switchCompany],
+    () => ({ session, isReady, companies, activeCompany, signIn, signOut, switchCompany, registerCompany }),
+    [session, isReady, companies, activeCompany, signIn, signOut, switchCompany, registerCompany],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
