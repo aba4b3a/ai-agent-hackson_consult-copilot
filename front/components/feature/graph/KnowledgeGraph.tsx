@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -7,6 +8,9 @@ import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useGraph } from "@/hooks/use-graph";
 import type { GraphEdge, GraphView, SegmentNode } from "@/lib/schemas";
+
+const MAP_WIDTH = 360;
+const MAP_HEIGHT = 260;
 
 const nodeToneClass: Record<SegmentNode["tone"], string> = {
   rose: "bg-rose-100 text-rose-500",
@@ -16,20 +20,70 @@ const nodeToneClass: Record<SegmentNode["tone"], string> = {
   blue: "bg-blue-600 text-white",
 };
 
-const nodePositionClass: Record<SegmentNode["position"], string> = {
-  topLeft: "left-[23%] top-[20%]",
-  topRight: "right-[23%] top-[20%]",
-  bottomLeft: "left-[24%] bottom-[20%]",
-  bottomRight: "right-[23%] bottom-[20%]",
-  center: "left-1/2 top-1/2",
+const clusterToneClass: Record<SegmentNode["tone"], string> = {
+  rose: "bg-rose-50/80 ring-rose-100",
+  cyan: "bg-cyan-50/80 ring-cyan-100",
+  amber: "bg-amber-50/80 ring-amber-100",
+  violet: "bg-violet-50/80 ring-violet-100",
+  blue: "bg-blue-50/80 ring-blue-100",
 };
 
-const fallbackPosition: Record<SegmentNode["position"], { x: number; y: number }> = {
-  topLeft: { x: 84, y: 52 },
-  topRight: { x: 276, y: 54 },
-  bottomLeft: { x: 88, y: 206 },
-  bottomRight: { x: 272, y: 204 },
-  center: { x: 180, y: 130 },
+const categoryOf = (node: SegmentNode) => node.nodeType || node.meta || "Other";
+
+type ClusterLayout = {
+  points: Map<string, { x: number; y: number }>;
+  clusters: { key: string; tone: SegmentNode["tone"]; x: number; y: number; width: number; height: number }[];
+};
+
+// Groups nodes by category (nodeType/meta) into a grid of cells instead of
+// relying on the arbitrary per-index position/x/y the API sends.
+const buildClusteredLayout = (nodes: SegmentNode[]): ClusterLayout => {
+  const order: string[] = [];
+  const groups = new Map<string, SegmentNode[]>();
+  nodes.forEach((node) => {
+    const key = categoryOf(node);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(node);
+  });
+
+  const cols = Math.max(1, Math.ceil(Math.sqrt(order.length)));
+  const rows = Math.max(1, Math.ceil(order.length / cols));
+  const cellW = MAP_WIDTH / cols;
+  const cellH = MAP_HEIGHT / rows;
+
+  const points = new Map<string, { x: number; y: number }>();
+  const clusters: ClusterLayout["clusters"] = [];
+
+  order.forEach((key, ci) => {
+    const col = ci % cols;
+    const row = Math.floor(ci / cols);
+    const cellX = col * cellW;
+    const cellY = row * cellH;
+    const labelGutter = 14;
+    const innerX = cellX + 8;
+    const innerY = cellY + labelGutter;
+    const innerW = cellW - 16;
+    const innerH = cellH - labelGutter - 8;
+
+    const members = groups.get(key)!;
+    const subCols = Math.max(1, Math.ceil(Math.sqrt(members.length)));
+    const subRows = Math.max(1, Math.ceil(members.length / subCols));
+    members.forEach((node, ni) => {
+      const sc = ni % subCols;
+      const sr = Math.floor(ni / subCols);
+      points.set(node.id, {
+        x: innerX + ((sc + 0.5) * innerW) / subCols,
+        y: innerY + ((sr + 0.5) * innerH) / subRows,
+      });
+    });
+
+    clusters.push({ key, tone: members[0].tone, x: cellX + 4, y: cellY + 4, width: cellW - 8, height: cellH - 8 });
+  });
+
+  return { points, clusters };
 };
 
 const viewToneClass: Record<GraphView["tone"], string> = {
@@ -55,18 +109,35 @@ const edgeLabelToneClass: Record<GraphEdge["tone"], string> = {
   slate: "bg-slate-100 text-slate-600",
 };
 
-const getPoint = (node: SegmentNode) => ({
-  x: node.x ?? fallbackPosition[node.position].x,
-  y: node.y ?? fallbackPosition[node.position].y,
-});
-
 export const KnowledgeGraph = () => {
   const { data, isLoading, isError } = useGraph();
+  const [activeFilterIndex, setActiveFilterIndex] = useState(0);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+
+  const nodes = useMemo(() => {
+    const allNodes = data?.map.nodes ?? [];
+    const activeFilter = data?.filters[activeFilterIndex];
+    const isAllFilter = activeFilterIndex === 0 || !activeFilter;
+    const activeView = data?.views.find((view) => view.id === activeViewId);
+
+    return allNodes
+      .filter((node) => {
+        if (isAllFilter) return true;
+        const haystack = [node.label, node.description, node.meta, node.nodeType].filter(Boolean).join(" ").toLowerCase();
+        return haystack.includes(activeFilter.toLowerCase());
+      })
+      .filter((node) => {
+        if (!activeView) return true;
+        return (node.nodeType ?? node.meta ?? "").toLowerCase().includes(activeView.label.toLowerCase());
+      })
+      .slice(0, 14);
+  }, [data, activeFilterIndex, activeViewId]);
+  const { points, clusters } = useMemo(() => buildClusteredLayout(nodes), [nodes]);
+  const getPoint = (node: SegmentNode) => points.get(node.id) ?? { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 };
 
   if (isLoading) return <LoadingState message="Loading..." />;
   if (isError || !data) return <LoadingState message="データの取得に失敗しました。" />;
 
-  const nodes = data.map.nodes.slice(0, 14);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const edges = (data.map.edges ?? []).filter((edge) => nodeById.has(edge.source) && nodeById.has(edge.target)).slice(0, 18);
 
@@ -82,7 +153,8 @@ export const KnowledgeGraph = () => {
           {data.filters.map((filter, index) => (
             <button
               key={filter}
-              className={`shrink-0 rounded-full px-4 py-2 text-[10px] font-black md:text-xs ${index === 0 ? "bg-blue-100 text-blue-700" : "bg-white text-slate-500 shadow-[0_8px_18px_rgba(15,23,42,0.04)]"}`}
+              onClick={() => setActiveFilterIndex(index)}
+              className={`shrink-0 rounded-full px-4 py-2 text-[10px] font-black transition-colors md:text-xs ${index === activeFilterIndex ? "bg-blue-100 text-blue-700" : "bg-white text-slate-500 shadow-[0_8px_18px_rgba(15,23,42,0.04)]"}`}
               type="button"
             >
               {filter}
@@ -92,8 +164,24 @@ export const KnowledgeGraph = () => {
 
         <Card className="mt-3">
           <SectionTitle>{data.map.title}</SectionTitle>
-          <div className="relative mx-auto mt-3 aspect-[18/13] max-w-[360px] overflow-hidden rounded-[8px] bg-slate-50 ring-1 ring-slate-100">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 260" aria-hidden="true">
+          <div className="relative mx-auto mt-3 aspect-[18/13] w-full max-w-[360px] overflow-hidden rounded-[8px] bg-slate-50 ring-1 ring-slate-100 md:max-w-none">
+            {clusters.map((cluster) => (
+              <div
+                key={cluster.key}
+                className={`absolute rounded-[8px] ring-1 ${clusterToneClass[cluster.tone]}`}
+                style={{
+                  left: `${(cluster.x / MAP_WIDTH) * 100}%`,
+                  top: `${(cluster.y / MAP_HEIGHT) * 100}%`,
+                  width: `${(cluster.width / MAP_WIDTH) * 100}%`,
+                  height: `${(cluster.height / MAP_HEIGHT) * 100}%`,
+                }}
+              >
+                <span title={cluster.key} className="absolute left-1.5 top-1 max-w-[calc(100%-8px)] truncate text-[7px] font-black uppercase tracking-wide text-slate-400">
+                  {cluster.key}
+                </span>
+              </div>
+            ))}
+            <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} aria-hidden="true">
               {edges.map((edge) => {
                 const source = nodeById.get(edge.source);
                 const target = nodeById.get(edge.target);
@@ -122,15 +210,18 @@ export const KnowledgeGraph = () => {
               return (
                 <div
                   key={node.id}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-[8px] px-2 py-1.5 text-center shadow-sm ring-1 ring-white/80 ${nodeSizeClass} ${nodeToneClass[node.tone]} ${node.x === undefined && node.y === undefined ? nodePositionClass[node.position] : ""}`}
-                  style={node.x !== undefined || node.y !== undefined ? { left: `${(point.x / 360) * 100}%`, top: `${(point.y / 260) * 100}%` } : undefined}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-[8px] px-2 py-1.5 text-center shadow-sm ring-1 ring-white/80 ${nodeSizeClass} ${nodeToneClass[node.tone]}`}
+                  style={{ left: `${(point.x / MAP_WIDTH) * 100}%`, top: `${(point.y / MAP_HEIGHT) * 100}%` }}
                   title={node.description}
                 >
-                  <p className="truncate text-[9px] font-black leading-tight md:text-[10px]">{node.label}</p>
-                  <p className="mt-0.5 truncate text-[8px] font-extrabold opacity-70">{node.meta ?? node.nodeType}</p>
+                  <p title={node.label} className="truncate text-[9px] font-black leading-tight md:text-[10px]">{node.label}</p>
+                  <p title={node.meta ?? node.nodeType} className="mt-0.5 truncate text-[8px] font-extrabold opacity-70">{node.meta ?? node.nodeType}</p>
                 </div>
               );
             })}
+            {nodes.length === 0 && (
+              <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[10px] font-extrabold text-slate-400">該当するノードがありません</p>
+            )}
           </div>
           <p className="mt-1 text-[10px] font-extrabold text-blue-400 md:text-xs">{data.map.stats}</p>
           {edges.length > 0 && (
@@ -138,7 +229,7 @@ export const KnowledgeGraph = () => {
               {edges.slice(0, 6).map((edge) => (
                 <div key={edge.id} className="rounded-[8px] bg-white px-3 py-2 ring-1 ring-slate-100">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`min-w-0 truncate rounded-full px-2 py-1 text-[9px] font-black ${edgeLabelToneClass[edge.tone]}`}>{edge.label}</span>
+                    <span title={edge.label} className={`min-w-0 truncate rounded-full px-2 py-1 text-[9px] font-black ${edgeLabelToneClass[edge.tone]}`}>{edge.label}</span>
                     <span className="shrink-0 text-[9px] font-extrabold text-slate-400">{Math.round(edge.strength * 100)}%</span>
                   </div>
                   {edge.description && <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-relaxed text-slate-500">{edge.description}</p>}
@@ -152,7 +243,12 @@ export const KnowledgeGraph = () => {
           <SectionTitle>Graph Views</SectionTitle>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {data.views.map((view) => (
-              <button key={view.id} type="button" className={`rounded-full px-2 py-2 text-[9px] font-black md:text-[11px] ${viewToneClass[view.tone]}`}>
+              <button
+                key={view.id}
+                type="button"
+                onClick={() => setActiveViewId((current) => (current === view.id ? null : view.id))}
+                className={`rounded-full px-2 py-2 text-[9px] font-black transition-shadow md:text-[11px] ${viewToneClass[view.tone]} ${activeViewId === view.id ? "ring-2 ring-offset-1 ring-current" : "opacity-80"}`}
+              >
                 {view.label}
               </button>
             ))}
