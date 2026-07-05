@@ -14,8 +14,8 @@ export type SurveyFormData = {
   questions: SurveyQuestion[];
 };
 
-export const getSurveyQuestions = (): Promise<SurveyFormData> =>
-  apiFetch(`/api/v1/companies/${companyId}/survey/initial`);
+export const getSurveyQuestions = (targetCompanyId = companyId): Promise<SurveyFormData> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial`);
 
 export const submitSurveyResponse = (body: {
   question_id: string;
@@ -24,15 +24,15 @@ export const submitSurveyResponse = (body: {
   respondent_role: string;
   raw_answer: string;
   survey_frequency: string;
-}) =>
-  apiFetch(`/api/v1/companies/${companyId}/survey-responses`, {
+}, targetCompanyId = companyId) =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey-responses`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 
-export const getReportData = async (): Promise<ReportData> => {
+export const getReportData = async (targetCompanyId = companyId): Promise<ReportData> => {
   try {
-    return await apiFetch(`/api/v1/companies/${companyId}/report-chat`);
+    return await apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/report-chat`);
   } catch {
     return {
       header: {

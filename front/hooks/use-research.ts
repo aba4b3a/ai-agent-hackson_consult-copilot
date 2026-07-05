@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useAuth } from "@/components/feature/auth/AuthProvider";
 import {
   listAssignments,
   submitFollowupAnswer,
@@ -10,17 +11,22 @@ import {
 export const useAssignments = (params: {
   targetRole?: string;
   status?: AssignmentStatus;
-}) =>
-  useQuery({
-    queryKey: ["research-assignments", params.targetRole ?? "all", params.status ?? "open"],
-    queryFn: () => listAssignments(params),
+}) => {
+  const { activeCompany } = useAuth();
+
+  return useQuery({
+    queryKey: ["research-assignments", activeCompany.code, params.targetRole ?? "all", params.status ?? "open"],
+    queryFn: () => listAssignments(params, activeCompany.code),
     staleTime: 15_000,
   });
+};
 
 export const useSubmitFollowupAnswer = () => {
   const qc = useQueryClient();
+  const { activeCompany } = useAuth();
+
   return useMutation({
-    mutationFn: (body: FollowupAnswerSubmit) => submitFollowupAnswer(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["research-assignments"] }),
+    mutationFn: (body: FollowupAnswerSubmit) => submitFollowupAnswer(body, activeCompany.code),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["research-assignments", activeCompany.code] }),
   });
 };

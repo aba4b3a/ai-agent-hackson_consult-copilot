@@ -44,16 +44,16 @@ export type FollowupAnswerResult = {
 export const listAssignments = (params: {
   targetRole?: string;
   status?: AssignmentStatus;
-}): Promise<AssignmentList> => {
+}, targetCompanyId = companyId): Promise<AssignmentList> => {
   const search = new URLSearchParams();
   if (params.targetRole) search.set("target_role", params.targetRole);
   if (params.status) search.set("status", params.status);
   const qs = search.toString();
-  return apiFetch(`/api/v1/companies/${companyId}/research/assignments${qs ? `?${qs}` : ""}`);
+  return apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/research/assignments${qs ? `?${qs}` : ""}`);
 };
 
-export const submitFollowupAnswer = (body: FollowupAnswerSubmit) =>
-  apiFetch<FollowupAnswerResult>(`/api/v1/companies/${companyId}/research/answers`, {
+export const submitFollowupAnswer = (body: FollowupAnswerSubmit, targetCompanyId = companyId) =>
+  apiFetch<FollowupAnswerResult>(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/research/answers`, {
     method: "POST",
     body: JSON.stringify(body),
   });

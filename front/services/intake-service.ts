@@ -55,15 +55,15 @@ export type SurveyAnswerPayload = {
   answer_json?: Record<string, unknown>;
 };
 
-export const getInitialSurvey = (): Promise<SurveyTemplate> =>
-  apiFetch(`/api/v1/companies/${companyId}/survey/initial`);
+export const getInitialSurvey = (targetCompanyId = companyId): Promise<SurveyTemplate> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial`);
 
 export const submitInitialSurvey = (body: {
   respondent_role: string;
   answers: SurveyAnswerPayload[];
   chat_transcript: { role: "assistant" | "user"; text: string }[];
-}) =>
-  apiFetch(`/api/v1/companies/${companyId}/survey/initial/submissions`, {
+}, targetCompanyId = companyId) =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial/submissions`, {
     method: "POST",
     body: JSON.stringify(body),
   });

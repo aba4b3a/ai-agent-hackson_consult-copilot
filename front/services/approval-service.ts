@@ -39,19 +39,19 @@ export type ApprovalList = {
   status_filter: ApprovalStatus | null;
 };
 
-export const listApprovals = (status?: ApprovalStatus): Promise<ApprovalList> => {
+export const listApprovals = (status?: ApprovalStatus, targetCompanyId = companyId): Promise<ApprovalList> => {
   const qs = status ? `?status=${status}` : "";
-  return apiFetch(`/api/v1/companies/${companyId}/approvals${qs}`);
+  return apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/approvals${qs}`);
 };
 
-export const approveApproval = (approvalId: string, decidedBy: string, note?: string) =>
-  apiFetch<ApprovalRecord>(`/api/v1/companies/${companyId}/approvals/${approvalId}/approve`, {
+export const approveApproval = (approvalId: string, decidedBy: string, note?: string, targetCompanyId = companyId) =>
+  apiFetch<ApprovalRecord>(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/approvals/${approvalId}/approve`, {
     method: "POST",
     body: JSON.stringify({ decided_by: decidedBy, decision_note: note ?? null }),
   });
 
-export const rejectApproval = (approvalId: string, decidedBy: string, note?: string) =>
-  apiFetch<ApprovalRecord>(`/api/v1/companies/${companyId}/approvals/${approvalId}/reject`, {
+export const rejectApproval = (approvalId: string, decidedBy: string, note?: string, targetCompanyId = companyId) =>
+  apiFetch<ApprovalRecord>(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/approvals/${approvalId}/reject`, {
     method: "POST",
     body: JSON.stringify({ decided_by: decidedBy, decision_note: note ?? null }),
   });

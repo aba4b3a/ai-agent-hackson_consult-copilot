@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
@@ -44,6 +44,20 @@ export const WikiViewer = () => {
     compareVersion ?? undefined,
     Boolean(relativePath && compareVersion),
   );
+
+  useEffect(() => {
+    const files = filesQuery.data?.items ?? [];
+    if (files.length === 0) {
+      setSelectedPath(null);
+      setCompareVersion(null);
+      return;
+    }
+
+    if (!selectedPath || !files.some((file) => file.path === selectedPath)) {
+      setSelectedPath(files[0].path);
+      setCompareVersion(null);
+    }
+  }, [filesQuery.data?.items, selectedPath]);
 
   if (filesQuery.isLoading) return <LoadingState message="Wiki ファイルを読込中..." />;
   if (filesQuery.isError || !filesQuery.data) {
