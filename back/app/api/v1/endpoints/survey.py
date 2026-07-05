@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.schemas.survey import (
+    InitialSurveyStatus,
     SurveyResponseCreate,
     SurveyResponseCreateResult,
     SurveySubmissionCreate,
@@ -14,6 +15,11 @@ router = APIRouter()
 @router.get('/{company_id}/survey/initial')
 def get_initial_survey(company_id: str):
     return survey_service.generate_common_initial_survey(company_id)
+
+
+@router.get('/{company_id}/survey/initial/submissions', response_model=InitialSurveyStatus)
+def get_initial_survey_status(company_id: str):
+    return survey_service.get_initial_survey_status(company_id)
 
 
 @router.post('/{company_id}/survey-responses', response_model=SurveyResponseCreateResult)

@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from app.core.config import settings
 from app.crud.storage_crud import storage_crud
-from app.schemas.survey import SurveyQuestion, SurveyTemplate
+from app.schemas.survey import InitialSurveyStatus, SurveyAnswerRead, SurveyQuestion, SurveyTemplate
+from app.services.sample_company_data import sample_company_data
 
 
 SEED_TEMPLATE_PATH = (
@@ -54,6 +56,67 @@ class SurveyService:
 
     def generate_common_initial_survey(self, company_id: str) -> dict:
         return self.get_initial_survey_template(company_id).model_dump()
+
+    def _query_responses(self, company_id: str, question_ids: list[str]) -> list[dict]:
+        if settings.dry_run or not question_ids:
+            return []
+        try:
+            from app.db.bigquery import get_bigquery_client
+            dataset = settings.dataset_id(company_id)
+            project = settings.project_id
+            ids_sql = ', '.join(f"'{qid}'" for qid in question_ids)
+            sql = f"""
+                SELECT question_id, question_text, answer_type, respondent_role,
+                       raw_answer, numeric_value, answer_json, collected_at
+                FROM `{project}.{dataset}.survey_responses`
+                WHERE question_id IN ({ids_sql})
+                ORDER BY collected_at DESC
+            """
+            client = get_bigquery_client()
+            return [dict(row) for row in client.query(sql).result()]
+        except Exception:
+            return []
+
+    def get_initial_survey_status(self, company_id: str) -> InitialSurveyStatus:
+        template = self.get_initial_survey_template(company_id)
+        question_ids = [question.question_id for question in template.questions]
+
+        rows = self._query_responses(company_id, question_ids)
+        if not rows:
+            sample = sample_company_data.structured(company_id)
+            if sample:
+                rows = [
+                    row for row in sample.get('survey_responses', [])
+                    if row.get('question_id') in question_ids
+                ]
+
+        latest_by_question: dict[str, SurveyAnswerRead] = {}
+        for row in rows:
+            answer = SurveyAnswerRead(
+                question_id=row['question_id'],
+                question_text=row.get('question_text', ''),
+                answer_type=row.get('answer_type', 'text'),
+                respondent_role=row.get('respondent_role', ''),
+                raw_answer=row.get('raw_answer', ''),
+                numeric_value=row.get('numeric_value'),
+                answer_json=row.get('answer_json') or {},
+                collected_at=row.get('collected_at', ''),
+            )
+            existing = latest_by_question.get(answer.question_id)
+            if not existing or answer.collected_at >= existing.collected_at:
+                latest_by_question[answer.question_id] = answer
+
+        answers = sorted(
+            latest_by_question.values(),
+            key=lambda answer: question_ids.index(answer.question_id) if answer.question_id in question_ids else len(question_ids),
+        )
+        return InitialSurveyStatus(
+            company_id=company_id,
+            answered=len(answers) > 0,
+            answered_count=len(answers),
+            total_count=len(question_ids),
+            answers=answers,
+        )
 
 
 survey_service = SurveyService()

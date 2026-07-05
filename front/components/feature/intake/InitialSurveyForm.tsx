@@ -5,8 +5,8 @@ import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
-import { useInitialSurvey, useSubmitInitialSurvey } from "@/hooks/use-intake";
-import type { SurveyAnswerPayload, SurveyQuestion } from "@/services/intake-service";
+import { useInitialSurvey, useInitialSurveyStatus, useSubmitInitialSurvey } from "@/hooks/use-intake";
+import type { InitialSurveyStatus, SurveyAnswerPayload, SurveyQuestion, SurveyTemplate } from "@/services/intake-service";
 
 type AnswerValue = string | string[];
 type ChatMessage = { role: "assistant" | "user"; text: string };
@@ -155,6 +155,74 @@ const QuestionInput = ({
   );
 };
 
+const resolveAnswerDisplay = (question: SurveyQuestion, rawAnswer: string) => {
+  if (question.answer_type === "single_choice" || question.answer_type === "multiple_choice") {
+    const values = rawAnswer.split(",").map((value) => value.trim()).filter(Boolean);
+    const labels = values.map((value) => question.choices.find((choice) => choice.value === value)?.label ?? value);
+    return labels.join(" / ");
+  }
+  return rawAnswer;
+};
+
+const AnsweredSurveySummary = ({
+  template,
+  status,
+  onEdit,
+}: {
+  template: SurveyTemplate;
+  status: InitialSurveyStatus;
+  onEdit: () => void;
+}) => {
+  const answersByQuestionId = new Map(status.answers.map((answer) => [answer.question_id, answer]));
+
+  return (
+    <div className="px-5 pb-24 pt-5 md:px-7 md:pb-8 md:pt-8">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black text-teal-600">Initial Intake ・ 回答済み</p>
+          <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 md:text-2xl">{template.title}</h1>
+          <p className="mt-1 max-w-2xl text-xs font-bold leading-relaxed text-slate-500 md:text-sm">{template.description}</p>
+        </div>
+        <button
+          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
+          type="button"
+          onClick={onEdit}
+        >
+          回答を編集する
+        </button>
+      </header>
+
+      <div className="mt-4 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">
+        {status.answered_count} / {status.total_count} 問に回答済みです。
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {template.questions.map((question) => {
+          const answer = answersByQuestionId.get(question.question_id);
+          return (
+            <Card key={question.question_id} className="rounded-lg">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+                  {categoryLabels[question.question_category] ?? question.question_category}
+                </span>
+                {answer ? (
+                  <span className="text-[11px] font-black text-slate-400">{answer.respondent_role}</span>
+                ) : (
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-600">未回答</span>
+                )}
+              </div>
+              <p className="mt-3 text-sm font-black leading-snug text-slate-950">{question.question_text}</p>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-600">
+                {answer ? resolveAnswerDisplay(question, answer.raw_answer) : "-"}
+              </p>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const FollowupChat = ({
   question,
   messages,
@@ -216,12 +284,14 @@ const FollowupChat = ({
 
 export const InitialSurveyForm = () => {
   const { data, isLoading, isError } = useInitialSurvey();
+  const { data: status, isLoading: isStatusLoading } = useInitialSurveyStatus();
   const submitSurvey = useSubmitInitialSurvey();
   const [step, setStep] = useState(0);
   const [respondentRole, setRespondentRole] = useState("owner");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [chatQuestionId, setChatQuestionId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [isEditing, setIsEditing] = useState(false);
 
   const question = data?.questions[step];
   const chatQuestion = data?.questions.find((item) => item.question_id === chatQuestionId);
@@ -230,8 +300,17 @@ export const InitialSurveyForm = () => {
     return data.questions.filter((item) => serializeAnswer(answers[item.question_id]).trim().length > 0).length;
   }, [answers, data]);
 
-  if (isLoading) return <LoadingState message="Loading..." />;
+  if (isLoading || isStatusLoading) return <LoadingState message="Loading..." />;
   if (isError || !data || !question) return <LoadingState message="質問定義を取得できませんでした。" isError />;
+
+  if (status?.answered && !isEditing) {
+    return (
+      <PhoneFrame>
+        <AnsweredSurveySummary template={data} status={status} onEdit={() => setIsEditing(true)} />
+        <BottomNav active="intake" />
+      </PhoneFrame>
+    );
+  }
 
   const currentAnswer = answers[question.question_id];
   const isRequired = question.validation.required;

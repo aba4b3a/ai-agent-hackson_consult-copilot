@@ -55,8 +55,30 @@ export type SurveyAnswerPayload = {
   answer_json?: Record<string, unknown>;
 };
 
+export type SurveyAnswerRead = {
+  question_id: string;
+  question_text: string;
+  answer_type: SurveyQuestion["answer_type"];
+  respondent_role: string;
+  raw_answer: string;
+  numeric_value?: number | null;
+  answer_json?: Record<string, unknown>;
+  collected_at: string;
+};
+
+export type InitialSurveyStatus = {
+  company_id: string;
+  answered: boolean;
+  answered_count: number;
+  total_count: number;
+  answers: SurveyAnswerRead[];
+};
+
 export const getInitialSurvey = (targetCompanyId = companyId): Promise<SurveyTemplate> =>
   apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial`);
+
+export const getInitialSurveyStatus = (targetCompanyId = companyId): Promise<InitialSurveyStatus> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial/submissions`);
 
 export const submitInitialSurvey = (body: {
   respondent_role: string;

@@ -114,9 +114,9 @@ export const PersistentAiChat = () => {
   }, [knowledge.data]);
 
   const sourceStatus = [
-    { label: "LLM Wiki", ready: wikiContext.isSuccess, loading: wikiContext.isLoading },
-    { label: "BigQuery", ready: knowledge.isSuccess, loading: knowledge.isLoading },
-    { label: "Agent", ready: true, loading: false },
+    { label: "企業情報", ready: wikiContext.isSuccess, loading: wikiContext.isLoading },
+    { label: "各種データ", ready: knowledge.isSuccess, loading: knowledge.isLoading },
+    { label: "AI", ready: true, loading: false },
   ];
 
   const ask = async (question: string) => {

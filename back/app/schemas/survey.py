@@ -119,3 +119,22 @@ class SurveyResponseCreateResult(BaseModel):
     extracted_nodes: list[dict]
     extracted_edges: list[dict]
     persistence: dict
+
+
+class SurveyAnswerRead(BaseModel):
+    question_id: str
+    question_text: str
+    answer_type: AnswerType
+    respondent_role: str
+    raw_answer: str
+    numeric_value: float | None = None
+    answer_json: dict[str, Any] = Field(default_factory=dict)
+    collected_at: str
+
+
+class InitialSurveyStatus(BaseModel):
+    company_id: str
+    answered: bool
+    answered_count: int
+    total_count: int
+    answers: list[SurveyAnswerRead] = Field(default_factory=list)

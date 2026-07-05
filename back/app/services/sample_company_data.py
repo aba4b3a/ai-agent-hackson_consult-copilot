@@ -127,7 +127,7 @@ class SampleCompanyData:
         return {
             'header': {
                 'title': 'Knowledge Formation',
-                'subtitle': 'LLM Wiki と BigQuery seed に基づくサンプル企業ナレッジ',
+                'subtitle': '企業属性情報および過去傾向データに基づく企業ナレッジ',
                 'statusLabel': 'Seeded Knowledge Asset',
                 'statusDescription': ui.get('knowledge_status', f"{data.get('company', {}).get('company_name', company_id)} のKPI候補・重点管理指標候補を読込済み"),
             },
