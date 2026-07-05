@@ -130,6 +130,61 @@
       "confidence": 0.88,
       "status": "active",
       "properties": {"frequency": "weekly", "target_role": "sales"}
+    },
+    {
+      "node_id": "node_customer_large_equipment_maker",
+      "company_id": "SMB-1042",
+      "node_type": "CustomerSegment",
+      "label": "大口設備メーカー",
+      "description": "売上比率が高い主要顧客群。短納期追加加工と価格再確認が同時に発生しやすい。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.87,
+      "status": "active",
+      "properties": {"segment": "key_account", "risk": "concentration"}
+    },
+    {
+      "node_id": "node_product_small_lot_precision_parts",
+      "company_id": "SMB-1042",
+      "node_type": "ProductService",
+      "label": "小ロット精密部品",
+      "description": "段取り替えや追加加工が粗利を圧迫しやすい商品群。見積条件の粒度が成約と粗利に影響する。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.83,
+      "status": "active",
+      "properties": {"category": "small_lot", "margin_risk": "high"}
+    },
+    {
+      "node_id": "node_signal_short_lead_time_change",
+      "company_id": "SMB-1042",
+      "node_type": "Signal",
+      "label": "短納期追加変更",
+      "description": "受注前後に納期短縮や追加加工が増える兆候。原価見積のズレと手戻りの先行指標になる。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.81,
+      "status": "active",
+      "properties": {"metric_category": "delivery_pressure", "observation": "sales_note"}
+    },
+    {
+      "node_id": "node_process_quote_cost_review",
+      "company_id": "SMB-1042",
+      "node_type": "Process",
+      "label": "原価見直し会議",
+      "description": "営業、工場長、ベテラン加工担当が見積前提を週次で確認する候補プロセス。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.73,
+      "status": "active",
+      "properties": {"cadence": "weekly", "owner": "sales_and_factory"}
+    },
+    {
+      "node_id": "node_signal_rework_count",
+      "company_id": "SMB-1042",
+      "node_type": "Signal",
+      "label": "手戻り件数",
+      "description": "仕様確認不足や加工条件変更により発生する手戻りの件数。短納期案件の品質・粗利リスクを見る。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.77,
+      "status": "active",
+      "properties": {"metric_category": "operation_quality", "unit": "cases/week"}
     }
   ],
   "knowledge_edges": [
@@ -169,6 +224,84 @@
       "source_response_id": "resp_onboard_001",
       "confidence": 0.74,
       "strength": 0.68,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_customer_to_price_recheck",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_customer_large_equipment_maker",
+      "target_node_id": "node_signal_price_recheck",
+      "edge_type": "DRIVES",
+      "description": "大口顧客の短納期案件では、見積後の価格再確認が増えやすい。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.78,
+      "strength": 0.74,
+      "observed_count": 2,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_product_to_short_lead_time",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_product_small_lot_precision_parts",
+      "target_node_id": "node_signal_short_lead_time_change",
+      "edge_type": "CREATES",
+      "description": "小ロット精密部品は段取り替えが多く、短納期変更が原価ズレを生みやすい。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.76,
+      "strength": 0.7,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_short_lead_time_to_rework",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_signal_short_lead_time_change",
+      "target_node_id": "node_signal_rework_count",
+      "edge_type": "LEADING_INDICATOR_OF",
+      "description": "納期短縮や追加変更は仕様確認不足を招き、手戻り件数の増加に先行する。",
+      "source_response_id": "resp_onboard_001",
+      "confidence": 0.75,
+      "strength": 0.71,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_rework_to_margin",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_signal_rework_count",
+      "target_node_id": "node_kpi_quote_gross_margin",
+      "edge_type": "PRESSURES",
+      "description": "手戻り件数は追加工数を通じて見積粗利率を押し下げる。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.72,
+      "strength": 0.69,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_policy_observes_process",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_research_policy_sales_weekly",
+      "target_node_id": "node_process_quote_cost_review",
+      "edge_type": "OBSERVES",
+      "description": "週次ヒアリングで価格再確認、短納期変更、手戻り件数を原価見直し会議に渡す。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.8,
+      "strength": 0.66,
+      "observed_count": 1,
+      "properties": {"approval_status": "proposed"}
+    },
+    {
+      "edge_id": "edge_process_protects_win_rate",
+      "company_id": "SMB-1042",
+      "source_node_id": "node_process_quote_cost_review",
+      "target_node_id": "node_kpi_quote_win_rate",
+      "edge_type": "PROTECTS",
+      "description": "原価見直し会議により見積条件の説明力が上がり、成約率低下を抑える仮説。",
+      "source_response_id": "resp_followup_001",
+      "confidence": 0.69,
+      "strength": 0.62,
       "observed_count": 1,
       "properties": {"approval_status": "proposed"}
     }

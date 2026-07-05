@@ -6,22 +6,30 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useGraph } from "@/hooks/use-graph";
-import type { GraphView, SegmentNode } from "@/lib/schemas";
+import type { GraphEdge, GraphView, SegmentNode } from "@/lib/schemas";
 
 const nodeToneClass: Record<SegmentNode["tone"], string> = {
-  rose: "bg-rose-100 text-rose-400",
-  cyan: "bg-cyan-100 text-cyan-500",
-  amber: "bg-amber-100 text-amber-500",
-  violet: "bg-violet-100 text-violet-500",
+  rose: "bg-rose-100 text-rose-500",
+  cyan: "bg-cyan-100 text-cyan-600",
+  amber: "bg-amber-100 text-amber-600",
+  violet: "bg-violet-100 text-violet-600",
   blue: "bg-blue-600 text-white",
 };
 
 const nodePositionClass: Record<SegmentNode["position"], string> = {
-  topLeft: "left-[22%] top-[14%]",
-  topRight: "right-[20%] top-[16%]",
-  bottomLeft: "left-[20%] bottom-[16%]",
-  bottomRight: "right-[19%] bottom-[15%]",
-  center: "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+  topLeft: "left-[23%] top-[20%]",
+  topRight: "right-[23%] top-[20%]",
+  bottomLeft: "left-[24%] bottom-[20%]",
+  bottomRight: "right-[23%] bottom-[20%]",
+  center: "left-1/2 top-1/2",
+};
+
+const fallbackPosition: Record<SegmentNode["position"], { x: number; y: number }> = {
+  topLeft: { x: 84, y: 52 },
+  topRight: { x: 276, y: 54 },
+  bottomLeft: { x: 88, y: 206 },
+  bottomRight: { x: 272, y: 204 },
+  center: { x: 180, y: 130 },
 };
 
 const viewToneClass: Record<GraphView["tone"], string> = {
@@ -31,11 +39,36 @@ const viewToneClass: Record<GraphView["tone"], string> = {
   purple: "bg-violet-100 text-violet-700",
 };
 
+const edgeToneClass: Record<GraphEdge["tone"], string> = {
+  blue: "stroke-blue-200",
+  rose: "stroke-rose-200",
+  amber: "stroke-amber-200",
+  violet: "stroke-violet-200",
+  slate: "stroke-slate-200",
+};
+
+const edgeLabelToneClass: Record<GraphEdge["tone"], string> = {
+  blue: "bg-blue-50 text-blue-700",
+  rose: "bg-rose-50 text-rose-700",
+  amber: "bg-amber-50 text-amber-700",
+  violet: "bg-violet-50 text-violet-700",
+  slate: "bg-slate-100 text-slate-600",
+};
+
+const getPoint = (node: SegmentNode) => ({
+  x: node.x ?? fallbackPosition[node.position].x,
+  y: node.y ?? fallbackPosition[node.position].y,
+});
+
 export const KnowledgeGraph = () => {
   const { data, isLoading, isError } = useGraph();
 
   if (isLoading) return <LoadingState message="Loading..." />;
   if (isError || !data) return <LoadingState message="データの取得に失敗しました。" />;
+
+  const nodes = data.map.nodes.slice(0, 14);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const edges = (data.map.edges ?? []).filter((edge) => nodeById.has(edge.source) && nodeById.has(edge.target)).slice(0, 18);
 
   return (
     <PhoneFrame>
@@ -59,23 +92,60 @@ export const KnowledgeGraph = () => {
 
         <Card className="mt-3">
           <SectionTitle>{data.map.title}</SectionTitle>
-          <div className="relative mx-auto mt-3 h-44 max-w-[280px]">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 280 176" aria-hidden="true">
-              <line x1="140" y1="88" x2="78" y2="42" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
-              <line x1="140" y1="88" x2="205" y2="43" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
-              <line x1="140" y1="88" x2="78" y2="133" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
-              <line x1="140" y1="88" x2="205" y2="132" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
+          <div className="relative mx-auto mt-3 aspect-[18/13] max-w-[360px] overflow-hidden rounded-[8px] bg-slate-50 ring-1 ring-slate-100">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 260" aria-hidden="true">
+              {edges.map((edge) => {
+                const source = nodeById.get(edge.source);
+                const target = nodeById.get(edge.target);
+                if (!source || !target) return null;
+                const sourcePoint = getPoint(source);
+                const targetPoint = getPoint(target);
+
+                return (
+                  <line
+                    key={edge.id}
+                    x1={sourcePoint.x}
+                    y1={sourcePoint.y}
+                    x2={targetPoint.x}
+                    y2={targetPoint.y}
+                    className={edgeToneClass[edge.tone]}
+                    strokeWidth={Math.max(2, Math.round(edge.strength * 7))}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
             </svg>
-            {data.map.nodes.map((node) => (
-              <div
-                key={node.id}
-                className={`absolute grid place-items-center whitespace-pre-line rounded-full text-center text-[10px] font-black leading-tight md:text-xs ${node.position === "center" ? "h-16 w-16" : "h-14 w-14"} ${nodeToneClass[node.tone]} ${nodePositionClass[node.position]}`}
-              >
-                {node.label}
-              </div>
-            ))}
+            {nodes.map((node) => {
+              const point = getPoint(node);
+              const nodeSizeClass = node.size === "lg" ? "w-[92px]" : node.size === "sm" ? "w-[68px]" : "w-[78px]";
+
+              return (
+                <div
+                  key={node.id}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-[8px] px-2 py-1.5 text-center shadow-sm ring-1 ring-white/80 ${nodeSizeClass} ${nodeToneClass[node.tone]} ${node.x === undefined && node.y === undefined ? nodePositionClass[node.position] : ""}`}
+                  style={node.x !== undefined || node.y !== undefined ? { left: `${(point.x / 360) * 100}%`, top: `${(point.y / 260) * 100}%` } : undefined}
+                  title={node.description}
+                >
+                  <p className="truncate text-[9px] font-black leading-tight md:text-[10px]">{node.label}</p>
+                  <p className="mt-0.5 truncate text-[8px] font-extrabold opacity-70">{node.meta ?? node.nodeType}</p>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-1 text-[10px] font-extrabold text-blue-400 md:text-xs">{data.map.stats}</p>
+          {edges.length > 0 && (
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {edges.slice(0, 6).map((edge) => (
+                <div key={edge.id} className="rounded-[8px] bg-white px-3 py-2 ring-1 ring-slate-100">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`min-w-0 truncate rounded-full px-2 py-1 text-[9px] font-black ${edgeLabelToneClass[edge.tone]}`}>{edge.label}</span>
+                    <span className="shrink-0 text-[9px] font-extrabold text-slate-400">{Math.round(edge.strength * 100)}%</span>
+                  </div>
+                  {edge.description && <p className="mt-1 line-clamp-2 text-[10px] font-bold leading-relaxed text-slate-500">{edge.description}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="mt-3">

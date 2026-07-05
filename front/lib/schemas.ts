@@ -84,6 +84,22 @@ export type SegmentNode = {
   label: string;
   tone: "rose" | "cyan" | "amber" | "violet" | "blue";
   position: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "center";
+  nodeType?: string;
+  description?: string;
+  x?: number;
+  y?: number;
+  size?: "sm" | "md" | "lg";
+  meta?: string;
+};
+
+export type GraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  tone: "blue" | "rose" | "amber" | "violet" | "slate";
+  strength: number;
+  description?: string;
 };
 
 export type GraphView = {
@@ -107,6 +123,7 @@ export type GraphData = {
   map: {
     title: string;
     nodes: SegmentNode[];
+    edges?: GraphEdge[];
     stats: string;
   };
   views: GraphView[];

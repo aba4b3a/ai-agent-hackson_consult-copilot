@@ -167,17 +167,74 @@ class SampleCompanyData:
         ui = data.get('ui', {})
         nodes = data.get('knowledge_nodes', [])
         edges = data.get('knowledge_edges', [])
-        tone_map = {'Signal': 'rose', 'KPI': 'amber', 'TacitKnowledge': 'violet', 'CompanyProfile': 'cyan', 'ResearchPolicy': 'blue'}
+        tone_map = {
+            'Signal': 'rose',
+            'KPI': 'amber',
+            'TacitKnowledge': 'violet',
+            'CompanyProfile': 'cyan',
+            'ResearchPolicy': 'blue',
+            'CustomerSegment': 'cyan',
+            'ProductService': 'violet',
+            'Process': 'blue',
+        }
+        edge_tone_map = {
+            'LEADING_INDICATOR_OF': 'rose',
+            'PRESSURES': 'rose',
+            'PROTECTS': 'violet',
+            'MEASURES': 'amber',
+            'INFORMS': 'blue',
+            'DRIVES': 'blue',
+            'CREATES': 'amber',
+            'OBSERVES': 'blue',
+            'AFFECTS': 'slate',
+        }
         positions = ['center', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight']
+        layout_points = [
+            (180, 130),
+            (72, 54),
+            (178, 36),
+            (288, 58),
+            (52, 134),
+            (306, 132),
+            (86, 212),
+            (180, 222),
+            (284, 210),
+            (128, 88),
+            (232, 92),
+            (180, 174),
+            (118, 166),
+            (244, 166),
+        ]
+        size_map = {'CompanyProfile': 'lg', 'KPI': 'md', 'Signal': 'md', 'ResearchPolicy': 'lg'}
         display_nodes = [
             {
                 'id': node.get('node_id'),
-                'label': str(node.get('label', 'node'))[:8],
+                'label': str(node.get('label', 'node'))[:14],
                 'tone': tone_map.get(node.get('node_type'), 'blue'),
                 'position': positions[index % len(positions)],
+                'nodeType': node.get('node_type', 'Unknown'),
+                'description': node.get('description', ''),
+                'x': layout_points[index % len(layout_points)][0],
+                'y': layout_points[index % len(layout_points)][1],
+                'size': size_map.get(node.get('node_type'), 'sm'),
+                'meta': node.get('node_type', 'Unknown'),
             }
-            for index, node in enumerate(nodes[:5])
+            for index, node in enumerate(nodes[:14])
         ]
+        node_ids = {node['id'] for node in display_nodes}
+        display_edges = [
+            {
+                'id': edge.get('edge_id', f'edge-{index}'),
+                'source': edge.get('source_node_id'),
+                'target': edge.get('target_node_id'),
+                'label': edge.get('edge_type', 'RELATED_TO'),
+                'tone': edge_tone_map.get(edge.get('edge_type'), 'slate'),
+                'strength': max(0.2, min(1.0, float(edge.get('strength') or edge.get('confidence') or 0.55))),
+                'description': edge.get('description', ''),
+            }
+            for index, edge in enumerate(edges)
+            if edge.get('source_node_id') in node_ids and edge.get('target_node_id') in node_ids
+        ][:18]
         top_edge = edges[0] if edges else {}
         return {
             'header': {'title': 'Knowledge Graph', 'subtitle': 'BigQuery Graph seed による関係可視化'},
@@ -185,6 +242,7 @@ class SampleCompanyData:
             'map': {
                 'title': ui.get('graph_title', 'KPI Signal Map'),
                 'nodes': display_nodes,
+                'edges': display_edges,
                 'stats': f"Nodes {len(nodes)} / Relations {len(edges)}",
             },
             'views': [
