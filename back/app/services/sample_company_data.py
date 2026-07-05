@@ -218,6 +218,8 @@ class SampleCompanyData:
                 'y': layout_points[index % len(layout_points)][1],
                 'size': size_map.get(node.get('node_type'), 'sm'),
                 'meta': node.get('node_type', 'Unknown'),
+                'value': node.get('properties', {}).get('latest_value'),
+                'unit': node.get('properties', {}).get('unit'),
             }
             for index, node in enumerate(nodes[:14])
         ]
@@ -266,6 +268,56 @@ class SampleCompanyData:
                 {'id': 'l4', 'label': 'KPI graph', 'value': '見積粗利率・見積成約率との関連'},
             ],
         }
+
+    def kpi_trends(self, company_id: str) -> list[dict[str, Any]] | None:
+        data = self.structured(company_id)
+        if not data:
+            return None
+        responses = data.get('survey_responses', [])
+        kpi_candidates = {item['kpi_candidate_id']: item for item in data.get('kpi_candidates', [])}
+
+        trends: list[dict[str, Any]] = []
+        for metric in data.get('focus_metric_candidates', []):
+            signal_types = set(metric.get('observation_signal_types', []))
+            history = sorted(
+                (
+                    {'collected_at': response.get('collected_at'), 'value': response.get('numeric_value')}
+                    for response in responses
+                    if signal_types & set(response.get('tags', [])) and response.get('numeric_value') is not None
+                ),
+                key=lambda point: point['collected_at'] or '',
+            )
+            latest = history[-1] if history else None
+            previous = history[-2] if len(history) > 1 else None
+            if latest and previous:
+                if latest['value'] > previous['value']:
+                    direction = 'up'
+                elif latest['value'] < previous['value']:
+                    direction = 'down'
+                else:
+                    direction = 'flat'
+            else:
+                direction = 'new' if latest else 'no_data'
+
+            trends.append({
+                'id': metric['focus_metric_candidate_id'],
+                'label': metric['metric_name'],
+                'category': metric.get('metric_category', ''),
+                'description': metric.get('description', ''),
+                'latest_value': latest['value'] if latest else None,
+                'latest_collected_at': latest['collected_at'] if latest else None,
+                'direction': direction,
+                'history': history,
+                'related_kpis': [
+                    kpi_candidates[kpi_id]['kpi_name']
+                    for kpi_id in metric.get('related_kpi_candidate_ids', [])
+                    if kpi_id in kpi_candidates
+                ],
+                'trigger_condition': metric.get('trigger_condition', ''),
+                'measurement_frequency': metric.get('measurement_frequency', ''),
+                'approval_status': metric.get('approval_status', 'proposed'),
+            })
+        return trends
 
     def weekly_report(self, company_id: str) -> dict[str, Any] | None:
         data = self.structured(company_id)

@@ -1,5 +1,5 @@
-import { KnowledgeFormation } from "@/components/feature/knowledge/KnowledgeFormation";
+import { KnowledgeDashboard } from "@/components/feature/knowledge/KnowledgeDashboard";
 
 export default function KnowledgePage() {
-  return <KnowledgeFormation />;
+  return <KnowledgeDashboard />;
 }

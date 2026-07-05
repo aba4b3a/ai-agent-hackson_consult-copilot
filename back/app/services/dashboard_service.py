@@ -170,6 +170,9 @@ class DashboardService:
                 "label": r["label"][:8],
                 "tone": tone_map.get(r["node_type"], "blue"),
                 "position": positions[i % len(positions)],
+                "nodeType": r["node_type"],
+                "value": None,
+                "unit": None,
             }
             for i, r in enumerate(node_rows[:5])
         ] or [{"id": "n0", "label": "データなし", "tone": "blue", "position": "center"}]
@@ -203,6 +206,10 @@ class DashboardService:
                 {"id": "l4", "label": "KPI graph", "value": "指標との関連"},
             ],
         }
+
+    # ── KPI Trends ───────────────────────────────────────────────────────
+    def get_kpi_trends(self, company_id: str) -> dict:
+        return {"items": sample_company_data.kpi_trends(company_id) or []}
 
     # ── Weekly Report ────────────────────────────────────────────────────
     def get_weekly_report(self, company_id: str) -> dict:

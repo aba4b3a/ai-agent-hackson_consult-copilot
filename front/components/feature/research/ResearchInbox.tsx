@@ -21,8 +21,8 @@ export const ResearchInbox = () => {
   const submit = useSubmitFollowupAnswer();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  if (isLoading) return <LoadingState message="質問を読込中..." />;
-  if (isError || !data) return <LoadingState isError message="Research Agent からの質問を取得できませんでした。" />;
+  if (isLoading) return <LoadingState message="質問を読込中..." active="research" />;
+  if (isError || !data) return <LoadingState isError message="Research Agent からの質問を取得できませんでした。" active="research" />;
 
   return (
     <PhoneFrame>

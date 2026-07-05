@@ -11,8 +11,8 @@ import { useReport } from "@/hooks/use-report";
 export const ReportChat = () => {
   const { data, isLoading, isError } = useReport();
 
-  if (isLoading) return <LoadingState message="Loading..." />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError />;
+  if (isLoading) return <LoadingState message="Loading..." active="report" />;
+  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="report" />;
 
   return (
     <PhoneFrame>

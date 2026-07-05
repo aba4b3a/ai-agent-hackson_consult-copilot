@@ -2,19 +2,17 @@ import {
   FiBarChart2,
   FiBookOpen,
   FiCheckCircle,
-  FiClipboard,
-  FiGitBranch,
   FiHome,
+  FiClipboard,
   FiMessageSquare,
   FiSearch,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 
-type BottomNavKey =
+export type BottomNavKey =
   | "home"
   | "intake"
   | "knowledge"
-  | "graph"
   | "report"
   | "approvals"
   | "research"
@@ -29,7 +27,6 @@ const tabs: { key: BottomNavKey; label: string; href: string; icon: IconType }[]
   { key: "intake", label: "Intake", href: "/intake", icon: FiClipboard },
   { key: "research", label: "Research", href: "/research", icon: FiSearch },
   { key: "knowledge", label: "Knowledge", href: "/knowledge", icon: FiBarChart2 },
-  { key: "graph", label: "Graph", href: "/graph", icon: FiGitBranch },
   { key: "wiki", label: "Wiki", href: "/wiki", icon: FiBookOpen },
   { key: "approvals", label: "Approve", href: "/approvals", icon: FiCheckCircle },
   { key: "report", label: "Report", href: "/report", icon: FiMessageSquare },

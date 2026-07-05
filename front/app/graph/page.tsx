@@ -1,5 +1,14 @@
-import { KnowledgeGraph } from "@/components/feature/graph/KnowledgeGraph";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function KnowledgeGraphPage() {
-  return <KnowledgeGraph />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/knowledge");
+  }, [router]);
+
+  return <div className="grid min-h-screen place-items-center text-sm font-bold text-slate-500">Redirecting...</div>;
 }

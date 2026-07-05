@@ -613,7 +613,7 @@
       "metric_category": "quote_cycle_signal",
       "description": "小ロット案件の見積提出から意思決定までの日数。",
       "related_kpi_candidate_ids": ["kpi_quote_win_rate"],
-      "observation_signal_types": ["quote_cycle_delay", "small_lot"],
+      "observation_signal_types": ["quote_cycle_delay"],
       "trigger_condition": "平均7日超、または前月比20%以上増加",
       "followup_policy": "営業責任者に停滞理由と顧客側の比較条件を確認する。",
       "measurement_frequency": "weekly",

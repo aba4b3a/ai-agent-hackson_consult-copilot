@@ -90,6 +90,8 @@ export type SegmentNode = {
   y?: number;
   size?: "sm" | "md" | "lg";
   meta?: string;
+  value?: number | null;
+  unit?: string | null;
 };
 
 export type GraphEdge = {
@@ -112,6 +114,30 @@ export type KnowledgeLensItem = {
   id: string;
   label: string;
   value: string;
+};
+
+export type KpiTrendPoint = {
+  collected_at: string | null;
+  value: number | null;
+};
+
+export type KpiTrend = {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
+  latest_value: number | null;
+  latest_collected_at: string | null;
+  direction: "up" | "down" | "flat" | "new" | "no_data";
+  history: KpiTrendPoint[];
+  related_kpis: string[];
+  trigger_condition: string;
+  measurement_frequency: string;
+  approval_status: string;
+};
+
+export type KpiTrendsData = {
+  items: KpiTrend[];
 };
 
 export type GraphData = {

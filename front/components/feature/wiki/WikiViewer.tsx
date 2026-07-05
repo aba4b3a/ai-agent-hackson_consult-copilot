@@ -59,9 +59,9 @@ export const WikiViewer = () => {
     }
   }, [filesQuery.data?.items, selectedPath]);
 
-  if (filesQuery.isLoading) return <LoadingState message="Wiki ファイルを読込中..." />;
+  if (filesQuery.isLoading) return <LoadingState message="Wiki ファイルを読込中..." active="wiki" />;
   if (filesQuery.isError || !filesQuery.data) {
-    return <LoadingState isError message="Wiki ファイル一覧を取得できませんでした。" />;
+    return <LoadingState isError message="Wiki ファイル一覧を取得できませんでした。" active="wiki" />;
   }
 
   const versionList = versionsQuery.data?.versions ?? [];

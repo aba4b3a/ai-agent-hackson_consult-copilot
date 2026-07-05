@@ -186,8 +186,8 @@ export const ApprovalsList = () => {
     [data?.items, selectedId],
   );
 
-  if (isLoading) return <LoadingState message="承認待ち項目を読込中..." />;
-  if (isError || !data) return <LoadingState isError message="承認データを取得できませんでした。" />;
+  if (isLoading) return <LoadingState message="承認待ち項目を読込中..." active="approvals" />;
+  if (isError || !data) return <LoadingState isError message="承認データを取得できませんでした。" active="approvals" />;
 
   return (
     <PhoneFrame>

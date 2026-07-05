@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
-import { LoadingState } from "@/components/ui/LoadingState";
-import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useGraph } from "@/hooks/use-graph";
 import type { GraphEdge, GraphView, SegmentNode } from "@/lib/schemas";
@@ -109,7 +106,7 @@ const edgeLabelToneClass: Record<GraphEdge["tone"], string> = {
   slate: "bg-slate-100 text-slate-600",
 };
 
-export const KnowledgeGraph = () => {
+export const KnowledgeGraphSection = () => {
   const { data, isLoading, isError } = useGraph();
   const [activeFilterIndex, setActiveFilterIndex] = useState(0);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
@@ -135,15 +132,18 @@ export const KnowledgeGraph = () => {
   const { points, clusters } = useMemo(() => buildClusteredLayout(nodes), [nodes]);
   const getPoint = (node: SegmentNode) => points.get(node.id) ?? { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 };
 
-  if (isLoading) return <LoadingState message="Loading..." />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" />;
+  if (isLoading) {
+    return <p className="rounded-lg bg-white px-4 py-6 text-center text-sm font-bold text-slate-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">Loading...</p>;
+  }
+  if (isError || !data) {
+    return <p className="rounded-lg bg-white px-4 py-6 text-center text-sm font-bold text-rose-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">データの取得に失敗しました。</p>;
+  }
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const edges = (data.map.edges ?? []).filter((edge) => nodeById.has(edge.source) && nodeById.has(edge.target)).slice(0, 18);
 
   return (
-    <PhoneFrame>
-      <div className="px-5 pb-24 pt-5 md:px-7 md:pb-8 md:pt-8">
+    <div className="space-y-3">
         <header>
           <h1 className="text-[20px] font-black tracking-tight text-slate-950 md:text-2xl">{data.header.title}</h1>
           <p className="mt-1 text-[11px] font-extrabold text-slate-500 md:text-sm">{data.header.subtitle}</p>
@@ -278,8 +278,6 @@ export const KnowledgeGraph = () => {
             ))}
           </dl>
         </Card>
-      </div>
-      <BottomNav active="graph" />
-    </PhoneFrame>
+    </div>
   );
 };

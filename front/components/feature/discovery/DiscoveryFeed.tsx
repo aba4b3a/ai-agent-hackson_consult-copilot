@@ -2,6 +2,7 @@
 
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { InsightCard } from "@/components/feature/discovery/InsightCard";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useDashboard } from "@/hooks/use-dashboard";
@@ -9,23 +10,8 @@ import { useDashboard } from "@/hooks/use-dashboard";
 export const DiscoveryFeed = () => {
   const { data, isLoading, isError } = useDashboard();
 
-  if (isLoading) {
-    return (
-      <PhoneFrame>
-        <div className="flex min-h-screen items-center justify-center text-sm font-bold text-slate-500 md:min-h-[720px]">Loading...</div>
-      </PhoneFrame>
-    );
-  }
-
-  if (isError || !data) {
-    return (
-      <PhoneFrame>
-        <div className="flex min-h-screen items-center justify-center px-6 text-center text-sm font-bold text-rose-500 md:min-h-[720px]">
-          データの取得に失敗しました。
-        </div>
-      </PhoneFrame>
-    );
-  }
+  if (isLoading) return <LoadingState message="Loading..." active="home" />;
+  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="home" />;
 
   return (
     <PhoneFrame>

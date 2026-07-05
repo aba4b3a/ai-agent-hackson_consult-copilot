@@ -300,8 +300,8 @@ export const InitialSurveyForm = () => {
     return data.questions.filter((item) => serializeAnswer(answers[item.question_id]).trim().length > 0).length;
   }, [answers, data]);
 
-  if (isLoading || isStatusLoading) return <LoadingState message="Loading..." />;
-  if (isError || !data || !question) return <LoadingState message="質問定義を取得できませんでした。" isError />;
+  if (isLoading || isStatusLoading) return <LoadingState message="Loading..." active="intake" />;
+  if (isError || !data || !question) return <LoadingState message="質問定義を取得できませんでした。" isError active="intake" />;
 
   if (status?.answered && !isEditing) {
     return (

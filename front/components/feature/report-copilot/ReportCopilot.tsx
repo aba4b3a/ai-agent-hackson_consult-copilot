@@ -54,8 +54,8 @@ export const ReportCopilot = () => {
     }
   };
 
-  if (isLoading) return <LoadingState message="Loading..." />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError />;
+  if (isLoading) return <LoadingState message="Loading..." active="report" />;
+  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="report" />;
 
   return (
     <PhoneFrame>
