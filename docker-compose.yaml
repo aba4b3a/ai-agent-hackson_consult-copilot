@@ -56,6 +56,8 @@ services:
       - ./ollama:/root/.ollama
     restart: always
     gpus: all
+    command: >
+      "sleep 10 && OLLAMA_HOST=http://ollama-ai:11434 ollama pull gemma4:12b"
     # GPU support (uncomment if available)
     # deploy:
     #   resources:
