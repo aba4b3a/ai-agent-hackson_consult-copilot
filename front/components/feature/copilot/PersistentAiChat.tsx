@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
 import { getKnowledgeData } from "@/services/knowledge-service";
 import { sendCopilotMessage } from "@/services/report-copilot-service";
-import { listWikiFiles, readWikiFile } from "@/services/wiki-service";
+import { listWikiFiles, readWikiFile, toRelativeWikiPath } from "@/services/wiki-service";
 
 type ChatEntry = {
   role: "user" | "assistant";
@@ -69,7 +69,7 @@ export const PersistentAiChat = () => {
         .slice(0, 3);
 
       const contents = await Promise.allSettled(
-        readableFiles.map((path) => readWikiFile(path, undefined, activeCompany.code)),
+        readableFiles.map((path) => readWikiFile(toRelativeWikiPath(path), undefined, activeCompany.code)),
       );
 
       return {

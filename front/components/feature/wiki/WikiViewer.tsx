@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { useWikiFileContent, useWikiFiles, useWikiVersions } from "@/hooks/use-wiki";
+import { toRelativeWikiPath } from "@/services/wiki-service";
 
 const computeLineDiff = (left: string, right: string) => {
   const leftLines = left.split("\n");
@@ -34,8 +35,7 @@ export const WikiViewer = () => {
 
   const relativePath = useMemo(() => {
     if (!selectedPath) return null;
-    const idx = selectedPath.indexOf("/wiki/current/");
-    return idx >= 0 ? selectedPath.slice(idx + "/wiki/current/".length) : selectedPath;
+    return toRelativeWikiPath(selectedPath);
   }, [selectedPath]);
 
   const currentContent = useWikiFileContent(relativePath, undefined, Boolean(relativePath));

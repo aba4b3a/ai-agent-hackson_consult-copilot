@@ -36,3 +36,11 @@ export const readWikiFile = (path: string, version?: string, targetCompanyId = c
   if (version) qs.set("version", version);
   return apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/wiki/files/content?${qs.toString()}`);
 };
+
+// WikiFile.path is the full storage path (e.g. tenants/{id}/wiki/current/foo.md); the
+// content endpoint expects a path relative to wiki/current/, so callers must strip the prefix.
+export const toRelativeWikiPath = (path: string) => {
+  const marker = "/wiki/current/";
+  const idx = path.indexOf(marker);
+  return idx >= 0 ? path.slice(idx + marker.length) : path;
+};
