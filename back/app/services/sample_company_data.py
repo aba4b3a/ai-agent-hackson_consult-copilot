@@ -98,8 +98,14 @@ class SampleCompanyData:
             'insights': insights,
             'portfolio': [
                 {'id': company_id, 'name': company.get('company_name', company_id), 'status': company.get('segment', 'sample company')},
-                {'id': 'SMB-2198', 'name': '青葉ベーカリー&カフェ', 'status': '飲食・小売 / サンプル切替候補'},
-                {'id': 'SMB-3307', 'name': 'みなとケア', 'status': '未接続 / サンプル切替候補'},
+                *[
+                    candidate
+                    for candidate in (
+                        {'id': 'SMB-2198', 'name': '青葉ベーカリー&カフェ', 'status': '飲食・小売 / サンプル切替候補'},
+                        {'id': 'SMB-3307', 'name': 'みなとケア', 'status': '未接続 / サンプル切替候補'},
+                    )
+                    if candidate['id'] != company_id
+                ],
             ],
             'nextActions': ui.get('next_actions') or [
                 {'id': 'act-1', 'title': '週次質問を確認', 'description': '重点管理指標の変化と背景を現場担当に聞く。'},

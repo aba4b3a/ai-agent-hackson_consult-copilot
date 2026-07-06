@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from app.core.config import settings
@@ -92,6 +93,12 @@ class SurveyService:
 
         latest_by_question: dict[str, SurveyAnswerRead] = {}
         for row in rows:
+            # BigQuery returns TIMESTAMP columns as datetime objects, but the
+            # sample-data fallback path supplies plain ISO strings; normalize
+            # both to a string since SurveyAnswerRead.collected_at is str.
+            collected_at = row.get('collected_at', '')
+            if isinstance(collected_at, datetime):
+                collected_at = collected_at.isoformat()
             answer = SurveyAnswerRead(
                 question_id=row['question_id'],
                 question_text=row.get('question_text', ''),
@@ -100,7 +107,7 @@ class SurveyService:
                 raw_answer=row.get('raw_answer', ''),
                 numeric_value=row.get('numeric_value'),
                 answer_json=row.get('answer_json') or {},
-                collected_at=row.get('collected_at', ''),
+                collected_at=collected_at or '',
             )
             existing = latest_by_question.get(answer.question_id)
             if not existing or answer.collected_at >= existing.collected_at:

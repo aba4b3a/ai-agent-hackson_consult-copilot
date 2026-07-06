@@ -58,6 +58,13 @@ services:
     gpus: all
     command: >
       "sleep 10 && OLLAMA_HOST=http://ollama-ai:11434 ollama pull gemma4:12b"
+    environment:
+      # Default context (4096) leaves almost no room to generate once the
+      # multi-agent orchestrator/knowledge-agent system prompts are included.
+      # Kept at 8192 rather than higher: gemma3:12b weights already use ~8GB
+      # VRAM, and 16384 was observed OOM-killing the llama-server runner on a
+      # 12GB GPU under concurrent requests.
+      OLLAMA_CONTEXT_LENGTH: "8192"
     # GPU support (uncomment if available)
     # deploy:
     #   resources:

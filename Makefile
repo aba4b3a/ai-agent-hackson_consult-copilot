@@ -1,4 +1,4 @@
-.PHONY: setup dev lint terraform-check test build clean
+.PHONY: setup dev lint terraform-check test seed-emulator build clean
 
 setup:
 	docker compose build
@@ -24,6 +24,11 @@ test:
 	docker compose run --rm --no-deps front npm run test:e2e
 	docker compose run --rm --no-deps back pytest
 	docker compose run --rm --no-deps agent pytest
+
+seed-emulator:
+	# The BigQuery emulator has no persistent volume, so its data is lost on
+	# every restart; re-run this after that happens.
+	docker compose run --rm back python scripts/seed_emulator.py
 
 build:
 	docker compose run --rm --no-deps front npm run build

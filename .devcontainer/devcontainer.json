@@ -40,6 +40,7 @@
     }
   },
   "postCreateCommand": "python -m pip install --user uv && make setup",
+  "postStartCommand": "docker network connect ai-agent-hackson_consult-copilot_default $(hostname) 2>/dev/null || true",
   "forwardPorts": [3000, 8000, 8080, 9050],
   "portsAttributes": {
     "3000": {

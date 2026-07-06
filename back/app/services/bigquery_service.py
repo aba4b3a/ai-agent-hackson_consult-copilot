@@ -64,9 +64,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset_id}.knowledge_edges` (
   properties JSON,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
-  PRIMARY KEY (edge_id) NOT ENFORCED,
-  FOREIGN KEY (source_node_id) REFERENCES `{project}.{dataset_id}.knowledge_nodes`(node_id) NOT ENFORCED,
-  FOREIGN KEY (target_node_id) REFERENCES `{project}.{dataset_id}.knowledge_nodes`(node_id) NOT ENFORCED
+  PRIMARY KEY (edge_id) NOT ENFORCED
 );
 
 CREATE OR REPLACE PROPERTY GRAPH `{project}.{dataset_id}.{graph_name}`

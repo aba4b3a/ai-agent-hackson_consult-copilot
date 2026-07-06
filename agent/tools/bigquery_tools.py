@@ -735,10 +735,18 @@ def insert_wiki_revision_log(company_id: str, records: list[dict]) -> dict:
 def upsert_knowledge_nodes(company_id: str, nodes: list[dict]) -> dict:
     if not nodes:
         return {"skipped": True, "reason": "no nodes"}
+    required_keys = ("node_id", "node_type")
+    valid_nodes = [node for node in nodes if all(node.get(key) for key in required_keys)]
+    invalid_count = len(nodes) - len(valid_nodes)
+    if not valid_nodes:
+        return {
+            "skipped": True,
+            "reason": f"all {len(nodes)} node(s) missing required field(s) {required_keys}",
+        }
     dataset = settings.dataset_id(company_id)
     table = f"`{settings.project_id}.{dataset}.knowledge_nodes`"
     rows_sql = []
-    for node in nodes:
+    for node in valid_nodes:
         rows_sql.append(f'''
 SELECT
   {_sql_string(node["node_id"])} AS node_id,
@@ -768,16 +776,27 @@ WHEN MATCHED THEN UPDATE SET
   updated_at = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN INSERT ROW
 '''.strip()
-    return execute_sql(sql)
+    result = execute_sql(sql)
+    if invalid_count:
+        result["skipped_invalid_count"] = invalid_count
+    return result
 
 
 def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
     if not edges:
         return {"skipped": True, "reason": "no edges"}
+    required_keys = ("edge_id", "source_node_id", "target_node_id", "edge_type")
+    valid_edges = [edge for edge in edges if all(edge.get(key) for key in required_keys)]
+    invalid_count = len(edges) - len(valid_edges)
+    if not valid_edges:
+        return {
+            "skipped": True,
+            "reason": f"all {len(edges)} edge(s) missing required field(s) {required_keys}",
+        }
     dataset = settings.dataset_id(company_id)
     table = f"`{settings.project_id}.{dataset}.knowledge_edges`"
     rows_sql = []
-    for edge in edges:
+    for edge in valid_edges:
         rows_sql.append(f'''
 SELECT
   {_sql_string(edge["edge_id"])} AS edge_id,
@@ -807,7 +826,10 @@ WHEN MATCHED THEN UPDATE SET
   updated_at = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN INSERT ROW
 '''.strip()
-    return execute_sql(sql)
+    result = execute_sql(sql)
+    if invalid_count:
+        result["skipped_invalid_count"] = invalid_count
+    return result
 
 
 def upsert_current_kpi_definition(
