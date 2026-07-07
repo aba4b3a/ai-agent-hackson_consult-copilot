@@ -104,6 +104,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 2. Cloud Resource Setup
 
+> _Note (2026-07-07): ローカルは BigQuery エミュレータ（goccy）で代替し、back/agent とも接続確認済み（design.md §23.2）。`PROJECT_ID` はエミュレータの `--project`（local-project）と一致させること。企業別データセット/テーブルはマイグレーション API で作成する。_
+
 - [ ] 2.1 Create Cloud Storage bucket structure
   - Create folder prefixes for `raw/`, `processed/`, `wiki/`, `reports/`, and `exports/`.
   - Store uploaded documents, submitted report payloads, voice transcription artifacts, and generated wiki pages.
@@ -277,6 +279,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 ---
 
 ## 7. Gemini-Based Knowledge Extraction
+
+> _Note (2026-07-07): Gemini 呼び出し基盤は ADK で稼働確認済み（`MODEL_ID` で Ollama ローカルLLM ⇔ Gemini/Vertex express を切替、copilot 経路で E2E 確認）。設定手順と注意点は `agent/GEMINI_SETUP.md`、設計補足は design.md §23.1。_
 
 - [ ] 7.1 Define structured extraction schema
   - Define JSON schema for observations, entities, relationships, hypotheses, evidence snippets, and recommended follow-up topics.
