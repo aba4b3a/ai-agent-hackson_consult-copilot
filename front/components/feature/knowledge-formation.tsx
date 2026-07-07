@@ -104,13 +104,13 @@ export function KnowledgeFormation({ workspaceId }: { workspaceId: string }) {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-4">
         <Card>
           <div className="flex items-center gap-2">
             <Network size={16} className="text-text-muted" />
             <h3 className="font-medium">Recent knowledge additions</h3>
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-3">
             {categories.map((category) => {
               const categoryObservations = observationsForTerms(observations, category.terms);
               const formedEntities = uniqueValues(
