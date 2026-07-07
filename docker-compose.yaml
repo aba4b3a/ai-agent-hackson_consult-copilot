@@ -1,10 +1,13 @@
 services:
   front:
-    image: node:24-bookworm
+    build:
+      context: ${LOCAL_WORKSPACE_FOLDER:-.}/front
+      dockerfile: Dockerfile.dev
     working_dir: /workspace/front
     volumes:
       - ${LOCAL_WORKSPACE_FOLDER:-.}/front:/workspace/front
       - front_node_modules:/workspace/front/node_modules
+      - front_playwright_browsers:/root/.cache/ms-playwright
     command: sh -c "npm install && npm run dev"
     ports:
       - "3000:3000"
@@ -65,3 +68,4 @@ services:
 
 volumes:
   front_node_modules:
+  front_playwright_browsers:
