@@ -2,7 +2,7 @@ services:
   front:
     build:
       context: ${LOCAL_WORKSPACE_FOLDER:-.}/front
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     working_dir: /workspace/front
     volumes:
       - ${LOCAL_WORKSPACE_FOLDER:-.}/front:/workspace/front
