@@ -99,6 +99,23 @@ class DiscoverySignal(BaseModel):
     severity: str
 
 
+class DashboardMetrics(BaseModel):
+    sources_ingested: int
+    observations_extracted: int
+    entities_formed: int
+    relationships_created: int
+    hypotheses_under_observation: int
+    evidence_coverage: float
+
+
+class Dashboard(BaseModel):
+    workspace: Workspace
+    metrics: DashboardMetrics
+    signals: list[DiscoverySignal]
+    observations: list[Observation]
+    hypotheses: list[Hypothesis]
+
+
 class EvidenceResult(BaseModel):
     source_id: str
     observation_id: str | None = None

@@ -559,11 +559,12 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - _Note: quick links はサイドバー（lg以上常設 / 狭幅はハンバーガードロワー）で提供。Copilot は右下固定のフローティングウィジェット（design.md §23.11）。_
   - _Requirements: R13, R14, R15, R16_
 
-- [ ] 15.2 Build knowledge formation screen
+- [x] 15.2 Build knowledge formation screen
   - Show knowledge accumulation status: sources ingested, observations extracted, entities formed, relationships created, hypotheses under observation, and evidence coverage.
   - Show recent knowledge additions grouped by customer segment, product, issue, competitor, and KPI.
   - Show knowledge gaps and recommended additional observations.
   - _Requirements: R5, R10, R12, R14_
+  - _Note: Dashboard の in-memory/mock データを使い、蓄積ステータス、カテゴリ別の最近の知識追加、knowledge gaps、recommended observations を表示。実 BigQuery / LLM Wiki 連携は後続。_
 
 - [ ] 15.3 Build knowledge quality and correction affordances
   - Allow consultant to mark extracted items as useful, incorrect, duplicate, or superseded.

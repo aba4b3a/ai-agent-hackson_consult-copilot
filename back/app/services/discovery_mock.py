@@ -5,6 +5,8 @@ from itertools import count
 
 from app.schemas.discovery import (
     CopilotAnswer,
+    Dashboard,
+    DashboardMetrics,
     DiscoverySignal,
     EvidenceResult,
     GraphSlice,
@@ -290,25 +292,26 @@ class DiscoveryMockRepository:
     def list_workspaces(self) -> list[Workspace]:
         return list(self.workspaces.values())
 
-    def dashboard(self, workspace_id: str) -> dict[str, object]:
+    def dashboard(self, workspace_id: str) -> Dashboard:
         self._refresh_signals(workspace_id)
         observations = [o for o in self.observations.values() if o.workspace_id == workspace_id]
         hypotheses = [h for h in self.hypotheses.values() if h.workspace_id == workspace_id]
         signals = [s for s in self.signals.values() if s.workspace_id == workspace_id]
         sources = [s for s in self.sources.values() if s.workspace_id == workspace_id]
-        return {
-            "workspace": self.workspaces[workspace_id],
-            "metrics": {
-                "sources_ingested": len(sources),
-                "observations_extracted": len(observations),
-                "entities_formed": len({e for o in observations for e in o.related_entities}),
-                "hypotheses_under_observation": len(hypotheses),
-                "evidence_coverage": 0.86,
-            },
-            "signals": signals,
-            "observations": observations[-5:],
-            "hypotheses": hypotheses[-5:],
-        }
+        return Dashboard(
+            workspace=self.workspaces[workspace_id],
+            metrics=DashboardMetrics(
+                sources_ingested=len(sources),
+                observations_extracted=len(observations),
+                entities_formed=len({e for o in observations for e in o.related_entities}),
+                relationships_created=len(self.relationships.get(workspace_id, [])),
+                hypotheses_under_observation=len(hypotheses),
+                evidence_coverage=0.86,
+            ),
+            signals=signals,
+            observations=observations[-5:],
+            hypotheses=hypotheses[-5:],
+        )
 
     def search_evidence(self, workspace_id: str, query: str = "") -> list[EvidenceResult]:
         query_lower = query.lower()

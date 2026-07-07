@@ -6,6 +6,10 @@ test("shows the dashboard with sidebar navigation", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Consultant Copilot" })).toBeVisible();
   await expect(page.getByText("Discovery Feed").first()).toBeVisible();
   await expect(page.getByText("Observed facts")).toBeVisible();
+  await expect(page.getByText("Relationships created")).toBeVisible();
+  await expect(page.getByText("Recent knowledge additions")).toBeVisible();
+  await expect(page.getByText("Knowledge gaps")).toBeVisible();
+  await expect(page.getByText("Recommended observations")).toBeVisible();
 
   // Desktop-width sidebar with section jump links.
   await expect(page.getByRole("link", { name: "Graph Viewer" })).toBeVisible();
