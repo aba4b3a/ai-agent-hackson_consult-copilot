@@ -21,7 +21,7 @@ terraform-check:
 	cd infra/terraform/environments/dev && terraform validate
 
 test:
-	docker compose run --rm --no-deps front npm run test:e2e
+	docker compose run --build --rm --no-deps front sh -c "npm install && npx playwright install chromium && NEXT_PUBLIC_MOCK_MODE=true npm run test:e2e"
 	docker compose run --rm --no-deps back pytest
 	docker compose run --rm --no-deps agent pytest
 
