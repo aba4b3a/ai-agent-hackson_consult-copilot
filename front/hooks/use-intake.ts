@@ -19,6 +19,10 @@ export const useInitialSurveyStatus = () => {
   return useQuery({
     queryKey: ["initial-survey-status", activeCompany.code],
     queryFn: () => getInitialSurveyStatus(activeCompany.code),
+    // Wiki/BigQuery generation runs as an agent background task after
+    // submit; poll until it leaves "processing" so the UI can reflect
+    // completion without a manual refresh.
+    refetchInterval: (query) => (query.state.data?.onboarding_status === "processing" ? 3000 : false),
   });
 };
 

@@ -551,7 +551,7 @@ def insert_survey_response(
         "tags": tags or [],
         "related_node_ids": related_node_ids or [],
         "related_edge_ids": related_edge_ids or [],
-        "answer_json": answer_json or {},
+        "answer_json": _json_value(answer_json),
         "created_at": collected_at,
     }
     if settings.dry_run:
@@ -579,10 +579,10 @@ def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dic
                 "respondent_role": record.get("respondent_role"),
                 "answered_at": record.get("answered_at", now),
                 "answer_text": record.get("answer_text"),
-                "answer_payload": record.get("answer_payload", {}),
+                "answer_payload": _json_value(record.get("answer_payload")),
                 "extracted_summary": record.get("extracted_summary"),
-                "extracted_entities": record.get("extracted_entities", {}),
-                "extracted_signals": record.get("extracted_signals", {}),
+                "extracted_entities": _json_value(record.get("extracted_entities")),
+                "extracted_signals": _json_value(record.get("extracted_signals")),
                 "source_gcs_uri": record.get("source_gcs_uri"),
                 "source_file_generation": record.get("source_file_generation"),
                 "created_at": record.get("created_at", now),

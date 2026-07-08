@@ -314,8 +314,6 @@ class DashboardService:
         return report
 
     def _build_monthly_report(self, company_id: str, start: date, end: date, period_key: str) -> dict:
-        # 共有データセット + 企業プレフィックス付きテーブル名（qualified_table）に統一。
-        # 旧 per-company データセット時代の `{project}.{dataset}.knowledge_nodes` 形式の直し漏れを修正。
         knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
         survey_responses = settings.qualified_table(company_id, 'survey_responses')
         sample_report = sample_company_data.monthly_report(company_id, period_key)

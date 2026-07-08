@@ -110,9 +110,14 @@ root_agent = Agent(
         safe_tool(generate_tenant_tables_ddl),
         safe_tool(generate_common_initial_survey),
         safe_tool(write_raw_answer),
-        safe_tool(write_wiki_files),
-        safe_tool(insert_kpi_candidates),
-        safe_tool(insert_focus_metric_candidates),
+        # write_wiki_files/insert_kpi_candidates/insert_focus_metric_candidates
+        # are deliberately NOT registered here: the orchestrator has no
+        # render_*/analysis tools of its own, so if it tries to shortcut wiki
+        # generation or KPI extraction itself instead of delegating to
+        # knowledge_agent (which has both), it can only call these with
+        # empty/unanalyzed content (observed directly: write_wiki_files
+        # called with files={}). Forcing a transfer_to_agent handoff for
+        # this work is what actually produces real output.
         safe_tool(insert_research_followup_question_events),
         safe_tool(upsert_current_kpi_definition),
         safe_tool(upsert_current_focus_metric_definition),

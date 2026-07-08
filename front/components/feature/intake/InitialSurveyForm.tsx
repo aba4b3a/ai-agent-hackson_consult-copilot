@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { useInitialSurvey, useInitialSurveyStatus, useSubmitInitialSurvey } from "@/hooks/use-intake";
-import type { InitialSurveyStatus, SurveyAnswerPayload, SurveyQuestion, SurveyTemplate } from "@/services/intake-service";
+import type { InitialSurveyStatus, OnboardingStatus, SurveyAnswerPayload, SurveyQuestion, SurveyTemplate } from "@/services/intake-service";
 
 type AnswerValue = string | string[];
 type ChatMessage = { role: "assistant" | "user"; text: string };
@@ -164,6 +164,32 @@ const resolveAnswerDisplay = (question: SurveyQuestion, rawAnswer: string) => {
   return rawAnswer;
 };
 
+const OnboardingStatusBanner = ({ status, error }: { status?: OnboardingStatus; error?: string | null }) => {
+  if (status === "processing") {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700" aria-hidden="true" />
+        Wikiを作成しています。しばらくお待ちください…
+      </div>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <div className="mt-3 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">
+        完了しました。Wikiが作成されました。
+      </div>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <div className="mt-3 rounded-lg bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">
+        Wikiの作成に失敗しました。{error ? `(${error})` : ""} しばらくしてから再度回答を送信してください。
+      </div>
+    );
+  }
+  return null;
+};
+
 const AnsweredSurveySummary = ({
   template,
   status,
@@ -195,6 +221,8 @@ const AnsweredSurveySummary = ({
       <div className="mt-4 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">
         {status.answered_count} / {status.total_count} 問に回答済みです。
       </div>
+
+      <OnboardingStatusBanner status={status.onboarding_status} error={status.onboarding_error} />
 
       <div className="mt-5 space-y-3">
         {template.questions.map((question) => {
@@ -450,7 +478,10 @@ export const InitialSurveyForm = () => {
         </div>
 
         {submitSurvey.isSuccess ? (
-          <div className="mt-4 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">送信しました。回答はStorageに保存され、Knowledge処理に渡せる形式になっています。</div>
+          <>
+            <div className="mt-4 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">送信しました。Wikiの作成を開始します。</div>
+            <OnboardingStatusBanner status={status?.onboarding_status} error={status?.onboarding_error} />
+          </>
         ) : null}
         {submitSurvey.isError ? (
           <div className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">送信に失敗しました。</div>
