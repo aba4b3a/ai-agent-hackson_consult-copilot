@@ -124,7 +124,7 @@ subgraph UI["可視化・業務UI"]
     F1["Looker / Looker Studio<br/>KPI・変化検知ダッシュボード"]
     F2["Custom Web UI<br/>Knowledge Graph Viewer"]
     F3["Search Console<br/>全文検索・ファセット探索"]
-    F4["Weekly Discovery Report<br/>週次レポート"]
+    F4["Periodic Discovery Report<br/>週次/月次レポート"]
     F5["Strategy Copilot UI<br/>対話型分析"]
 end
 

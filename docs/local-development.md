@@ -68,6 +68,7 @@ docker compose up --build
 The following services will start:
 
 - **Frontend**: http://localhost:3000
+- **Report screen**: http://localhost:3000/report
 - **Backend API**: http://localhost:8000
 - **Backend OpenAPI**: http://localhost:8000/docs
 - **Backend health**: http://localhost:8000/api/v1/health
@@ -103,6 +104,11 @@ curl http://localhost:8000/api/v1/health
 
 # Expected response
 # {"status": "ok", "app": "Continuous Discovery Agent API", "dry_run": true}
+
+# Previous-month report.
+# When no saved JSON exists, the backend generates one and stores it under
+# tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json.
+curl http://localhost:8000/api/v1/companies/SMB-1042/report/monthly
 
 # Ollama
 curl http://localhost:11434/api/tags
@@ -277,6 +283,11 @@ Reduce Ollama memory usage:
 ### Wiki
 
 - `GET /companies/{company_id}/wiki` - Get wiki content
+
+### Reports
+
+- `GET /companies/{company_id}/report/monthly` - Load previous-month report from Cloud Storage/local storage, or generate and save it when missing
+- `GET /companies/{company_id}/report/weekly` - Legacy weekly report endpoint retained for compatibility
 
 See http://localhost:8000/docs for full API documentation.
 

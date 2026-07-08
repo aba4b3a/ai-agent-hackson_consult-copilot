@@ -71,6 +71,23 @@ def create_user(data):
 
 ---
 
+## Report API
+
+`GET /api/v1/companies/{company_id}/report/monthly` は前月分の月次レポートを返します。
+
+処理順序:
+
+1. `tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json` を Cloud Storage から確認します。
+2. `APP_ENV=local`、`DRY_RUN=true`、または `WIKI_BUCKET` 未設定の場合は `.local_storage/` 配下の local storage emulator を確認します。
+3. 保存済み JSON が存在する場合はそれを正本として返します。
+4. 存在しない場合は BigQuery の `knowledge_nodes` / `survey_responses` から前月分を集計し、同じ path に JSON として保存します。
+5. BigQuery データがない DRY_RUN 環境では `app/storage_seed/companies/*/structured_knowledge.json` からデモ用の月次レポートを生成します。
+
+返却データは `header`、`monthly`、`metrics`、`charts`、`sections`、`highlights`、
+`snippets`、`recommendation` を含み、フロントエンドの `/report` 画面でそのまま表示されます。
+
+---
+
 ## 開発環境のセットアップ
 
 1.  **依存関係のインストール**

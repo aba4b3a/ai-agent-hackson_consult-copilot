@@ -481,12 +481,12 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ---
 
-## 13. Weekly Discovery Report
+## 13. Periodic Discovery Report
 
-- [ ] 13.1 Implement report generation worker
-  - Load discovery signals, observations, hypotheses, KPI snapshots, graph summaries, and evidence snippets for the target week.
-  - Call Gemini to generate report content.
-  - Store report in BigQuery and optionally Markdown in Cloud Storage.
+- [x] 13.1 Implement monthly report retrieval and generation API
+  - Load the previous-month report from `tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json`.
+  - Generate a monthly report from BigQuery or seed data when no saved JSON exists.
+  - Store generated JSON back to Cloud Storage or the local storage emulator.
   - _Requirements: R13, R18_
 
 - [ ] 13.2 Implement report prompt
@@ -495,14 +495,15 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Forbid direct business decision execution.
   - _Requirements: R6, R13, R20_
 
-- [ ] 13.3 Implement report retrieval API
-  - Create `GET /api/reports/weekly`.
-  - Return latest report or report by week.
+- [x] 13.3 Implement report retrieval API
+  - Create `GET /api/v1/companies/{company_id}/report/monthly`.
+  - Return the previous-month report from Cloud Storage when present.
+  - Generate and save the report when the previous-month JSON is missing.
   - Include links to related observations, sources, and graph slices.
   - _Requirements: R13, R16_
 
 - [ ] 13.4 Implement report regeneration API
-  - Create `POST /api/reports/weekly/generate`.
+  - Create `POST /api/v1/companies/{company_id}/report/monthly/generate`.
   - Allow consultant to regenerate report after new sources or KPI data are added.
   - _Requirements: R13_
 
@@ -540,7 +541,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 - [ ] 15.1 Build consultant home dashboard
   - Show active client/workspace selector.
-  - Show discovery feed, new signals, unresolved hypotheses, and latest weekly report summary.
+  - Show discovery feed, new signals, unresolved hypotheses, and latest monthly report summary.
   - Include quick links to Knowledge Formation, Graph Viewer, Evidence Search, and Report Copilot.
   - _Requirements: R13, R14, R15, R16_
 
@@ -568,10 +569,10 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Allow opening source detail.
   - _Requirements: R8, R15_
 
-- [ ] 15.6 Build weekly report screen
-  - Display report sections in vertically stacked cards.
+- [x] 15.6 Build monthly report screen
+  - Display report summary, metric tiles, chart bars, sections, highlights, and evidence snippets.
   - Clearly separate facts, hypotheses, evidence, and recommended observations.
-  - Include related graph and evidence links.
+  - Load `GET /api/v1/companies/{company_id}/report/monthly` through the client service layer.
   - _Requirements: R6, R13, R16_
 
 ---
@@ -632,7 +633,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 - [ ] 17.5 Implement end-to-end flow: graph to report
   - Generate graph slice.
   - Summarize relationships.
-  - Include graph insights in weekly report.
+  - Include graph insights in the monthly report.
   - _Requirements: R9, R13, R14_
 
 ---
@@ -692,7 +693,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Show knowledge formation accumulating.
   - Show graph relationships.
   - Show discovery signal.
-  - Show weekly report.
+  - Show monthly report.
   - Ask copilot a question.
   - _Requirements: R13, R14, R16_
 
@@ -717,7 +718,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Test report form submission to source creation.
   - Test source extraction to BigQuery insertion.
   - Test source indexing to Elasticsearch.
-  - Test weekly report generation.
+  - Test monthly report generation and Cloud Storage fallback.
   - _Requirements: R2, R4, R5, R8, R13_
 
 - [ ] 20.4 Add UI smoke tests or manual QA checklist
@@ -744,7 +745,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - _Requirements: R19, R20_
 
 - [ ] 21.3 Create API documentation
-  - Document workspace setup, report form creation, report submission, source upload, evidence search, graph slice, weekly report, and copilot endpoints.
+  - Document workspace setup, report form creation, report submission, source upload, evidence search, graph slice, monthly report, and copilot endpoints.
   - Include sample requests and responses.
   - _Requirements: R1, R2, R4, R8, R9, R13, R16_
 
@@ -766,7 +767,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 7. BigQuery persistence for extracted knowledge.
 8. Elasticsearch indexing and evidence search.
 9. Rule-based discovery detection.
-10. Weekly report generation.
+10. Monthly report generation.
 11. Report Copilot.
 12. Conversational voice intake.
 13. BigQuery Graph integration.
@@ -784,7 +785,7 @@ The MVP demo is acceptable when all of the following are true:
 - [ ] The consultant can see knowledge accumulation status.
 - [ ] The consultant can search source evidence through Elasticsearch.
 - [ ] The consultant can view at least three graph perspectives.
-- [ ] The system can generate a weekly Discovery Report.
+- [ ] The system can load or generate a monthly Discovery Report.
 - [ ] The consultant can ask Report Copilot a question and receive an answer grounded in facts, hypotheses, and evidence.
 - [ ] The implementation does not use Spanner.
 

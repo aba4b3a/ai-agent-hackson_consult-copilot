@@ -2,7 +2,7 @@ import { apiFetch, companyId } from "@/lib/api-client";
 import type { ReportCopilotData } from "@/lib/schemas";
 
 export const getReportCopilotData = (targetCompanyId = companyId): Promise<ReportCopilotData> =>
-  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/report/weekly`);
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/report/monthly`);
 
 export const sendCopilotMessage = (message: string, sessionId?: string, targetCompanyId = companyId) =>
   apiFetch<{ reply: string; session_id: string }>(

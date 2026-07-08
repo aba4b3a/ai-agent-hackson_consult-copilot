@@ -391,12 +391,30 @@ Discovery Report
 
 ## 月次
 
-Learning Report
+Monthly Discovery Report
 
-* 顧客変化
-* 競合変化
-* KPI推移
-* ナレッジ蓄積状況
+前月の Report は Cloud Storage の以下の path を正本として扱う。
+
+```text
+tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json
+```
+
+表示時の流れ:
+
+1. `/report` 画面が `GET /api/v1/companies/{company_id}/report/monthly` を呼び出す。
+2. バックエンドが前月の JSON を Cloud Storage または local storage emulator から探索する。
+3. 存在すれば保存済みレポートを表示する。
+4. 存在しなければ BigQuery または seed data から月次レポートを生成し、同じ path に保存して表示する。
+
+画面に含める内容:
+
+* Executive summary
+* Observed facts / Hypotheses / Evidence / Avg. confidence
+* 月次指標グラフ
+* 事実と仮説を分けたハイライト
+* 根拠スニペット
+* 次月の推奨観測テーマ
+* Report Copilot への質問欄
 
 ---
 

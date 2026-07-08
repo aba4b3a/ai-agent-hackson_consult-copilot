@@ -1,7 +1,10 @@
 """Dashboard / Knowledge / Graph / WeeklyReport をBigQueryから集計して返すサービス。
 DRY_RUN=true or BQ接続失敗時はフォールバックデータを返す。"""
 from __future__ import annotations
+from datetime import date, datetime, timedelta
+
 from app.core.config import settings
+from app.crud.storage_crud import storage_crud
 from app.services.sample_company_data import sample_company_data
 
 
@@ -14,6 +17,21 @@ def _query(sql: str) -> list[dict]:
         return [dict(row) for row in client.query(sql).result()]
     except Exception:
         return []
+
+
+def _previous_month(today: date | None = None) -> tuple[date, date, str]:
+    current = today or date.today()
+    first_this_month = current.replace(day=1)
+    last_previous_month = first_this_month - timedelta(days=1)
+    first_previous_month = last_previous_month.replace(day=1)
+    return first_previous_month, first_this_month, first_previous_month.strftime("%Y-%m")
+
+
+def _average_confidence(rows: list[dict]) -> int:
+    values = [float(row.get("confidence") or 0) for row in rows]
+    if not values:
+        return 0
+    return round(sum(values) / len(values) * 100)
 
 
 class DashboardService:
@@ -61,7 +79,7 @@ class DashboardService:
             "portfolio": [{"id": company_id, "name": company_id, "status": f"{total_nodes} nodes"}],
             "nextActions": [
                 {"id": "a1", "title": "アンケートを送信", "description": f"/api/v1/companies/{company_id}/survey/initial から質問を取得できます"},
-                {"id": "a2", "title": "週次レポートを確認", "description": f"/api/v1/companies/{company_id}/report/weekly を参照"},
+                {"id": "a2", "title": "月次レポートを確認", "description": f"/api/v1/companies/{company_id}/report/monthly を参照"},
             ],
         }
 
@@ -271,6 +289,139 @@ class DashboardService:
                 "actionLabel": "send intake",
             },
             "ctaLabel": "Generate report",
+        }
+
+    # ── Monthly Report ───────────────────────────────────────────────────
+    def get_monthly_report(self, company_id: str) -> dict:
+        start, end, period_key = _previous_month()
+        storage_path = f"tenants/{company_id}/reports/monthly/{period_key}/report.json"
+
+        if storage_crud.exists(storage_path):
+            report = storage_crud.read_json(storage_path)
+            report.setdefault("monthly", {})["source"] = "cloud_storage"
+            report["monthly"]["storagePath"] = storage_path
+            return report
+
+        report = self._build_monthly_report(company_id, start, end, period_key)
+        try:
+            storage_result = storage_crud.upload_json(storage_path, report)
+            report["monthly"]["source"] = "generated_and_saved"
+            report["monthly"]["storagePath"] = storage_result.get("path", storage_path)
+            report["monthly"]["gsUri"] = storage_result.get("gs_uri")
+        except Exception:
+            report["monthly"]["source"] = "generated_unsaved"
+            report["monthly"]["storagePath"] = storage_path
+        return report
+
+    def _build_monthly_report(self, company_id: str, start: date, end: date, period_key: str) -> dict:
+        dataset = settings.dataset_id(company_id)
+        project = settings.project_id
+        sample_report = sample_company_data.monthly_report(company_id, period_key)
+
+        signal_rows = _query(f"""
+            SELECT node_type, label, description, confidence, created_at
+            FROM `{project}.{dataset}.knowledge_nodes`
+            WHERE node_type IN ('Signal','Risk','KPI')
+              AND DATE(created_at) >= DATE('{start.isoformat()}')
+              AND DATE(created_at) < DATE('{end.isoformat()}')
+            ORDER BY confidence DESC LIMIT 12
+        """)
+        tacit_rows = _query(f"""
+            SELECT node_type, label, description, confidence, created_at
+            FROM `{project}.{dataset}.knowledge_nodes`
+            WHERE node_type = 'TacitKnowledge'
+              AND DATE(created_at) >= DATE('{start.isoformat()}')
+              AND DATE(created_at) < DATE('{end.isoformat()}')
+            ORDER BY confidence DESC LIMIT 8
+        """)
+        response_rows = _query(f"""
+            SELECT raw_answer, numeric_value, collected_at
+            FROM `{project}.{dataset}.survey_responses`
+            WHERE DATE(collected_at) >= DATE('{start.isoformat()}')
+              AND DATE(collected_at) < DATE('{end.isoformat()}')
+            ORDER BY collected_at DESC LIMIT 50
+        """)
+
+        if not signal_rows and not tacit_rows and not response_rows and sample_report:
+            return sample_report
+
+        fact_count = len(signal_rows)
+        hypothesis_count = len(tacit_rows)
+        evidence_count = len(response_rows)
+        confidence = _average_confidence(signal_rows + tacit_rows)
+        top_rows = signal_rows[:3] + tacit_rows[:2]
+        highlights = [
+            {
+                "id": f"monthly-{index}",
+                "kind": "FACT" if row.get("node_type") in {"Signal", "Risk", "KPI"} else "HYPOTHESIS",
+                "tone": "green" if row.get("node_type") in {"Signal", "Risk", "KPI"} else "yellow",
+                "title": row.get("label") or "Untitled insight",
+                "description": (row.get("description") or "")[:100],
+                "meta": row.get("node_type") or f"confidence {round(float(row.get('confidence') or 0) * 100)}%",
+            }
+            for index, row in enumerate(top_rows)
+        ] or [{
+            "id": "monthly-empty",
+            "kind": "FACT",
+            "tone": "green",
+            "title": "前月の観測データはまだ不足しています",
+            "description": "日報、ヒアリング、KPIファイルが蓄積されると月次レポートに反映されます。",
+            "meta": "data gap",
+        }]
+
+        snippets = [
+            (row.get("raw_answer") or "")[:120]
+            for row in response_rows[:4]
+            if row.get("raw_answer")
+        ] or [row["title"] for row in highlights[:3]]
+        summary = (
+            f"{period_key} は事実 {fact_count} 件、仮説 {hypothesis_count} 件、"
+            f"根拠候補 {evidence_count} 件を確認しました。"
+        )
+
+        return {
+            "header": {"title": "Monthly Discovery Report", "subtitle": "Cloud Storageに保存された前月レポート"},
+            "monthly": {
+                "title": f"{period_key} 月次レポート",
+                "period": f"{company_id} / {start.isoformat()} - {(end - timedelta(days=1)).isoformat()}",
+                "summary": summary,
+                "generatedAt": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "source": "generated",
+                "storagePath": f"tenants/{company_id}/reports/monthly/{period_key}/report.json",
+            },
+            "metrics": [
+                {"id": "facts", "label": "Observed facts", "value": fact_count, "unit": "件", "tone": "green"},
+                {"id": "hypotheses", "label": "Hypotheses", "value": hypothesis_count, "unit": "件", "tone": "yellow"},
+                {"id": "evidence", "label": "Evidence", "value": evidence_count, "unit": "件", "tone": "blue"},
+                {"id": "confidence", "label": "Avg. confidence", "value": confidence, "unit": "%", "tone": "slate"},
+            ],
+            "charts": [
+                {"id": "facts", "label": "事実", "value": fact_count, "unit": "件", "tone": "green"},
+                {"id": "hypotheses", "label": "仮説", "value": hypothesis_count, "unit": "件", "tone": "yellow"},
+                {"id": "evidence", "label": "根拠", "value": evidence_count, "unit": "件", "tone": "blue"},
+            ],
+            "sections": [
+                {
+                    "id": "executive-summary",
+                    "title": "Executive summary",
+                    "body": summary,
+                    "kind": "summary",
+                },
+                {
+                    "id": "interpretation",
+                    "title": "Consultant interpretation",
+                    "body": "仮説は確定原因として扱わず、次月の観測テーマで追加検証してください。",
+                    "kind": "hypothesis",
+                },
+            ],
+            "highlights": highlights,
+            "snippets": snippets,
+            "recommendation": {
+                "title": "Next month observation",
+                "description": "高信頼の事実と未検証の仮説を分け、現場質問とKPI観測を継続してください。",
+                "actionLabel": "Research Agentに質問を登録",
+            },
+            "ctaLabel": "Regenerate report",
         }
 
 

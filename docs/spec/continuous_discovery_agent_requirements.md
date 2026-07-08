@@ -50,7 +50,7 @@ The MVP shall support the following scope:
 - Indexing of source documents and evidence snippets in Elasticsearch.
 - Relationship analysis using BigQuery Graph.
 - Rule-based statistical discovery detection.
-- Weekly Discovery Report generation.
+- Monthly Discovery Report generation with Cloud Storage lookup and fallback generation.
 - Basic knowledge graph visualization focused on customer segments, issues, products, competitors, KPIs, observations, and hypotheses.
 - Basic search and evidence retrieval through Elasticsearch.
 
@@ -125,7 +125,7 @@ flowchart TB
         E1[Daily Report Form]
         E2[Search UI]
         E3[Knowledge Graph Viewer]
-        E4[Weekly Discovery Report]
+        E4[Monthly Discovery Report]
         E5[Strategy Copilot UI]
     end
 
@@ -368,13 +368,13 @@ If a retrieval use case can be fully satisfied by either BigQuery or Elasticsear
 7. The system SHALL support both text and voice responses to follow-up questions.
 8. The system SHALL allow a user to skip follow-up questions.
 
-## Requirement 13: Weekly Discovery Report
+## Requirement 13: Discovery Report
 
-**User Story:** As a consultant, I want a weekly discovery report, so that I can understand what changed, what may explain it, and what to observe next.
+**User Story:** As a consultant, I want a periodic discovery report, so that I can understand what changed, what may explain it, and what to observe next.
 
 ### Acceptance Criteria
 
-1. The system SHALL generate a weekly Discovery Report for each active workspace.
+1. The system SHALL generate a periodic Discovery Report for each active workspace.
 2. The report SHALL include a summary of detected discovery signals.
 3. The report SHALL include observed facts separately from hypotheses.
 4. The report SHALL include supporting evidence counts and representative evidence snippets where available.
@@ -383,6 +383,9 @@ If a retrieval use case can be fully satisfied by either BigQuery or Elasticsear
 7. The report SHALL avoid presenting hypotheses as confirmed causes.
 8. The report SHALL include links or references to searchable evidence.
 9. The report SHOULD be generated from BigQuery analytical data, Elasticsearch evidence search, and LLM Wiki context.
+10. The monthly report endpoint SHALL first look for the previous-month report JSON in Cloud Storage under `tenants/{workspace_id}/reports/monthly/{YYYY-MM}/report.json`.
+11. IF the previous-month report JSON exists, THEN the system SHALL return that stored report as the source of truth.
+12. IF the previous-month report JSON does not exist, THEN the system SHALL generate the monthly report from analytical data or demo seed data and persist the JSON to the same Cloud Storage path.
 
 ## Requirement 14: Knowledge Graph Visualization
 
@@ -612,7 +615,7 @@ The following `tasks.md` should include implementation tasks such as:
 8. Implement Elasticsearch indexing pipeline.
 9. Implement rule-based discovery detection SQL.
 10. Implement BigQuery Graph definitions and sample queries.
-11. Implement Weekly Discovery Report generator.
+11. Implement Monthly Discovery Report loader/generator.
 12. Implement simple search UI.
 13. Implement simple graph viewer.
 14. Implement Report Copilot prompt and retrieval logic.
@@ -628,4 +631,3 @@ The Design phase should refer to the following product documentation and platfor
 - BigQuery Graph models data as nodes and edges and supports graph analytics with GQL over BigQuery data.
 - Elasticsearch hybrid search can combine BM25 lexical search and vector semantic search for RAG and AI agent retrieval use cases.
 - Gemini structured output supports JSON schema-based extraction, useful for converting unstructured text into observations, entities, relationships, and hypotheses.
-

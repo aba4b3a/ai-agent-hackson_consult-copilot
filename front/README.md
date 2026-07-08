@@ -94,6 +94,37 @@ export const Dashboard = () => {
 
 ---
 
+## Report 画面
+
+`app/report/page.tsx` は `components/feature/report-copilot/ReportCopilot.tsx` を表示します。
+この画面は Report Copilot のチャットだけでなく、前月分の Monthly Discovery Report を
+報告書として読むためのビューです。
+
+データ取得の流れ:
+
+```text
+ReportCopilot.tsx
+  -> hooks/use-report-copilot.ts
+  -> services/report-copilot-service.ts
+  -> GET /api/v1/companies/{company_id}/report/monthly
+```
+
+表示する主な要素:
+
+- Cloud Storage から読み込んだか、未存在のため生成したかの status
+- レポート期間と保存 path
+- Executive summary
+- 事実、仮説、根拠件数、平均 confidence のメトリクス
+- 月次指標の棒グラフ
+- 事実と仮説を分けたハイライト
+- Evidence snippets
+- Report Copilot への質問欄
+
+`ReportCopilotData` の型は `lib/schemas.ts` に集約されています。API レスポンスを変更する場合は、
+先にこの型と画面表示の両方を更新してください。
+
+---
+
 ## コマンド
 - 開発サーバー: `npm run dev`
 - ビルド (Static): `npm run build`
