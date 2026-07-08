@@ -4,7 +4,9 @@ import functools
 import traceback
 from typing import Callable, TypeVar
 
-F = TypeVar("F", bound=Callable[..., dict])
+# Tools return dict or str; on failure the wrapper substitutes an error dict,
+# so the bound must cover both return types.
+F = TypeVar("F", bound=Callable[..., object])
 
 
 def safe_tool(func: F) -> F:
@@ -13,7 +15,7 @@ def safe_tool(func: F) -> F:
     instead of raising, which otherwise crashes the entire agent turn."""
 
     @functools.wraps(func)
-    def wrapper(*args: object, **kwargs: object) -> dict:
+    def wrapper(*args: object, **kwargs: object) -> object:
         try:
             return func(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 - must not crash the whole agent turn

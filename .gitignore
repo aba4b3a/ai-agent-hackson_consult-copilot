@@ -23,6 +23,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+build/
 dist/
 *.egg-info/
 
@@ -45,3 +46,4 @@ screenshots/
 
 # local llm
 ollama/
+

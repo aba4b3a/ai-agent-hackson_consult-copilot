@@ -30,6 +30,8 @@ target-version = "py312"
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# build/ は setuptools の生成物（Duplicate module エラー防止のため除外）
+exclude = ["build"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
