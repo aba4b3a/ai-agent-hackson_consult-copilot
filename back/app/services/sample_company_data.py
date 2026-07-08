@@ -44,11 +44,11 @@ class SampleCompanyData:
         for path in sorted(wiki_root.rglob('*')):
             if not path.is_file():
                 continue
-            rel = path.relative_to(wiki_root)
+            rel = path.relative_to(wiki_root).as_posix()
             results.append(
                 {
                     'bucket': 'sample-seed',
-                    'path': f'tenants/{company_id}/wiki/current/{str(rel).replace("\\", "/")}',
+                    'path': f'tenants/{company_id}/wiki/current/{rel}',
                     'size': path.stat().st_size,
                     'updated': path.stat().st_mtime,
                     'generation': None,

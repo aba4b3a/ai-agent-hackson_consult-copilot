@@ -10,6 +10,7 @@ audit purposes.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from app.core.config import settings
 from app.crud.bigquery_crud import bigquery_crud
@@ -92,7 +93,7 @@ class CompanyService:
     ) -> dict:
         _ensure_table()
         now = utc_now_iso()
-        row = {
+        row: dict[str, Any] = {
             "company_id": company_id,
             "company_name": company_name,
             "legal_name": None,

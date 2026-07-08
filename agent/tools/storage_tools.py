@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
-from google.cloud import storage
+from google.cloud import storage  # type: ignore[attr-defined]
 
 from agents.config import settings
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import functools
 import traceback
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
-F = TypeVar("F", bound=Callable[..., dict])
+# Tool functions return either a structured dict (BigQuery/storage tools) or
+# rendered text (wiki-rendering tools), so the bound has to cover both.
+F = TypeVar("F", bound=Callable[..., "dict[str, Any] | str"])
 
 
 def safe_tool(func: F) -> F:
@@ -13,7 +15,7 @@ def safe_tool(func: F) -> F:
     instead of raising, which otherwise crashes the entire agent turn."""
 
     @functools.wraps(func)
-    def wrapper(*args: object, **kwargs: object) -> dict:
+    def wrapper(*args: object, **kwargs: object) -> dict[str, Any] | str:
         try:
             return func(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 - must not crash the whole agent turn

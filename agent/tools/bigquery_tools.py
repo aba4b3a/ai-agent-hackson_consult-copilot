@@ -782,7 +782,7 @@ SELECT
   CURRENT_TIMESTAMP() AS valid_from,
   NULL AS valid_to,
   'active' AS status,
-  PARSE_JSON(''' + _sql_string(json.dumps(node.get("properties", {}), ensure_ascii=False)) + f''') AS properties,
+  PARSE_JSON(''' + _sql_string(json.dumps(node.get("properties", {}), ensure_ascii=False)) + ''') AS properties,
   CURRENT_TIMESTAMP() AS created_at,
   CURRENT_TIMESTAMP() AS updated_at
 ''')
@@ -832,7 +832,7 @@ SELECT
   {float(edge.get("confidence", 0.5))} AS confidence,
   {float(edge.get("strength", edge.get("confidence", 0.5)))} AS strength,
   {int(edge.get("observed_count", 1))} AS observed_count,
-  PARSE_JSON(''' + _sql_string(json.dumps(edge.get("properties", {}), ensure_ascii=False)) + f''') AS properties,
+  PARSE_JSON(''' + _sql_string(json.dumps(edge.get("properties", {}), ensure_ascii=False)) + ''') AS properties,
   CURRENT_TIMESTAMP() AS created_at,
   CURRENT_TIMESTAMP() AS updated_at
 ''')
