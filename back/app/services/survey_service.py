@@ -63,13 +63,12 @@ class SurveyService:
             return []
         try:
             from app.db.bigquery import get_bigquery_client
-            dataset = settings.dataset_id(company_id)
-            project = settings.project_id
+            survey_responses = settings.qualified_table(company_id, 'survey_responses')
             ids_sql = ', '.join(f"'{qid}'" for qid in question_ids)
             sql = f"""
                 SELECT question_id, question_text, answer_type, respondent_role,
                        raw_answer, numeric_value, answer_json, collected_at
-                FROM `{project}.{dataset}.survey_responses`
+                FROM `{survey_responses}`
                 WHERE question_id IN ({ids_sql})
                 ORDER BY collected_at DESC
             """

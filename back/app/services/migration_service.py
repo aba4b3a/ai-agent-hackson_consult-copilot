@@ -1,14 +1,14 @@
 """DDL migration runner.
 
-Runs raw DDL against BigQuery and records the outcome in
-``{project}.cd_common.schema_migration_history``.
+Runs raw DDL against BigQuery and records the outcome in the shared
+dataset's ``schema_migration_history`` table (unprefixed — it's global,
+not scoped to one company).
 
 Design notes:
 - Migrations are append-only. A re-applied migration with the same checksum is
   treated as already-done (idempotent).
 - Rollback is *not* automatic. A failed migration is recorded with status=failed
   and the operator runs the recorded rollback_script via the same endpoint.
-- The runner is the same code path for both common and tenant datasets.
 """
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ from app.schemas.migration import (
 )
 
 
-COMMON_DATASET = "cd_common"
 MIGRATION_TABLE = "schema_migration_history"
 
 
@@ -44,7 +43,7 @@ def _new_id() -> str:
 
 
 def _history_table() -> str:
-    return f"{settings.project_id}.{COMMON_DATASET}.{MIGRATION_TABLE}"
+    return settings.qualified_common_table(MIGRATION_TABLE)
 
 
 def _select_history_sql(filters: dict[str, Any] | None = None, limit: int = 200) -> str:

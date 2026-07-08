@@ -50,12 +50,19 @@ def list_assignments(
     # render the question without an extra round-trip.
     enriched = []
     for item in base.items:
-        question = research_service.get_question(company_id, item.followup_question_id) or {}
         enriched_item = item.model_dump()
-        enriched_item["question_text"] = question.get("question_text")
-        enriched_item["question_category"] = question.get("question_category")
-        enriched_item["reason"] = question.get("reason")
-        enriched_item["expected_answer_format"] = question.get("expected_answer_format")
+        # Schedule-driven (sched_*) items are resolved live from GCS and
+        # already carry their display fields — skip the BigQuery question
+        # join, which would just overwrite them with nulls.
+        if not item.assignment_id.startswith("sched_"):
+            question = research_service.get_question(company_id, item.followup_question_id) or {}
+            enriched_item["question_text"] = question.get("question_text")
+            enriched_item["question_category"] = question.get("question_category")
+            enriched_item["reason"] = question.get("reason")
+            enriched_item["expected_answer_format"] = question.get("expected_answer_format")
+            enriched_item["target_candidate_table"] = question.get("target_candidate_table")
+            enriched_item["target_candidate_id"] = question.get("target_candidate_id")
+            enriched_item["target_candidate_name"] = question.get("target_candidate_name")
         enriched.append(enriched_item)
     payload = base.model_dump()
     payload["items"] = enriched

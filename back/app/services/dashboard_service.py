@@ -19,19 +19,18 @@ def _query(sql: str) -> list[dict]:
 class DashboardService:
     # ── Dashboard (Discovery Feed) ──────────────────────────────────────
     def get_dashboard(self, company_id: str) -> dict:
-        dataset = settings.dataset_id(company_id)
-        project = settings.project_id
+        knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
         sample_dashboard = sample_company_data.dashboard(company_id)
 
         node_rows = _query(f"""
             SELECT node_type, COUNT(*) AS cnt
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE status = 'active'
             GROUP BY node_type ORDER BY cnt DESC LIMIT 10
         """)
         signal_rows = _query(f"""
             SELECT node_type, label, description, confidence
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE node_type IN ('Signal','Risk') AND status = 'active'
             ORDER BY confidence DESC LIMIT 5
         """)
@@ -68,23 +67,24 @@ class DashboardService:
 
     # ── Knowledge Stats ─────────────────────────────────────────────────
     def get_knowledge_stats(self, company_id: str) -> dict:
-        dataset = settings.dataset_id(company_id)
-        project = settings.project_id
+        knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
+        knowledge_edges = settings.qualified_table(company_id, 'knowledge_edges')
+        survey_responses = settings.qualified_table(company_id, 'survey_responses')
         sample_stats = sample_company_data.knowledge_stats(company_id)
 
         type_rows = _query(f"""
             SELECT node_type, COUNT(*) AS cnt
-            FROM `{project}.{dataset}.knowledge_nodes` WHERE status='active'
+            FROM `{knowledge_nodes}` WHERE status='active'
             GROUP BY node_type
         """)
         edge_rows = _query(f"""
-            SELECT COUNT(*) AS cnt FROM `{project}.{dataset}.knowledge_edges`
+            SELECT COUNT(*) AS cnt FROM `{knowledge_edges}`
         """)
         resp_rows = _query(f"""
-            SELECT COUNT(*) AS cnt FROM `{project}.{dataset}.survey_responses`
+            SELECT COUNT(*) AS cnt FROM `{survey_responses}`
         """)
         recent_rows = _query(f"""
-            SELECT label, node_type FROM `{project}.{dataset}.knowledge_nodes`
+            SELECT label, node_type FROM `{knowledge_nodes}`
             WHERE status='active' ORDER BY created_at DESC LIMIT 5
         """)
 
@@ -135,18 +135,18 @@ class DashboardService:
 
     # ── Graph Nodes ─────────────────────────────────────────────────────
     def get_graph_nodes(self, company_id: str) -> dict:
-        dataset = settings.dataset_id(company_id)
-        project = settings.project_id
+        knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
+        knowledge_edges = settings.qualified_table(company_id, 'knowledge_edges')
         sample_graph = sample_company_data.graph_nodes(company_id)
 
         node_rows = _query(f"""
             SELECT node_id, node_type, label, confidence
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE status='active' ORDER BY confidence DESC LIMIT 20
         """)
         edge_rows = _query(f"""
             SELECT source_node_id, target_node_id, edge_type, strength
-            FROM `{project}.{dataset}.knowledge_edges`
+            FROM `{knowledge_edges}`
             ORDER BY strength DESC LIMIT 30
         """)
         total_nodes = len(node_rows)
@@ -205,20 +205,19 @@ class DashboardService:
 
     # ── Weekly Report ────────────────────────────────────────────────────
     def get_weekly_report(self, company_id: str) -> dict:
-        dataset = settings.dataset_id(company_id)
-        project = settings.project_id
+        knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
         sample_report = sample_company_data.weekly_report(company_id)
 
         signal_rows = _query(f"""
             SELECT node_type, label, description, confidence, created_at
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE node_type IN ('Signal','Risk','KPI')
               AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
             ORDER BY confidence DESC LIMIT 10
         """)
         tacit_rows = _query(f"""
             SELECT label, description, confidence
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE node_type = 'TacitKnowledge'
               AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
             ORDER BY confidence DESC LIMIT 5

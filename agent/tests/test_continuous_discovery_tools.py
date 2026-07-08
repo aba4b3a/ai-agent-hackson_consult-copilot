@@ -33,7 +33,7 @@ def test_insert_kpi_candidates_is_dry_run_safe() -> None:
     )
 
     assert result["dry_run"] is True
-    assert result["table"].endswith(".cd_tenant_company_001.kpi_candidates")
+    assert result["table"].endswith(".company_001_kpi_candidates")
     assert result["rows"][0]["approval_status"] == "proposed"
     assert result["rows"][0]["source_answer_event_ids"] == ["ans_001"]
     assert result["rows"][0]["source_gcs_uris"] == ["gs://bucket/raw.jsonl"]

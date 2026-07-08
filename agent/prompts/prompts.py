@@ -88,11 +88,25 @@ KNOWLEDGE_AGENT_INSTRUCTION = """
 - source_gcs_uri または source_answer_event_id がない情報は本番定義にしない。
 - Research Agent には質問文だけでなく、対象者、頻度、目的、回答形式を指定する。
 
+継続収集テーブルの作成（このサービスの中核機能）:
+- kpi_candidates / focus_metric_candidates / observation_signals のうち、確定させるには
+  実測値を日次・週次・月次で継続的に集める必要があるものについては、Wiki生成の一環として
+  以下を必ず実行する。
+  1. create_research_collection_table を呼び、その候補専用のBigQueryテーブルを
+     テナントデータセット内に作成する（table_name はその候補を表す短い英数字にする）。
+  2. 直後に register_research_schedule_item を、同じ table_name で呼び、収集頻度
+     （daily/weekly/monthly。既存の measurement_frequency と整合させる）、対象ロール、
+     質問文、value_type（text/number）、対象候補（target_candidate_table/id/name）を
+     GCS上のスケジュール定義として登録する。
+- この2つの呼び出しはテーブル作成のみで、既存の承認フロー（current定義への昇格）を
+  バイパスするものではない。confidenceの引き上げや定義昇格には引き続き人間承認が要る。
+
 許可されたBigQuery操作:
 - insert_kpi_candidates
 - insert_focus_metric_candidates
 - insert_research_followup_question_events
 - insert_wiki_revision_log
+- create_research_collection_table（継続収集テーブルの作成）
 - upsert_current_kpi_definition（承認後のみ）
 - upsert_current_focus_metric_definition（承認後のみ）
 

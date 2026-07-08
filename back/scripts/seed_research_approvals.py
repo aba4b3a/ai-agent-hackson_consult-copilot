@@ -50,16 +50,14 @@ def _map_role(raw: str) -> str:
     return ROLE_MAP.get(raw, "staff")
 
 
-def _tenant_dataset(company_id: str) -> str:
-    safe = company_id.replace("-", "_").replace(".", "_")
-    return f"cd_tenant_{safe}"
-
-
-def _ensure_candidate_tables(dataset: str) -> None:
+def _ensure_candidate_tables(company_id: str) -> None:
+    dataset = settings.dataset_id()
+    kpi_table = settings.company_table(company_id, "kpi_candidates")
+    focus_table = settings.company_table(company_id, "focus_metric_candidates")
     ddl = f"""
 CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{dataset}`;
 
-CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.kpi_candidates` (
+CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{kpi_table}` (
   kpi_candidate_id STRING NOT NULL,
   company_id STRING NOT NULL,
   common_kpi_id STRING,
@@ -83,7 +81,7 @@ CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.kpi_candidates` (
   updated_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.focus_metric_candidates` (
+CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{focus_table}` (
   focus_metric_candidate_id STRING NOT NULL,
   company_id STRING NOT NULL,
   metric_name STRING NOT NULL,
@@ -122,15 +120,14 @@ def _insert_row(table: str, row: dict) -> None:
 
 def seed_company(company_id: str, data: dict) -> None:
     print(f"== {company_id} ==")
-    dataset = _tenant_dataset(company_id)
-    _ensure_candidate_tables(dataset)
+    _ensure_candidate_tables(company_id)
     now = utc_now_iso()
 
     kpi_candidates = data.get("kpi_candidates", [])
     focus_candidates = data.get("focus_metric_candidates", [])
     research_plan = data.get("research_plan", [])
 
-    kpi_table = f"{settings.project_id}.{dataset}.kpi_candidates"
+    kpi_table = settings.qualified_table(company_id, "kpi_candidates")
     for kpi in kpi_candidates:
         _insert_row(kpi_table, {
             "kpi_candidate_id": kpi["kpi_candidate_id"],
@@ -157,7 +154,7 @@ def seed_company(company_id: str, data: dict) -> None:
         })
     print(f"  kpi_candidates: {len(kpi_candidates)}")
 
-    focus_table = f"{settings.project_id}.{dataset}.focus_metric_candidates"
+    focus_table = settings.qualified_table(company_id, "focus_metric_candidates")
     for metric in focus_candidates:
         _insert_row(focus_table, {
             "focus_metric_candidate_id": metric["focus_metric_candidate_id"],

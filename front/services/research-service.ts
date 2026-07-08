@@ -17,6 +17,9 @@ export type Assignment = {
   question_category: string | null;
   reason: string | null;
   expected_answer_format: string | null;
+  target_candidate_table: string | null;
+  target_candidate_id: string | null;
+  target_candidate_name: string | null;
 };
 
 export type AssignmentList = {

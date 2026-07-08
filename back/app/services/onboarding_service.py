@@ -14,7 +14,7 @@ class OnboardingService:
             wiki_json['industry_hint'] = data.industry_hint
         if data.size_hint:
             wiki_json['size_hint'] = data.size_hint
-        return CompanyOnboardingPrepareResponse(company_id=company_id, company_name=data.company_name, dataset_id=settings.dataset_id(company_id), core_tables_ddl=ddl.ddl, initial_survey=initial_survey, wiki_markdown=wiki_markdown, wiki_json=wiki_json)
+        return CompanyOnboardingPrepareResponse(company_id=company_id, company_name=data.company_name, dataset_id=settings.dataset_id(), core_tables_ddl=ddl.ddl, initial_survey=initial_survey, wiki_markdown=wiki_markdown, wiki_json=wiki_json)
 
 
 onboarding_service = OnboardingService()

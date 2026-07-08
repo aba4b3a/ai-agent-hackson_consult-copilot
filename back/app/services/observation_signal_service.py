@@ -14,14 +14,9 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _tenant_dataset(company_id: str) -> str:
-    safe = company_id.replace("-", "_").replace(".", "_")
-    return f"cd_tenant_{safe}"
-
-
 class ObservationSignalService:
     def insert_batch(self, batch: ObservationSignalBatch) -> ObservationSignalWriteResult:
-        table = f"{settings.project_id}.{_tenant_dataset(batch.company_id)}.observation_signals"
+        table = settings.qualified_table(batch.company_id, "observation_signals")
         now = _now_iso()
         rows = []
         for item in batch.items:
