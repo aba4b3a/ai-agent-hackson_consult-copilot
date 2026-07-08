@@ -57,7 +57,7 @@ services:
     image: ghcr.io/goccy/bigquery-emulator:latest
     command:
       - --project=local-project
-      - --dataset=cda
+      - --dataset=consultant_copilot
     ports:
       - "9050:9050"
 

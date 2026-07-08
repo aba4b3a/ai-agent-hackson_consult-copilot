@@ -104,7 +104,17 @@ def ensure_shared_dataset() -> dict:
     full_dataset_id = _dataset()
     if settings.dry_run:
         return {"dry_run": True, "dataset": full_dataset_id}
+    from google.api_core.exceptions import NotFound
+
     client = _client()
+    # exists_ok=True は 409(Conflict) しか吸収しない。BigQuery エミュレータは
+    # 既存データセットの再作成に 500 を返すため api-core がリトライし続けて
+    # 最大10分ハングする。先に存在確認してから作成することで回避する。
+    try:
+        client.get_dataset(full_dataset_id)
+        return {"dry_run": False, "dataset": full_dataset_id}
+    except NotFound:
+        pass
     dataset = bigquery.Dataset(full_dataset_id)
     dataset.location = settings.location
     client.create_dataset(dataset, exists_ok=True)
