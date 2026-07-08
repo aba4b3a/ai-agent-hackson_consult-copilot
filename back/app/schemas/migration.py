@@ -14,7 +14,7 @@ class MigrationRequest(BaseModel):
     version: str = Field(..., examples=["v1.3.0"])
     target_scope: MigrationScope
     target_dataset: str = Field(
-        ..., description="BigQuery dataset id (without project prefix), e.g. cd_common or cd_tenant_acme"
+        ..., description="BigQuery dataset id (without project prefix) — normally the one shared dataset, e.g. consultant_copilot"
     )
     ddl_statement: str
     rollback_script: str | None = None

@@ -8,10 +8,10 @@ from prompts.prompts import (
     RESEARCH_AGENT_INSTRUCTION,
 )
 from tools.bigquery_tools import (
-    create_company_dataset,
     create_common_tables,
     create_core_tables,
     create_tenant_tables,
+    ensure_shared_dataset,
     generate_core_tables_ddl,
     generate_common_tables_ddl,
     generate_tenant_tables_ddl,
@@ -97,7 +97,7 @@ root_agent = Agent(
     description="Continuous Discovery Agent の進行管理、人間承認、Research Agent と Knowledge Agent の実行順序制御を担うエージェント。",
     instruction=COMMAND_AGENT_INSTRUCTION,
     tools=[
-        safe_tool(create_company_dataset),
+        safe_tool(ensure_shared_dataset),
         safe_tool(create_common_tables),
         safe_tool(create_core_tables),
         safe_tool(create_tenant_tables),

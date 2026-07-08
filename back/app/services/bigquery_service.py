@@ -5,14 +5,17 @@ from app.schemas.bigquery import DdlResponse, ExecuteDdlResponse, GraphQueryResp
 
 class BigQueryService:
     def generate_core_tables_ddl(self, company_id: str) -> DdlResponse:
-        dataset_id = settings.dataset_id(company_id)
+        dataset_id = settings.dataset_id()
         project = settings.project_id or '${PROJECT_ID}'
-        graph_name = settings.bq_graph_name
+        graph_name = f'{settings.safe_company_id(company_id)}_{settings.bq_graph_name}'
+        survey_responses = settings.company_table(company_id, 'survey_responses')
+        knowledge_nodes = settings.company_table(company_id, 'knowledge_nodes')
+        knowledge_edges = settings.company_table(company_id, 'knowledge_edges')
         ddl = f'''
 CREATE SCHEMA IF NOT EXISTS `{project}.{dataset_id}`
 OPTIONS(location="{settings.location}");
 
-CREATE OR REPLACE TABLE `{project}.{dataset_id}.survey_responses` (
+CREATE OR REPLACE TABLE `{project}.{dataset_id}.{survey_responses}` (
   response_id STRING NOT NULL,
   company_id STRING NOT NULL,
   question_id STRING,
@@ -33,7 +36,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset_id}.survey_responses` (
   PRIMARY KEY (response_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset_id}.knowledge_nodes` (
+CREATE OR REPLACE TABLE `{project}.{dataset_id}.{knowledge_nodes}` (
   node_id STRING NOT NULL,
   company_id STRING NOT NULL,
   node_type STRING NOT NULL,
@@ -50,7 +53,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset_id}.knowledge_nodes` (
   PRIMARY KEY (node_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset_id}.knowledge_edges` (
+CREATE OR REPLACE TABLE `{project}.{dataset_id}.{knowledge_edges}` (
   edge_id STRING NOT NULL,
   company_id STRING NOT NULL,
   source_node_id STRING NOT NULL,
@@ -69,13 +72,13 @@ CREATE OR REPLACE TABLE `{project}.{dataset_id}.knowledge_edges` (
 
 CREATE OR REPLACE PROPERTY GRAPH `{project}.{dataset_id}.{graph_name}`
 NODE TABLES (
-  `{project}.{dataset_id}.knowledge_nodes`
+  `{project}.{dataset_id}.{knowledge_nodes}` AS knowledge_nodes
     KEY (node_id)
     LABEL KnowledgeNode
     PROPERTIES (company_id, node_type, label, description, confidence, status, properties)
 )
 EDGE TABLES (
-  `{project}.{dataset_id}.knowledge_edges`
+  `{project}.{dataset_id}.{knowledge_edges}` AS knowledge_edges
     SOURCE KEY (source_node_id) REFERENCES knowledge_nodes (node_id)
     DESTINATION KEY (target_node_id) REFERENCES knowledge_nodes (node_id)
     LABEL KnowledgeEdge
@@ -85,16 +88,17 @@ EDGE TABLES (
         return DdlResponse(company_id=company_id, dataset_id=dataset_id, graph_name=graph_name, ddl=ddl)
 
     def create_core_tables(self, company_id: str) -> ExecuteDdlResponse:
-        dataset_result = bigquery_crud.create_dataset(company_id)
+        dataset_result = bigquery_crud.create_dataset()
         ddl = self.generate_core_tables_ddl(company_id)
         execution = bigquery_crud.execute_sql(ddl.ddl)
         execution['dataset'] = dataset_result
         return ExecuteDdlResponse(dry_run=settings.dry_run, dataset_id=ddl.dataset_id, execution=execution)
 
     def graph_query(self, company_id: str, keyword: str | None = None) -> GraphQueryResponse:
-        dataset_id = settings.dataset_id(company_id)
+        dataset_id = settings.dataset_id()
         project = settings.project_id or '${PROJECT_ID}'
-        graph = f'`{project}.{dataset_id}.{settings.bq_graph_name}`'
+        graph_name = f'{settings.safe_company_id(company_id)}_{settings.bq_graph_name}'
+        graph = f'`{project}.{dataset_id}.{graph_name}`'
         where_clause = ''
         if keyword:
             safe = keyword.replace('"', '\\"')

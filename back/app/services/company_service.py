@@ -1,11 +1,12 @@
 """Company master registry.
 
-Lives in the shared ``cd_common.companies`` table (same schema the
-Knowledge Agent's ``generate_common_tables_ddl`` defines) so both back and
-the agent read/write the same source of truth. "Deleting" a company here is
-a logical delete only: ``active_status`` flips to ``inactive`` and the row
-(plus all of that company's tenant/core BigQuery data) is left intact for
-audit purposes.
+Lives in the ``companies`` table in the shared BigQuery dataset (same schema
+the Knowledge Agent's ``generate_common_tables_ddl`` defines), unprefixed
+since it's the one global registry of all companies rather than any single
+company's own data. Both back and the agent read/write the same source of
+truth. "Deleting" a company here is a logical delete only: ``active_status``
+flips to ``inactive`` and the row (plus all of that company's own BigQuery
+tables) is left intact for audit purposes.
 """
 from __future__ import annotations
 
@@ -17,7 +18,6 @@ from app.crud.bigquery_crud import bigquery_crud
 from app.utils.bigquery_sql import sql_literal
 from app.utils.time import utc_now_iso
 
-COMMON_DATASET = "cd_common"
 TABLE = "companies"
 
 _TIMESTAMP_FIELDS = ("created_at", "updated_at")
@@ -26,7 +26,7 @@ _ensured = False
 
 
 def _table() -> str:
-    return f"{settings.project_id}.{COMMON_DATASET}.{TABLE}"
+    return settings.qualified_common_table(TABLE)
 
 
 def _ensure_table() -> None:
@@ -35,7 +35,7 @@ def _ensure_table() -> None:
         _ensured = True
         return
     ddl = f"""
-CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{COMMON_DATASET}`;
+CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{settings.dataset_id()}`;
 
 CREATE TABLE IF NOT EXISTS `{_table()}` (
   company_id STRING NOT NULL,

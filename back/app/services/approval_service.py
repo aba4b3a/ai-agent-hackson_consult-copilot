@@ -27,31 +27,27 @@ TABLE = "approvals"
 _TIMESTAMP_FIELDS = ("created_at", "decided_at", "applied_at")
 _JSON_FIELDS = ("proposed_payload", "diff_payload", "applied_result")
 
-_ensured_datasets: set[str] = set()
+_ensured_companies: set[str] = set()
 
 
 def _new_id(target_type: str) -> str:
     return f"appr_{target_type}_{uuid.uuid4().hex[:12]}"
 
 
-def _tenant_dataset(company_id: str) -> str:
-    safe = company_id.replace("-", "_").replace(".", "_")
-    return f"cd_tenant_{safe}"
-
-
 def _table(company_id: str) -> str:
-    return f"{settings.project_id}.{_tenant_dataset(company_id)}.{TABLE}"
+    return settings.qualified_table(company_id, TABLE)
 
 
 def _ensure_table(company_id: str) -> None:
-    dataset = _tenant_dataset(company_id)
-    if dataset in _ensured_datasets or settings.dry_run:
-        _ensured_datasets.add(dataset)
+    if company_id in _ensured_companies or settings.dry_run:
+        _ensured_companies.add(company_id)
         return
+    dataset = settings.dataset_id()
+    approvals_table = settings.company_table(company_id, TABLE)
     ddl = f"""
 CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{dataset}`;
 
-CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{TABLE}` (
+CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{approvals_table}` (
   approval_id STRING NOT NULL,
   company_id STRING NOT NULL,
   target_type STRING NOT NULL,
@@ -73,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{TABLE}` (
 );
 """.strip()
     bigquery_crud.execute_sql(ddl)
-    _ensured_datasets.add(dataset)
+    _ensured_companies.add(company_id)
 
 
 def _insert_row(table: str, row: dict) -> None:
