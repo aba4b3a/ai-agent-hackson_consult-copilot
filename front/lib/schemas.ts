@@ -201,16 +201,38 @@ export type ReportCopilotHighlight = {
   meta: string;
 };
 
+export type MonthlyReportMetric = {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  tone: "green" | "yellow" | "blue" | "slate";
+};
+
+export type MonthlyReportSection = {
+  id: string;
+  title: string;
+  body: string;
+  kind: "summary" | "fact" | "hypothesis";
+};
+
 export type ReportCopilotData = {
   header: {
     title: string;
     subtitle: string;
   };
-  weekly: {
+  monthly: {
     title: string;
     period: string;
     summary: string;
+    generatedAt: string;
+    source: "cloud_storage" | "generated" | "generated_and_saved" | "generated_unsaved";
+    storagePath: string;
+    gsUri?: string;
   };
+  metrics: MonthlyReportMetric[];
+  charts: MonthlyReportMetric[];
+  sections: MonthlyReportSection[];
   highlights: ReportCopilotHighlight[];
   snippets: string[];
   recommendation: {

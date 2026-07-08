@@ -364,6 +364,85 @@ class SampleCompanyData:
             'ctaLabel': 'Generate report',
         }
 
+    def monthly_report(self, company_id: str, period_key: str) -> dict[str, Any] | None:
+        data = self.structured(company_id)
+        if not data:
+            return None
+        ui = data.get('ui', {})
+        nodes = data.get('knowledge_nodes', [])
+        signals = [n for n in nodes if n.get('node_type') in {'Signal', 'Risk', 'KPI'}]
+        tacit = [n for n in nodes if n.get('node_type') == 'TacitKnowledge']
+        responses = data.get('survey_responses', [])
+        confidence_values = [float(n.get('confidence') or 0) for n in signals + tacit]
+        avg_confidence = round(sum(confidence_values) / len(confidence_values) * 100) if confidence_values else 0
+        company_name = data.get('company', {}).get('company_name', company_id)
+        summary = ui.get(
+            'monthly_summary',
+            f'{company_name} は重点管理指標の変化と現場発言の接続が見え始めています。'
+            f'前月は事実 {len(signals)} 件、仮説 {len(tacit)} 件、根拠候補 {len(responses)} 件を確認しました。',
+        )
+        highlights = [
+            {
+                'id': node.get('node_id', f'monthly-{index}'),
+                'kind': 'FACT' if node.get('node_type') in {'Signal', 'Risk', 'KPI'} else 'HYPOTHESIS',
+                'tone': 'green' if node.get('node_type') in {'Signal', 'Risk', 'KPI'} else 'yellow',
+                'title': node.get('label', ''),
+                'description': node.get('description', '')[:100],
+                'meta': node.get('node_type', ''),
+            }
+            for index, node in enumerate((signals + tacit)[:6])
+        ]
+        snippets = ui.get('report_snippets') or [
+            str(response.get('raw_answer', ''))[:120]
+            for response in responses[:4]
+            if response.get('raw_answer')
+        ]
+        return {
+            'header': {'title': 'Monthly Discovery Report', 'subtitle': 'Cloud Storageに保存された前月レポート'},
+            'monthly': {
+                'title': f'{period_key} 月次レポート',
+                'period': ui.get('report_period', f'{company_id} / {period_key}'),
+                'summary': summary,
+                'generatedAt': '2026-07-01T00:00:00Z',
+                'source': 'generated',
+                'storagePath': f'tenants/{company_id}/reports/monthly/{period_key}/report.json',
+            },
+            'metrics': [
+                {'id': 'facts', 'label': 'Observed facts', 'value': len(signals), 'unit': '件', 'tone': 'green'},
+                {'id': 'hypotheses', 'label': 'Hypotheses', 'value': len(tacit), 'unit': '件', 'tone': 'yellow'},
+                {'id': 'evidence', 'label': 'Evidence', 'value': len(responses), 'unit': '件', 'tone': 'blue'},
+                {'id': 'confidence', 'label': 'Avg. confidence', 'value': avg_confidence, 'unit': '%', 'tone': 'slate'},
+            ],
+            'charts': [
+                {'id': 'facts', 'label': '事実', 'value': len(signals), 'unit': '件', 'tone': 'green'},
+                {'id': 'hypotheses', 'label': '仮説', 'value': len(tacit), 'unit': '件', 'tone': 'yellow'},
+                {'id': 'evidence', 'label': '根拠', 'value': len(responses), 'unit': '件', 'tone': 'blue'},
+            ],
+            'sections': [
+                {'id': 'summary', 'title': 'Executive summary', 'body': summary, 'kind': 'summary'},
+                {
+                    'id': 'kpi',
+                    'title': 'KPI / focus metric readout',
+                    'body': ui.get('weekly_summary', '重点管理指標の変化を継続観測する必要があります。'),
+                    'kind': 'fact',
+                },
+                {
+                    'id': 'next',
+                    'title': 'Next month focus',
+                    'body': ui.get('recommendation', '現場担当へ重点管理指標の変化と背景を確認してください。'),
+                    'kind': 'hypothesis',
+                },
+            ],
+            'highlights': highlights,
+            'snippets': snippets,
+            'recommendation': {
+                'title': 'Next month observation',
+                'description': ui.get('recommendation', '現場担当へ重点管理指標の変化と背景を確認してください。'),
+                'actionLabel': 'Research Agentに質問を登録',
+            },
+            'ctaLabel': 'Regenerate report',
+        }
+
     def copilot_answer(self, company_id: str, message: str) -> str | None:
         data = self.structured(company_id)
         if not data:

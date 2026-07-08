@@ -8,17 +8,20 @@ import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useReportCopilot } from "@/hooks/use-report-copilot";
 import { sendCopilotMessage } from "@/services/report-copilot-service";
-import type { ReportCopilotHighlight } from "@/lib/schemas";
+import type { MonthlyReportMetric, ReportCopilotHighlight, MonthlyReportSection } from "@/lib/schemas";
+import { FiBarChart2, FiDatabase, FiFileText, FiMessageCircle, FiRefreshCw } from "react-icons/fi";
 
 type ChatEntry = { role: "user" | "assistant"; text: string };
 
 const toneStyles = {
-  green: { badge: "bg-emerald-50 text-emerald-500" },
-  yellow: { badge: "bg-amber-50 text-amber-500" },
+  green: { badge: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500", text: "text-emerald-700" },
+  yellow: { badge: "bg-amber-50 text-amber-700", bar: "bg-amber-500", text: "text-amber-700" },
+  blue: { badge: "bg-blue-50 text-blue-700", bar: "bg-blue-500", text: "text-blue-700" },
+  slate: { badge: "bg-slate-100 text-slate-700", bar: "bg-slate-500", text: "text-slate-700" },
 };
 
 const HighlightCard = ({ highlight }: { highlight: ReportCopilotHighlight }) => (
-  <Card>
+  <article className="rounded-lg border border-slate-200 bg-white p-4">
     <span className={`inline-flex rounded-full px-3 py-1 text-[8px] font-black md:text-[10px] ${toneStyles[highlight.tone].badge}`}>
       {highlight.kind}
     </span>
@@ -27,7 +30,51 @@ const HighlightCard = ({ highlight }: { highlight: ReportCopilotHighlight }) => 
     <p className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-[8px] font-black md:text-[10px] ${toneStyles[highlight.tone].badge}`}>
       {highlight.meta}
     </p>
-  </Card>
+  </article>
+);
+
+const MetricTile = ({ metric }: { metric: MonthlyReportMetric }) => (
+  <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <p className="text-[10px] font-black uppercase text-slate-500 md:text-xs">{metric.label}</p>
+    <p className={`mt-2 text-xl font-black leading-none md:text-2xl ${toneStyles[metric.tone].text}`}>
+      {metric.value}
+      <span className="ml-1 text-[10px] text-slate-500 md:text-xs">{metric.unit}</span>
+    </p>
+  </div>
+);
+
+const BarChart = ({ items }: { items: MonthlyReportMetric[] }) => {
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div key={item.id} className="grid grid-cols-[4.5rem_1fr_3rem] items-center gap-2">
+          <span className="text-[10px] font-black text-slate-600 md:text-xs">{item.label}</span>
+          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${toneStyles[item.tone].bar}`} style={{ width: `${Math.max(8, (item.value / maxValue) * 100)}%` }} />
+          </div>
+          <span className="text-right text-[10px] font-black text-slate-700 md:text-xs">
+            {item.value}{item.unit}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ReportSection = ({ section }: { section: MonthlyReportSection }) => (
+  <article className="border-t border-slate-200 py-4 first:border-t-0 first:pt-0 last:pb-0">
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-sm font-black text-slate-950 md:text-base">{section.title}</h2>
+      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[8px] font-black uppercase md:text-[10px] ${
+        section.kind === "hypothesis" ? toneStyles.yellow.badge : section.kind === "fact" ? toneStyles.green.badge : toneStyles.slate.badge
+      }`}>
+        {section.kind}
+      </span>
+    </div>
+    <p className="mt-2 text-[11px] font-semibold leading-relaxed text-slate-700 md:text-sm">{section.body}</p>
+  </article>
 );
 
 export const ReportCopilot = () => {
@@ -60,22 +107,54 @@ export const ReportCopilot = () => {
   return (
     <PhoneFrame>
       <div className="px-5 pb-24 pt-6 md:px-7 md:pb-8 md:pt-9">
-        <section>
-          <h1 className="text-[20px] font-black leading-none tracking-tight text-slate-950 md:text-2xl">{data.header.title}</h1>
-          <p className="mt-2 text-[11px] font-extrabold text-slate-500 md:text-sm">{data.header.subtitle}</p>
+        <section className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-600 ring-1 ring-slate-200 md:text-xs">
+              <FiDatabase aria-hidden="true" className="h-3 w-3" />
+              {data.monthly.source === "cloud_storage" ? "Loaded from Cloud Storage" : "Generated monthly report"}
+            </p>
+            <h1 className="mt-3 text-[22px] font-black leading-tight text-slate-950 md:text-3xl">{data.header.title}</h1>
+            <p className="mt-2 text-[11px] font-extrabold text-slate-500 md:text-sm">{data.header.subtitle}</p>
+          </div>
+          <div className="text-left md:text-right">
+            <p className="text-[10px] font-black uppercase text-slate-500 md:text-xs">{data.monthly.period}</p>
+            <p className="mt-1 text-[10px] font-bold text-slate-400 md:text-xs">{data.monthly.storagePath}</p>
+          </div>
         </section>
 
-        <section className="mt-5 rounded-[24px] bg-teal-900 p-5 text-white shadow-[0_18px_40px_rgba(15,118,110,0.22)]">
-          <p className="text-[18px] font-black leading-tight md:text-2xl">{data.weekly.title}</p>
-          <p className="mt-2 text-[11px] font-extrabold text-teal-50/90 md:text-sm">{data.weekly.period}</p>
-          <p className="mt-3 text-[12px] font-black text-teal-50 md:text-sm">{data.weekly.summary}</p>
+        <section className="mt-5 rounded-lg bg-slate-950 p-5 text-white">
+          <div className="flex items-start gap-3">
+            <FiFileText aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-blue-200" />
+            <div>
+              <p className="text-[18px] font-black leading-tight md:text-2xl">{data.monthly.title}</p>
+              <p className="mt-3 text-[12px] font-bold leading-relaxed text-slate-100 md:text-sm">{data.monthly.summary}</p>
+            </div>
+          </div>
         </section>
 
-        <section className="mt-4 space-y-3">
+        <section className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+          {data.metrics.map((metric) => <MetricTile key={metric.id} metric={metric} />)}
+        </section>
+
+        <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <Card className="rounded-lg">
+            <div className="mb-4 flex items-center gap-2">
+              <FiBarChart2 aria-hidden="true" className="h-4 w-4 text-blue-600" />
+              <SectionTitle>Monthly indicators</SectionTitle>
+            </div>
+            <BarChart items={data.charts} />
+          </Card>
+
+          <Card className="rounded-lg">
+            {data.sections.map((section) => <ReportSection key={section.id} section={section} />)}
+          </Card>
+        </section>
+
+        <section className="mt-4 grid gap-3 lg:grid-cols-2">
           {data.highlights.map((h) => <HighlightCard key={h.id} highlight={h} />)}
         </section>
 
-        <Card className="mt-3">
+        <Card className="mt-4 rounded-lg">
           <SectionTitle>Evidence snippets</SectionTitle>
           <ul className="mt-3 space-y-1.5">
             {data.snippets.map((s) => (
@@ -85,8 +164,11 @@ export const ReportCopilot = () => {
         </Card>
 
         {/* チャットエリア */}
-        <Card className="mt-4">
-          <SectionTitle>Copilot に質問する</SectionTitle>
+        <Card className="mt-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <FiMessageCircle aria-hidden="true" className="h-4 w-4 text-blue-600" />
+            <SectionTitle>Copilot に質問する</SectionTitle>
+          </div>
           {chat.length > 0 && (
             <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
               {chat.map((entry, i) => (
@@ -121,8 +203,9 @@ export const ReportCopilot = () => {
               type="button"
               onClick={handleSend}
               disabled={sending || !input.trim()}
-              className="shrink-0 rounded-full bg-blue-600 px-4 py-2.5 text-[11px] font-black text-white disabled:opacity-40 md:text-sm"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2.5 text-[11px] font-black text-white disabled:opacity-40 md:text-sm"
             >
+              <FiRefreshCw aria-hidden="true" className="h-3 w-3" />
               送信
             </button>
           </div>
