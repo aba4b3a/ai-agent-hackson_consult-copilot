@@ -1,4 +1,16 @@
 services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - .:/workspaces/ai-agent-hackson_consult-copilot:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    depends_on:
+      - bigquery-emulator
+      - ollama
+
   front:
     image: node:24-bookworm
     working_dir: /workspace/front
@@ -35,9 +47,11 @@ services:
     env_file: ./agent/.env
     volumes:
       - ./agent:/app
+      # Gemini Enterprise (Vertex AI) 認証用のサービスアカウントJSON。
+      # agent/.env の GOOGLE_APPLICATION_CREDENTIALS と同じ絶対パスにマウントする。
+      - ./secret.json:./secret.json:ro
     depends_on:
       - bigquery-emulator
-      - ollama
 
   bigquery-emulator:
     image: ghcr.io/goccy/bigquery-emulator:latest
@@ -56,8 +70,8 @@ services:
       - ./ollama:/root/.ollama
     restart: always
     gpus: all
-    command: >
-      "sleep 10 && OLLAMA_HOST=http://ollama-ai:11434 ollama pull gemma4:12b"
+    # command: >
+    #   "sleep 10 && OLLAMA_HOST=http://ollama-ai:11434 ollama pull gemma4:12b"
     environment:
       # Default context (4096) leaves almost no room to generate once the
       # multi-agent orchestrator/knowledge-agent system prompts are included.

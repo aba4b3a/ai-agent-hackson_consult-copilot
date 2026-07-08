@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
 import { useProvisionCompany } from "@/hooks/use-company-onboarding";
+import { ApiError } from "@/lib/api-client";
+import { deleteCompanyMaster } from "@/services/company-service";
 
 const RegisterCompanyModal = ({ onClose }: { onClose: () => void }) => {
   const router = useRouter();
@@ -103,14 +105,45 @@ const RegisterCompanyModal = ({ onClose }: { onClose: () => void }) => {
 
 export const CompanySwitcher = () => {
   const router = useRouter();
-  const { activeCompany, companies, session, signOut, switchCompany } = useAuth();
+  const { activeCompany, companies, session, signOut, switchCompany, removeCompany, isCustomCompany } = useAuth();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (!session) return null;
 
   const handleSignOut = () => {
     signOut();
     router.push("/signin");
+  };
+
+  const handleDeleteCompany = async () => {
+    const target = activeCompany;
+    if (!window.confirm(`${target.code} / ${target.name} を削除しますか？\n(BigQuery上のデータは論理削除され、一覧から非表示になります。実データは残ります。)`)) {
+      return;
+    }
+
+    setDeleteError(null);
+    setIsDeleting(true);
+    try {
+      try {
+        await deleteCompanyMaster(target.code);
+      } catch (error) {
+        // 404 = マスタ行がそもそも存在しない(この企業登録フロー導入前に追加された企業)。
+        // その場合も「一覧から消す」という意図は達成できるので、ローカル一覧からは削除する。
+        if (!(error instanceof ApiError) || error.status !== 404) {
+          throw error;
+        }
+      }
+      const result = removeCompany(target.code);
+      if (!result.ok) {
+        setDeleteError(result.error);
+      }
+    } catch {
+      setDeleteError("削除に失敗しました。バックエンドの起動状態を確認してください。");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -150,6 +183,19 @@ export const CompanySwitcher = () => {
           </span>
         </button>
 
+        {isCustomCompany(activeCompany.code) ? (
+          <button
+            type="button"
+            className="h-8 shrink-0 rounded-md border border-slate-200 px-2 text-[11px] font-black text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+            onClick={() => void handleDeleteCompany()}
+            disabled={isDeleting}
+            aria-label="表示中の企業を削除"
+            title="表示中の企業を削除"
+          >
+            削除
+          </button>
+        ) : null}
+
         <button
           type="button"
           className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
@@ -162,6 +208,12 @@ export const CompanySwitcher = () => {
           </span>
         </button>
       </div>
+
+      {deleteError ? (
+        <div className="fixed right-4 top-16 z-40 max-w-[calc(100vw-2rem)] rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-md md:right-6 xl:right-[27rem]">
+          {deleteError}
+        </div>
+      ) : null}
 
       {isRegisterOpen ? <RegisterCompanyModal onClose={() => setIsRegisterOpen(false)} /> : null}
     </>

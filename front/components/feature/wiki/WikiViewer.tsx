@@ -46,8 +46,12 @@ export const WikiViewer = () => {
   );
 
   useEffect(() => {
+    // Keeps selectedPath valid as the file list loads/changes; selectedPath is
+    // also set independently by the user clicking a file below, so it can't
+    // be computed as a plain derived value during render.
     const files = filesQuery.data?.items ?? [];
     if (files.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedPath(null);
       setCompareVersion(null);
       return;

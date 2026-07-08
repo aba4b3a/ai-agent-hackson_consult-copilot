@@ -17,4 +17,4 @@ COPY eval ./eval
 COPY prompts ./prompts
 COPY tests ./tests
 
-CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "/app/agents"]
+CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "agents"]

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ps -p 3392 -o pid,ppid,etime,cmd)",
+      "Bash(curl -sS -m 5 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -sS -m 10 http://localhost:3000/)",
+      "Bash(curl -sS -m 5 -o /dev/null -w \"back 8000: %{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(curl -sS -m 5 -o /dev/null -w \"back 8000/docs: %{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(timeout 15 .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Read(//tmp/**)",
+      "Bash(curl -sS -m 5 -o /dev/null -w \"back 8000: %{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(curl -sS -m 8 http://localhost:3000/)",
+      "Bash(curl *)",
+      "Bash(docker start *)",
+      "Bash(docker exec *)",
+      "Bash(netstat -tlnp)",
+      "Bash(xargs -I{} sh -c 'echo === {} ===; cat {}')",
+      "Bash(npx tsc *)",
+      "Skill(run)",
+      "Bash(netstat -ltnp)",
+      "Bash(python3 -m json.tool)",
+      "Bash(NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev)",
+      "Bash(chromium-cli --help)",
+      "Bash(timeout 180 npx playwright install --with-deps chromium)",
+      "Bash(node *)",
+      "Bash(npm run *)",
+      "Bash(python3 -c ' *)",
+      "Bash(rm -f /workspaces/ai-agent-hackson_consult-copilot/back/.local_storage/firestore/pending_approvals.json)",
+      "Bash(git -C /workspaces/ai-agent-hackson_consult-copilot status --porcelain back/.local_storage)"
+    ]
+  }
+}

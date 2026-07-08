@@ -24,6 +24,12 @@ class BigQueryCrud:
         job.result()
         return {'dry_run': False, 'job_id': job.job_id}
 
+    def query_rows(self, sql: str) -> list[dict]:
+        if settings.dry_run:
+            return []
+        client = get_bigquery_client()
+        return [dict(row.items()) for row in client.query(sql).result()]
+
     def insert_json_rows(self, table_id: str, rows: list[dict]) -> dict:
         if settings.dry_run:
             return {'dry_run': True, 'table_id': table_id, 'rows': rows}

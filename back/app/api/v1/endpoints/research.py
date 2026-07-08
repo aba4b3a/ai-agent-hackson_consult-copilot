@@ -50,7 +50,7 @@ def list_assignments(
     # render the question without an extra round-trip.
     enriched = []
     for item in base.items:
-        question = research_service.get_question(item.followup_question_id) or {}
+        question = research_service.get_question(company_id, item.followup_question_id) or {}
         enriched_item = item.model_dump()
         enriched_item["question_text"] = question.get("question_text")
         enriched_item["question_category"] = question.get("question_category")
@@ -68,8 +68,6 @@ def submit_followup_answer(company_id: str, data: FollowupAnswerSubmit):
         return research_service.submit_answer(company_id, data)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"assignment {data.assignment_id} not found")
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
@@ -79,4 +77,4 @@ def trigger_research_tick(company_id: str, cohort: str = Query(default="manual")
     """Manual fan-out trigger. In production this is also called from the
     Pub/Sub push subscription bound to consult-copilot-research-dispatch-tick.
     """
-    return research_service.tick(cohort=cohort)
+    return research_service.tick(company_id, cohort=cohort)

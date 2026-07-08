@@ -23,6 +23,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+build/
 dist/
 *.egg-info/
 
@@ -36,6 +37,7 @@ dist/
 .firebase/
 firebase-debug.log
 service-account*.json
+secret.json
 
 # Local artifacts
 tmp/
