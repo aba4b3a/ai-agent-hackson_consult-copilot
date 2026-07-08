@@ -36,6 +36,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadedCustomCompanies = loadCustomCompanies();
+    // TODO: localStorage 復元は useSyncExternalStore 等への移行を検討（react-hooks v6 対応）
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomCompanies(loadedCustomCompanies);
 
     const storedSession = window.localStorage.getItem(authSessionStorageKey);

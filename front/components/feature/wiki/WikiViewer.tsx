@@ -48,6 +48,8 @@ export const WikiViewer = () => {
   useEffect(() => {
     const files = filesQuery.data?.items ?? [];
     if (files.length === 0) {
+      // TODO: 「レンダー中に state を調整する」パターンへの移行を検討（react-hooks v6 対応）
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedPath(null);
       setCompareVersion(null);
       return;
