@@ -2,7 +2,6 @@
 DRY_RUN=true or BQ接続失敗時はフォールバックデータを返す。"""
 from __future__ import annotations
 from app.core.config import settings
-from app.crud.bigquery_crud import bigquery_crud
 from app.services.sample_company_data import sample_company_data
 
 
@@ -35,12 +34,6 @@ class DashboardService:
             FROM `{project}.{dataset}.knowledge_nodes`
             WHERE node_type IN ('Signal','Risk') AND status = 'active'
             ORDER BY confidence DESC LIMIT 5
-        """)
-        recent_rows = _query(f"""
-            SELECT label, node_type, confidence
-            FROM `{project}.{dataset}.knowledge_nodes`
-            WHERE status = 'active'
-            ORDER BY created_at DESC LIMIT 3
         """)
 
         total_nodes = sum(r["cnt"] for r in node_rows)

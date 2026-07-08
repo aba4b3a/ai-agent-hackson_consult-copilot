@@ -48,7 +48,7 @@ class SampleCompanyData:
             results.append(
                 {
                     'bucket': 'sample-seed',
-                    'path': f'tenants/{company_id}/wiki/current/{str(rel).replace("\\", "/")}',
+                    'path': f'tenants/{company_id}/wiki/current/{rel.as_posix()}',
                     'size': path.stat().st_size,
                     'updated': path.stat().st_mtime,
                     'generation': None,
