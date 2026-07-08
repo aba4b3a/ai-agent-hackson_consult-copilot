@@ -1,3 +1,4 @@
+import json
 import re
 from app.core.config import settings
 from app.crud.bigquery_crud import bigquery_crud
@@ -133,8 +134,14 @@ class KnowledgeService:
 
     def persist_nodes_edges(self, company_id: str, nodes: list[KnowledgeNode], edges: list[KnowledgeEdge]) -> dict:
         now = utc_now_iso()
-        node_rows = [{**n.model_dump(), 'valid_from': now, 'valid_to': None, 'status': 'active', 'created_at': now, 'updated_at': now} for n in nodes]
-        edge_rows = [{**e.model_dump(), 'strength': e.strength if e.strength is not None else e.confidence, 'created_at': now, 'updated_at': now} for e in edges]
+        node_rows = [
+            {**n.model_dump(), 'properties': json.dumps(n.properties, ensure_ascii=False), 'valid_from': now, 'valid_to': None, 'status': 'active', 'created_at': now, 'updated_at': now}
+            for n in nodes
+        ]
+        edge_rows = [
+            {**e.model_dump(), 'properties': json.dumps(e.properties, ensure_ascii=False), 'strength': e.strength if e.strength is not None else e.confidence, 'created_at': now, 'updated_at': now}
+            for e in edges
+        ]
         return {
             'nodes': bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'knowledge_nodes'), node_rows) if node_rows else {'inserted': 0},
             'edges': bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'knowledge_edges'), edge_rows) if edge_rows else {'inserted': 0},
