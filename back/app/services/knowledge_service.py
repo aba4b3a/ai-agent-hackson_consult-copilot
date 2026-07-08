@@ -86,23 +86,20 @@ class KnowledgeService:
         return nodes, edges
 
     def persist_nodes_edges(self, company_id: str, nodes: list[KnowledgeNode], edges: list[KnowledgeEdge]) -> dict:
-        dataset_id = settings.dataset_id(company_id)
-        project = settings.project_id or '${PROJECT_ID}'
         now = utc_now_iso()
         node_rows = [{**n.model_dump(), 'valid_from': now, 'valid_to': None, 'status': 'active', 'created_at': now, 'updated_at': now} for n in nodes]
         edge_rows = [{**e.model_dump(), 'strength': e.strength if e.strength is not None else e.confidence, 'created_at': now, 'updated_at': now} for e in edges]
         return {
-            'nodes': bigquery_crud.insert_json_rows(f'{project}.{dataset_id}.knowledge_nodes', node_rows) if node_rows else {'inserted': 0},
-            'edges': bigquery_crud.insert_json_rows(f'{project}.{dataset_id}.knowledge_edges', edge_rows) if edge_rows else {'inserted': 0},
+            'nodes': bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'knowledge_nodes'), node_rows) if node_rows else {'inserted': 0},
+            'edges': bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'knowledge_edges'), edge_rows) if edge_rows else {'inserted': 0},
         }
 
     def propose_custom_table(self, company_id: str, table_id: str, purpose: str, columns: list[dict]) -> CustomTableProposal:
-        dataset_id = settings.dataset_id(company_id)
-        project = settings.project_id or '${PROJECT_ID}'
+        qualified_table_id = settings.qualified_table(company_id, table_id)
         base_columns = ['record_id STRING NOT NULL', 'company_id STRING NOT NULL']
         custom_columns = [f'{c["name"]} {c.get("type", "STRING")}' for c in columns]
         audit_columns = ['source_response_id STRING', 'properties JSON', 'created_at TIMESTAMP', 'updated_at TIMESTAMP', 'PRIMARY KEY (record_id) NOT ENFORCED']
-        ddl = f'CREATE OR REPLACE TABLE `{project}.{dataset_id}.{table_id}` (\n  ' + ',\n  '.join(base_columns + custom_columns + audit_columns) + '\n);'
+        ddl = f'CREATE OR REPLACE TABLE `{qualified_table_id}` (\n  ' + ',\n  '.join(base_columns + custom_columns + audit_columns) + '\n);'
         column_lines = '\n'.join([f'- `{c["name"]}`: {c.get("description", c.get("type", "STRING"))}' for c in columns])
         wiki_update = f'''## 任意テーブル追加: `{table_id}`
 

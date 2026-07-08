@@ -13,9 +13,8 @@ const platformSignals = [
 export const SignInPage = () => {
   const router = useRouter();
   const { session, signIn, companies } = useAuth();
-  const [consultantName, setConsultantName] = useState("佐藤 里奈");
   const [email, setEmail] = useState("rina.sato@example.com");
-  const [companyCode, setCompanyCode] = useState(companies[0].code);
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (session) {
@@ -25,11 +24,9 @@ export const SignInPage = () => {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    signIn({ consultantName, email, companyCode });
+    signIn({ consultantName: "", email, companyCode: companies[0].code });
     router.push("/");
   };
-
-  const selectedCompany = companies.find((company) => company.code === companyCode) ?? companies[0];
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -78,21 +75,11 @@ export const SignInPage = () => {
               <p className="text-xs font-black uppercase tracking-normal text-emerald-700">Secure workspace</p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">サインイン</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                担当企業を選ぶと、サインイン後の全画面右上に企業コードが表示されます。
+                サインイン後、画面右上で担当企業を選択・切り替えできます。
               </p>
             </div>
 
             <div className="mt-6 space-y-4">
-              <label className="block">
-                <span className="text-xs font-black text-slate-600">コンサルタント名</span>
-                <input
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-                  value={consultantName}
-                  onChange={(event) => setConsultantName(event.target.value)}
-                  required
-                />
-              </label>
-
               <label className="block">
                 <span className="text-xs font-black text-slate-600">メールアドレス</span>
                 <input
@@ -105,34 +92,23 @@ export const SignInPage = () => {
               </label>
 
               <label className="block">
-                <span className="text-xs font-black text-slate-600">初期表示する企業</span>
-                <select
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-                  value={companyCode}
-                  onChange={(event) => setCompanyCode(event.target.value)}
-                >
-                  {companies.map((company) => (
-                    <option key={company.code} value={company.code}>
-                      {company.code} / {company.name}
-                    </option>
-                  ))}
-                </select>
+                <span className="text-xs font-black text-slate-600">パスワード</span>
+                <input
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
               </label>
-            </div>
-
-            <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-xs font-black text-emerald-900">{selectedCompany.code}</p>
-              <p className="mt-1 text-sm font-black text-slate-950">{selectedCompany.name}</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{selectedCompany.segment}</p>
             </div>
 
             <button
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
               type="submit"
             >
-              サインインして開始
+              サインイン
               <span aria-hidden="true" className="text-base leading-none">
-                →
               </span>
             </button>
           </form>

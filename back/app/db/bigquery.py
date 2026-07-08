@@ -29,4 +29,7 @@ def get_bigquery_client():
         )
     else:
         # Use Google Cloud BigQuery for production
-        return bigquery.Client(project=settings.project_id)
+        # location must be pinned explicitly: without it, jobs for
+        # not-yet-existing datasets (e.g. CREATE SCHEMA IF NOT EXISTS) fall
+        # back to BigQuery's US default instead of settings.location.
+        return bigquery.Client(project=settings.project_id, location=settings.location)

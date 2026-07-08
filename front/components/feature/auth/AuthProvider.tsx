@@ -21,6 +21,8 @@ type AuthContextValue = {
   signOut: () => void;
   switchCompany: (companyCode: string) => void;
   registerCompany: (input: CompanyOption, options?: { switchTo?: boolean }) => RegisterCompanyResult;
+  removeCompany: (companyCode: string) => RegisterCompanyResult;
+  isCustomCompany: (companyCode: string) => boolean;
 };
 
 const fallbackCompany = consultantCompanies[0];
@@ -36,7 +38,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadedCustomCompanies = loadCustomCompanies();
-    // TODO: localStorage 復元は useSyncExternalStore 等への移行を検討（react-hooks v6 対応）
+    // localStorage is only readable client-side; this app is a static export
+    // (no per-request SSR), so reading it in an effect (post-mount, post-hydration)
+    // rather than a lazy useState initializer avoids a hydration mismatch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomCompanies(loadedCustomCompanies);
 
@@ -123,13 +127,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [companies, customCompanies, persistSession, session],
   );
 
+  const isCustomCompany = useCallback(
+    (companyCode: string) => customCompanies.some((company) => company.code === companyCode),
+    [customCompanies],
+  );
+
+  const removeCompany = useCallback(
+    (companyCode: string): RegisterCompanyResult => {
+      if (!isCustomCompany(companyCode)) {
+        return { ok: false, error: "この企業は削除できません。" };
+      }
+
+      const nextCustomCompanies = customCompanies.filter((company) => company.code !== companyCode);
+      setCustomCompanies(nextCustomCompanies);
+      saveCustomCompanies(nextCustomCompanies);
+
+      if (session?.companyCode === companyCode) {
+        const nextActive = [...consultantCompanies, ...nextCustomCompanies][0] ?? fallbackCompany;
+        persistSession({ ...session, companyCode: nextActive.code });
+      }
+
+      return { ok: true };
+    },
+    [customCompanies, isCustomCompany, persistSession, session],
+  );
+
   const activeCompany = useMemo(() => {
     return companies.find((company) => company.code === session?.companyCode) ?? fallbackCompany;
   }, [companies, session?.companyCode]);
 
   const value = useMemo(
-    () => ({ session, isReady, companies, activeCompany, signIn, signOut, switchCompany, registerCompany }),
-    [session, isReady, companies, activeCompany, signIn, signOut, switchCompany, registerCompany],
+    () => ({
+      session,
+      isReady,
+      companies,
+      activeCompany,
+      signIn,
+      signOut,
+      switchCompany,
+      registerCompany,
+      removeCompany,
+      isCustomCompany,
+    }),
+    [
+      session,
+      isReady,
+      companies,
+      activeCompany,
+      signIn,
+      signOut,
+      switchCompany,
+      registerCompany,
+      removeCompany,
+      isCustomCompany,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

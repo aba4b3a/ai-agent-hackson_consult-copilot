@@ -30,6 +30,10 @@ target-version = "py312"
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# tools/* uses bare `dict`/`list` for loosely-typed JSON-like tool payloads
+# throughout (same convention as back's non-strict mypy config); enforcing
+# explicit generic args here would require annotating every one of them.
+disallow_any_generics = false
 # build/ は setuptools の生成物（Duplicate module エラー防止のため除外）
 exclude = ["build"]
 

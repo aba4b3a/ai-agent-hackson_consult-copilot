@@ -4,8 +4,8 @@ from app.db.bigquery import get_bigquery_client
 
 
 class BigQueryCrud:
-    def create_dataset(self, company_id: str) -> dict:
-        dataset_id = settings.dataset_id(company_id)
+    def create_dataset(self) -> dict:
+        dataset_id = settings.dataset_id()
         full_dataset_id = f'{settings.project_id}.{dataset_id}'
         if settings.dry_run:
             return {'dry_run': True, 'dataset_id': dataset_id, 'full_dataset_id': full_dataset_id}
@@ -23,6 +23,12 @@ class BigQueryCrud:
         job = client.query(sql)
         job.result()
         return {'dry_run': False, 'job_id': job.job_id}
+
+    def query_rows(self, sql: str) -> list[dict]:
+        if settings.dry_run:
+            return []
+        client = get_bigquery_client()
+        return [dict(row.items()) for row in client.query(sql).result()]
 
     def insert_json_rows(self, table_id: str, rows: list[dict]) -> dict:
         if settings.dry_run:

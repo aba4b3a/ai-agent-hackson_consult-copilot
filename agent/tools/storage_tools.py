@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
-from google.cloud import storage
+from google.cloud import storage  # type: ignore[attr-defined]
 
 from agents.config import settings
 
@@ -65,6 +65,65 @@ def _upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain
 def upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain") -> dict[str, Any]:
     """Backward-compatible low-level upload helper."""
     return _upload_text_to_gcs(_safe_path_part(path), content, content_type)
+
+
+def _read_json_from_gcs(path: str) -> dict | None:
+    if settings.dry_run or not settings.wiki_bucket:
+        return None
+    blob = _client().bucket(settings.wiki_bucket).blob(path)
+    if not blob.exists():
+        return None
+    result: dict = json.loads(blob.download_as_text(encoding="utf-8"))
+    return result
+
+
+def register_research_schedule_item(
+    company_id: str,
+    table_name: str,
+    purpose: str,
+    frequency: str,
+    target_role: str,
+    question_text: str,
+    value_type: str = "text",
+    target_candidate_table: str | None = None,
+    target_candidate_id: str | None = None,
+    target_candidate_name: str | None = None,
+) -> dict:
+    """Upsert one entry into tenants/{company_id}/research/schedule.json, the
+    GCS-stored definition Research reads at page-view time to decide what's
+    due for collection. Call after create_research_collection_table with the
+    same table_name so Research knows where submitted answers should land.
+    """
+    safe_table = _safe_path_part(table_name)
+    path = str(PurePosixPath(_tenant_prefix(company_id), "research", "schedule.json"))
+    schedule_item_id = f"sched_{safe_table}"
+    item = {
+        "schedule_item_id": schedule_item_id,
+        "table_name": safe_table,
+        "purpose": purpose,
+        "frequency": frequency,
+        "target_role": target_role,
+        "question_text": question_text,
+        "value_type": value_type if value_type in ("text", "number") else "text",
+        "target_candidate_table": target_candidate_table,
+        "target_candidate_id": target_candidate_id,
+        "target_candidate_name": target_candidate_name,
+        "updated_at": _now().isoformat(),
+    }
+    existing = _read_json_from_gcs(path) or {"company_id": company_id, "items": []}
+    items = [i for i in existing.get("items", []) if i.get("schedule_item_id") != schedule_item_id]
+    items.append(item)
+    payload = {"company_id": company_id, "items": items}
+    upload_result = _upload_text_to_gcs(
+        path, json.dumps(payload, ensure_ascii=False, indent=2), "application/json; charset=utf-8"
+    )
+    return {
+        "company_id": company_id,
+        "schedule_item_id": schedule_item_id,
+        "path": path,
+        "items_count": len(items),
+        "upload": upload_result,
+    }
 
 
 def write_wiki_file(

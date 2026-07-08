@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
 import { getKnowledgeData } from "@/services/knowledge-service";
@@ -10,6 +10,33 @@ import { listWikiFiles, readWikiFile, toRelativeWikiPath } from "@/services/wiki
 type ChatEntry = {
   role: "user" | "assistant";
   text: string;
+};
+
+type StoredChat = {
+  messages: ChatEntry[];
+  sessionId?: string;
+};
+
+const defaultGreeting: ChatEntry = {
+  role: "assistant",
+  text: "企業や直近の情報を前提に、KPI候補、重点管理指標、観測方針、追加質問を一緒に確認できます。",
+};
+
+const chatStorageKey = (companyCode: string) => `consult-copilot.persistent-chat.${companyCode}`;
+
+const loadStoredChat = (companyCode: string): StoredChat | null => {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(chatStorageKey(companyCode));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredChat;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredChat = (companyCode: string, state: StoredChat) => {
+  window.localStorage.setItem(chatStorageKey(companyCode), JSON.stringify(state));
 };
 
 const starterPrompts = [
@@ -38,7 +65,9 @@ const buildGroundedPrompt = ({
   return [
     "Consult Copilot persistent chat request.",
     `company_id: ${companyCode}`,
-    "回答時は、可能な限り LLM Wiki と BigQuery の構造化データを参照し、根拠があるものと仮説を分けてください。",
+    "回答方針:",
+    "- 挨拶や雑談など、具体的な質問を含まない発言には、下記の参考情報を無理に使わず、短く自然な会話として応答してください。",
+    "- KPI、重点管理指標、企業課題、Wikiの内容など具体的なテーマに関する質問には、可能な限り下記の LLM Wiki と BigQuery の構造化データを参照し、根拠があるものと仮説を分けて回答してください。",
     `LLM Wiki candidates: ${wikiContext}`,
     `LLM Wiki snippets:\n${wikiEvidence}`,
     `BigQuery context candidates: ${signalContext}`,
@@ -48,16 +77,34 @@ const buildGroundedPrompt = ({
 
 export const PersistentAiChat = () => {
   const { activeCompany, session } = useAuth();
-  const [messages, setMessages] = useState<ChatEntry[]>([
-    {
-      role: "assistant",
-      text: "LLM Wiki と BigQuery の情報を前提に、KPI候補、重点管理指標、観測方針、追加質問を一緒に確認できます。",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatEntry[]>(() => {
+    const stored = loadStoredChat(activeCompany.code);
+    return stored?.messages?.length ? stored.messages : [defaultGreeting];
+  });
   const [input, setInput] = useState("");
-  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [sessionId, setSessionId] = useState<string | undefined>(
+    () => loadStoredChat(activeCompany.code)?.sessionId,
+  );
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeCompanyCodeRef = useRef(activeCompany.code);
+  const isFirstCompanyRender = useRef(true);
+
+  // 企業を切り替えたら、その企業の保存済み会話に差し替える（保存は下のeffectで現在の企業コードに書き込む）。
+  useEffect(() => {
+    activeCompanyCodeRef.current = activeCompany.code;
+    if (isFirstCompanyRender.current) {
+      isFirstCompanyRender.current = false;
+      return;
+    }
+    const stored = loadStoredChat(activeCompany.code);
+    setMessages(stored?.messages?.length ? stored.messages : [defaultGreeting]);
+    setSessionId(stored?.sessionId);
+  }, [activeCompany.code]);
+
+  useEffect(() => {
+    saveStoredChat(activeCompanyCodeRef.current, { messages, sessionId });
+  }, [messages, sessionId]);
 
   const wikiContext = useQuery({
     queryKey: ["persistent-chat-wiki-context", activeCompany.code],

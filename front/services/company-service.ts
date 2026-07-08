@@ -36,3 +36,31 @@ export const createCompanyCoreTables = (targetCompanyId: string): Promise<Execut
   apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/bigquery/core-tables`, {
     method: "POST",
   });
+
+export type CompanyRecord = {
+  company_id: string;
+  company_name: string;
+  company_size_segment: string | null;
+  onboarding_status: string | null;
+  active_status: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type CompanyCreateRequest = {
+  company_id: string;
+  company_name: string;
+  industry_hint?: string | null;
+  size_hint?: string | null;
+};
+
+export const createCompanyMaster = (body: CompanyCreateRequest): Promise<CompanyRecord> =>
+  apiFetch(`/api/v1/companies`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const deleteCompanyMaster = (targetCompanyId: string): Promise<CompanyRecord> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}`, {
+    method: "DELETE",
+  });

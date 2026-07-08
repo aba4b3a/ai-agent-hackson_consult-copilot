@@ -20,19 +20,21 @@ class Settings:
     dry_run: bool = os.getenv("DRY_RUN", "true").lower() == "true"
     app_env: str = os.getenv("APP_ENV", "local")
 
-    bq_dataset_prefix: str = os.getenv("BQ_DATASET_PREFIX", "cda")
+    bq_dataset_prefix: str = os.getenv("BQ_DATASET_PREFIX", "consultant_copilot")
     bq_graph_name: str = os.getenv("BQ_GRAPH_NAME", "KnowledgeGraph")
 
     wiki_bucket: str = os.getenv("WIKI_BUCKET", "")
-    model_id: str = os.getenv("MODEL_ID", "ollama/gemma4:12b")
+    model_id: str = os.getenv("MODEL_ID", "ollama_chat/gemma4:12b")
 
     # Local development settings
     ollama_host: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     bigquery_emulator_host: str = os.getenv("BIGQUERY_EMULATOR_HOST", "")
 
-    def dataset_id(self, company_id: str) -> str:
-        safe_company_id = company_id.replace("-", "_").replace(".", "_")
-        return f"{self.bq_dataset_prefix}_{safe_company_id}"
+    def dataset_id(self) -> str:
+        """The single shared BigQuery dataset every table lives in. Company-
+        specific tables are distinguished by a table-name prefix instead of a
+        per-company dataset — see tools/bigquery_tools.py's _company_table."""
+        return self.bq_dataset_prefix
 
 
 settings = Settings()

@@ -119,8 +119,9 @@ def create_tables(company_id: str, dataset: str) -> None:
     # absent (a real emulator bug), so only drop tables confirmed to exist,
     # keeping the script idempotent across re-runs.
     for table in ("survey_responses", "knowledge_nodes", "knowledge_edges"):
-        if _table_exists(dataset, table):
-            _run_query(f"DROP TABLE `{settings.project_id}.{dataset}.{table}`")
+        prefixed = settings.company_table(company_id, table)
+        if _table_exists(dataset, prefixed):
+            _run_query(f"DROP TABLE `{settings.project_id}.{dataset}.{prefixed}`")
 
     ddl = bigquery_service.generate_core_tables_ddl(company_id)
     # PROPERTY GRAPH is only needed for the optional Notebook graph-query
@@ -157,7 +158,7 @@ def seed_nodes(company_id: str, dataset: str, nodes: list[dict]) -> None:
             "created_at": now_iso(),
             "updated_at": now_iso(),
         })
-    inserted = _insert_rows(dataset, "knowledge_nodes", rows)
+    inserted = _insert_rows(dataset, settings.company_table(company_id, "knowledge_nodes"), rows)
     print(f"  knowledge_nodes: {inserted}")
 
 
@@ -179,7 +180,7 @@ def seed_edges(company_id: str, dataset: str, edges: list[dict]) -> None:
             "created_at": now_iso(),
             "updated_at": now_iso(),
         })
-    inserted = _insert_rows(dataset, "knowledge_edges", rows)
+    inserted = _insert_rows(dataset, settings.company_table(company_id, "knowledge_edges"), rows)
     print(f"  knowledge_edges: {inserted}")
 
 
@@ -205,7 +206,7 @@ def seed_responses(company_id: str, dataset: str, responses: list[dict]) -> None
             "answer_json": r.get("answer_json") or {},
             "created_at": now_iso(),
         })
-    inserted = _insert_rows(dataset, "survey_responses", rows)
+    inserted = _insert_rows(dataset, settings.company_table(company_id, "survey_responses"), rows)
     print(f"  survey_responses: {inserted}")
 
 
@@ -217,7 +218,7 @@ def main() -> None:
             continue
         print(f"== {company_id} ==")
         data = json.loads(knowledge_file.read_text(encoding="utf-8"))
-        dataset = settings.dataset_id(company_id)
+        dataset = settings.dataset_id()
 
         create_tables(company_id, dataset)
         seed_nodes(company_id, dataset, data.get("knowledge_nodes", []))

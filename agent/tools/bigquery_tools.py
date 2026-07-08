@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-# NOTE: ADK ツールが受け渡す JSON ペイロードは、mypy strict（disallow_any_generics）
-# 対応のため裸の dict ではなく dict[str, Any] で注釈する。
-from typing import Any
-
 import json
 import os
+import re
 from datetime import datetime, timezone
 from google.cloud import bigquery
 from agents.config import settings
@@ -19,7 +16,7 @@ def _client() -> bigquery.Client:
         return bigquery.Client(project=settings.project_id, location=settings.location)
     else:
         # Use Google Cloud BigQuery for production
-        return bigquery.Client(project=settings.project_id)
+        return bigquery.Client(project=settings.project_id, location=settings.location)
 
 
 def _sql_string(value: str | None) -> str:
@@ -38,11 +35,31 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _tenant_dataset(company_id: str) -> str:
-    return f"{settings.project_id}.{tenant_dataset_id(company_id)}"
+_SAFE_IDENTIFIER_RE = re.compile(r"[^a-zA-Z0-9_]")
 
 
-def _insert_json_rows(table: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _safe_identifier(value: str, default: str = "col") -> str:
+    cleaned = _SAFE_IDENTIFIER_RE.sub("_", value).strip("_")
+    return cleaned or default
+
+
+def _safe_company_id(company_id: str) -> str:
+    return company_id.replace("-", "_").replace(".", "_")
+
+
+def _dataset() -> str:
+    return f"{settings.project_id}.{settings.dataset_id()}"
+
+
+def _company_table(company_id: str, table: str) -> str:
+    return f"{_safe_company_id(company_id)}_{table}"
+
+
+def _company_qualified(company_id: str, table: str) -> str:
+    return f"{_dataset()}.{_company_table(company_id, table)}"
+
+
+def _insert_json_rows(table: str, rows: list[dict]) -> dict:
     if not rows:
         return {"skipped": True, "reason": "no rows", "table": table}
     if settings.dry_run:
@@ -58,7 +75,7 @@ def _json_value(value: object) -> str:
     return json.dumps(value if value is not None else {}, ensure_ascii=False)
 
 
-def _source_refs_to_columns(record: dict[str, Any]) -> dict[str, Any]:
+def _source_refs_to_columns(record: dict) -> dict:
     source_refs = record.get("source_refs") or []
     answer_ids = record.get("source_answer_event_ids") or [
         ref.removeprefix("answer_event_id:")
@@ -80,9 +97,11 @@ def _source_refs_to_columns(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def create_company_dataset(company_id: str) -> dict[str, Any]:
-    dataset_id = settings.dataset_id(company_id)
-    full_dataset_id = f"{settings.project_id}.{dataset_id}"
+def ensure_shared_dataset() -> dict:
+    """Idempotently ensure the one shared BigQuery dataset exists. All
+    companies' tables live here, distinguished by a table-name prefix — see
+    _company_table — rather than a per-company dataset."""
+    full_dataset_id = _dataset()
     if settings.dry_run:
         return {"dry_run": True, "dataset": full_dataset_id}
     client = _client()
@@ -92,18 +111,8 @@ def create_company_dataset(company_id: str) -> dict[str, Any]:
     return {"dry_run": False, "dataset": full_dataset_id}
 
 
-def common_dataset_id() -> str:
-    return os.getenv("BQ_COMMON_DATASET", "cd_common")
-
-
-def tenant_dataset_id(company_id: str) -> str:
-    safe_company_id = company_id.replace("-", "_").replace(".", "_")
-    prefix = os.getenv("BQ_TENANT_DATASET_PREFIX", "cd_tenant")
-    return f"{prefix}_{safe_company_id}"
-
-
-def generate_common_tables_ddl() -> dict[str, Any]:
-    dataset = common_dataset_id()
+def generate_common_tables_ddl() -> dict:
+    dataset = settings.dataset_id()
     ddl = f"""
 CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{dataset}`
 OPTIONS(location="{settings.location}");
@@ -132,18 +141,6 @@ CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.companies` (
   updated_at TIMESTAMP
 )
 CLUSTER BY company_id, industry_code, company_size_segment;
-
-CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.company_dataset_registry` (
-  company_id STRING NOT NULL,
-  dataset_project_id STRING NOT NULL,
-  dataset_id STRING NOT NULL,
-  dataset_region STRING NOT NULL,
-  schema_version STRING,
-  dataset_status STRING,
-  created_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP
-)
-CLUSTER BY company_id, dataset_status;
 
 CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.schema_migration_history` (
   migration_id STRING NOT NULL,
@@ -196,14 +193,21 @@ CLUSTER BY kpi_domain, kpi_type;
     return {"dataset": f"{settings.project_id}.{dataset}", "ddl": ddl}
 
 
-def generate_tenant_tables_ddl(company_id: str) -> dict[str, Any]:
-    dataset = tenant_dataset_id(company_id)
-    tenant = f"{settings.project_id}.{dataset}"
+def generate_tenant_tables_ddl(company_id: str) -> dict:
+    tenant = _dataset()
+    onboarding_answer_events = _company_table(company_id, "onboarding_answer_events")
+    research_followup_question_events = _company_table(company_id, "research_followup_question_events")
+    followup_answer_events = _company_table(company_id, "followup_answer_events")
+    kpi_candidates = _company_table(company_id, "kpi_candidates")
+    focus_metric_candidates = _company_table(company_id, "focus_metric_candidates")
+    current_kpi_definitions = _company_table(company_id, "current_kpi_definitions")
+    observation_signals = _company_table(company_id, "observation_signals")
+    current_focus_metric_definitions = _company_table(company_id, "current_focus_metric_definitions")
     ddl = f"""
 CREATE SCHEMA IF NOT EXISTS `{tenant}`
 OPTIONS(location="{settings.location}");
 
-CREATE TABLE IF NOT EXISTS `{tenant}.onboarding_answer_events` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{onboarding_answer_events}` (
   answer_event_id STRING NOT NULL,
   company_id STRING NOT NULL,
   question_id STRING NOT NULL,
@@ -223,7 +227,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.onboarding_answer_events` (
 PARTITION BY DATE(answered_at)
 CLUSTER BY company_id, question_id;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.research_followup_question_events` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{research_followup_question_events}` (
   followup_question_id STRING NOT NULL,
   company_id STRING NOT NULL,
   generated_at TIMESTAMP NOT NULL,
@@ -238,12 +242,15 @@ CREATE TABLE IF NOT EXISTS `{tenant}.research_followup_question_events` (
   status STRING,
   source_answer_event_ids ARRAY<STRING>,
   source_gcs_uri STRING,
+  target_candidate_table STRING,
+  target_candidate_id STRING,
+  target_candidate_name STRING,
   created_at TIMESTAMP NOT NULL
 )
 PARTITION BY DATE(generated_at)
 CLUSTER BY company_id, status, question_category;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.followup_answer_events` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{followup_answer_events}` (
   followup_answer_event_id STRING NOT NULL,
   company_id STRING NOT NULL,
   followup_question_id STRING NOT NULL,
@@ -262,7 +269,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.followup_answer_events` (
 PARTITION BY DATE(answered_at)
 CLUSTER BY company_id, followup_question_id;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.kpi_candidates` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{kpi_candidates}` (
   kpi_candidate_id STRING NOT NULL,
   company_id STRING NOT NULL,
   common_kpi_id STRING,
@@ -287,7 +294,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.kpi_candidates` (
 )
 CLUSTER BY company_id, kpi_domain, approval_status;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.focus_metric_candidates` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{focus_metric_candidates}` (
   focus_metric_candidate_id STRING NOT NULL,
   company_id STRING NOT NULL,
   metric_name STRING NOT NULL,
@@ -315,7 +322,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.focus_metric_candidates` (
 )
 CLUSTER BY company_id, metric_category, approval_status;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.current_kpi_definitions` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{current_kpi_definitions}` (
   kpi_id STRING NOT NULL,
   company_id STRING NOT NULL,
   common_kpi_id STRING,
@@ -336,7 +343,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.current_kpi_definitions` (
 )
 CLUSTER BY company_id, status, kpi_domain;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.observation_signals` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{observation_signals}` (
   observation_signal_id STRING NOT NULL,
   company_id STRING NOT NULL,
   signal_name STRING NOT NULL,
@@ -361,7 +368,7 @@ CREATE TABLE IF NOT EXISTS `{tenant}.observation_signals` (
 )
 CLUSTER BY company_id, signal_category, approval_status;
 
-CREATE TABLE IF NOT EXISTS `{tenant}.current_focus_metric_definitions` (
+CREATE TABLE IF NOT EXISTS `{tenant}.{current_focus_metric_definitions}` (
   focus_metric_id STRING NOT NULL,
   company_id STRING NOT NULL,
   metric_name STRING NOT NULL,
@@ -386,27 +393,30 @@ CLUSTER BY company_id, status, metric_category;
     return {"company_id": company_id, "dataset": tenant, "ddl": ddl}
 
 
-def create_common_tables() -> dict[str, Any]:
+def create_common_tables() -> dict:
     ddl_result = generate_common_tables_ddl()
     execution = execute_sql(ddl_result["ddl"])
     return {"ddl": ddl_result, "execution": execution}
 
 
-def create_tenant_tables(company_id: str) -> dict[str, Any]:
+def create_tenant_tables(company_id: str) -> dict:
     ddl_result = generate_tenant_tables_ddl(company_id)
     execution = execute_sql(ddl_result["ddl"])
     return {"company_id": company_id, "ddl": ddl_result, "execution": execution}
 
 
-def generate_core_tables_ddl(company_id: str) -> dict[str, Any]:
-    dataset = settings.dataset_id(company_id)
+def generate_core_tables_ddl(company_id: str) -> dict:
+    dataset = settings.dataset_id()
     project = settings.project_id
-    graph_name = settings.bq_graph_name
+    graph_name = f"{_safe_company_id(company_id)}_{settings.bq_graph_name}"
+    survey_responses = _company_table(company_id, "survey_responses")
+    knowledge_nodes = _company_table(company_id, "knowledge_nodes")
+    knowledge_edges = _company_table(company_id, "knowledge_edges")
     ddl = f'''
 CREATE SCHEMA IF NOT EXISTS `{project}.{dataset}`
 OPTIONS(location="{settings.location}");
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.survey_responses` (
+CREATE OR REPLACE TABLE `{project}.{dataset}.{survey_responses}` (
   response_id STRING NOT NULL,
   company_id STRING NOT NULL,
   question_id STRING,
@@ -427,7 +437,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.survey_responses` (
   PRIMARY KEY (response_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.knowledge_nodes` (
+CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_nodes}` (
   node_id STRING NOT NULL,
   company_id STRING NOT NULL,
   node_type STRING NOT NULL,
@@ -444,7 +454,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.knowledge_nodes` (
   PRIMARY KEY (node_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.knowledge_edges` (
+CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_edges}` (
   edge_id STRING NOT NULL,
   company_id STRING NOT NULL,
   source_node_id STRING NOT NULL,
@@ -459,19 +469,19 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.knowledge_edges` (
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
   PRIMARY KEY (edge_id) NOT ENFORCED,
-  FOREIGN KEY (source_node_id) REFERENCES `{project}.{dataset}.knowledge_nodes`(node_id) NOT ENFORCED,
-  FOREIGN KEY (target_node_id) REFERENCES `{project}.{dataset}.knowledge_nodes`(node_id) NOT ENFORCED
+  FOREIGN KEY (source_node_id) REFERENCES `{project}.{dataset}.{knowledge_nodes}`(node_id) NOT ENFORCED,
+  FOREIGN KEY (target_node_id) REFERENCES `{project}.{dataset}.{knowledge_nodes}`(node_id) NOT ENFORCED
 );
 
 CREATE OR REPLACE PROPERTY GRAPH `{project}.{dataset}.{graph_name}`
 NODE TABLES (
-  `{project}.{dataset}.knowledge_nodes`
+  `{project}.{dataset}.{knowledge_nodes}` AS knowledge_nodes
     KEY (node_id)
     LABEL KnowledgeNode
     PROPERTIES (company_id, node_type, label, description, confidence, status, properties)
 )
 EDGE TABLES (
-  `{project}.{dataset}.knowledge_edges`
+  `{project}.{dataset}.{knowledge_edges}` AS knowledge_edges
     SOURCE KEY (source_node_id) REFERENCES knowledge_nodes (node_id)
     DESTINATION KEY (target_node_id) REFERENCES knowledge_nodes (node_id)
     LABEL KnowledgeEdge
@@ -481,7 +491,7 @@ EDGE TABLES (
     return {"company_id": company_id, "dataset": f"{project}.{dataset}", "graph": f"{project}.{dataset}.{graph_name}", "ddl": ddl}
 
 
-def execute_sql(sql: str) -> dict[str, Any]:
+def execute_sql(sql: str) -> dict:
     if settings.dry_run:
         return {"dry_run": True, "sql": sql}
     client = _client()
@@ -490,7 +500,7 @@ def execute_sql(sql: str) -> dict[str, Any]:
     return {"dry_run": False, "job_id": job.job_id}
 
 
-def create_core_tables(company_id: str) -> dict[str, Any]:
+def create_core_tables(company_id: str) -> dict:
     ddl_result = generate_core_tables_ddl(company_id)
     execution = execute_sql(ddl_result["ddl"])
     return {"company_id": company_id, "ddl": ddl_result, "execution": execution}
@@ -512,10 +522,9 @@ def insert_survey_response(
     tags: list[str] | None = None,
     related_node_ids: list[str] | None = None,
     related_edge_ids: list[str] | None = None,
-    answer_json: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    dataset = settings.dataset_id(company_id)
-    table = f"{settings.project_id}.{dataset}.survey_responses"
+    answer_json: dict | None = None,
+) -> dict:
+    table = _company_qualified(company_id, "survey_responses")
     row = {
         "response_id": response_id,
         "company_id": company_id,
@@ -544,9 +553,9 @@ def insert_survey_response(
     return {"dry_run": False, "table": table, "inserted": 1}
 
 
-def insert_onboarding_answer_events(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
+def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dict:
     """Insert initial 18-question answer events into the tenant table."""
-    table = f"{_tenant_dataset(company_id)}.onboarding_answer_events"
+    table = _company_qualified(company_id, "onboarding_answer_events")
     now = _now_iso()
     rows = []
     for record in records:
@@ -572,9 +581,16 @@ def insert_onboarding_answer_events(company_id: str, records: list[dict[str, Any
     return _insert_json_rows(table, rows)
 
 
-def insert_kpi_candidates(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Insert proposed KPI candidates. This never publishes current KPI definitions."""
-    table = f"{_tenant_dataset(company_id)}.kpi_candidates"
+def insert_kpi_candidates(company_id: str, records: list[dict]) -> dict:
+    """Insert proposed KPI candidates. This never publishes current KPI definitions.
+
+    Each record requires the exact keys "kpi_candidate_id" and "kpi_name".
+    Optional keys: common_kpi_id, kpi_domain, kpi_type, description,
+    calculation_hint, data_source_hint, measurement_frequency, reason,
+    source_answer_event_ids, source_followup_answer_event_ids,
+    source_gcs_uris, confidence, importance_score, approval_status.
+    """
+    table = _company_qualified(company_id, "kpi_candidates")
     now = _now_iso()
     rows = []
     for record in records:
@@ -609,9 +625,18 @@ def insert_kpi_candidates(company_id: str, records: list[dict[str, Any]]) -> dic
     return _insert_json_rows(table, rows)
 
 
-def insert_focus_metric_candidates(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Insert proposed focus metric candidates. This never publishes current definitions."""
-    table = f"{_tenant_dataset(company_id)}.focus_metric_candidates"
+def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict:
+    """Insert proposed focus metric candidates. This never publishes current definitions.
+
+    Each record requires the exact keys "focus_metric_candidate_id" and
+    "metric_name". Optional keys: metric_category, description,
+    related_kpi_candidate_ids, related_common_kpi_ids,
+    observation_signal_types, calculation_hint, data_source_hint,
+    measurement_frequency, trigger_condition, followup_policy, reason,
+    source_answer_event_ids, source_followup_answer_event_ids,
+    source_gcs_uris, confidence, priority_score, approval_status.
+    """
+    table = _company_qualified(company_id, "focus_metric_candidates")
     now = _now_iso()
     rows = []
     for record in records:
@@ -651,10 +676,10 @@ def insert_focus_metric_candidates(company_id: str, records: list[dict[str, Any]
     return _insert_json_rows(table, rows)
 
 
-def insert_observation_signals(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
+def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
     """Insert proposed observation signals. Approval to a signal is recorded
     via the back HITL pipeline (approval_status remains 'proposed' here)."""
-    table = f"{_tenant_dataset(company_id)}.observation_signals"
+    table = _company_qualified(company_id, "observation_signals")
     now = _now_iso()
     rows = []
     for record in records:
@@ -691,9 +716,16 @@ def insert_observation_signals(company_id: str, records: list[dict[str, Any]]) -
     return _insert_json_rows(table, rows)
 
 
-def insert_research_followup_question_events(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Insert follow-up questions generated from a research plan."""
-    table = f"{_tenant_dataset(company_id)}.research_followup_question_events"
+def insert_research_followup_question_events(company_id: str, records: list[dict]) -> dict:
+    """Insert follow-up questions generated from a research plan.
+
+    Each record requires the exact keys "followup_question_id" and
+    "question_text". Optional keys: generated_at, question_category,
+    target_role, reason, related_kpi_candidates,
+    related_focus_metric_candidates, expected_answer_format,
+    priority_score, status, source_answer_event_ids, source_gcs_uri.
+    """
+    table = _company_qualified(company_id, "research_followup_question_events")
     now = _now_iso()
     rows = []
     for record in records:
@@ -721,7 +753,7 @@ def insert_research_followup_question_events(company_id: str, records: list[dict
     return _insert_json_rows(table, rows)
 
 
-def insert_wiki_revision_log(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
+def insert_wiki_revision_log(company_id: str, records: list[dict]) -> dict:
     """Return a safe revision-log write plan.
 
     The starter DDL does not define a wiki revision table yet, so this tool is
@@ -736,7 +768,7 @@ def insert_wiki_revision_log(company_id: str, records: list[dict[str, Any]]) -> 
     }
 
 
-def upsert_knowledge_nodes(company_id: str, nodes: list[dict[str, Any]]) -> dict[str, Any]:
+def upsert_knowledge_nodes(company_id: str, nodes: list[dict]) -> dict:
     if not nodes:
         return {"skipped": True, "reason": "no nodes"}
     required_keys = ("node_id", "node_type")
@@ -747,8 +779,7 @@ def upsert_knowledge_nodes(company_id: str, nodes: list[dict[str, Any]]) -> dict
             "skipped": True,
             "reason": f"all {len(nodes)} node(s) missing required field(s) {required_keys}",
         }
-    dataset = settings.dataset_id(company_id)
-    table = f"`{settings.project_id}.{dataset}.knowledge_nodes`"
+    table = f"`{_company_qualified(company_id, 'knowledge_nodes')}`"
     rows_sql = []
     for node in valid_nodes:
         rows_sql.append(f'''
@@ -786,7 +817,7 @@ WHEN NOT MATCHED THEN INSERT ROW
     return result
 
 
-def upsert_knowledge_edges(company_id: str, edges: list[dict[str, Any]]) -> dict[str, Any]:
+def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
     if not edges:
         return {"skipped": True, "reason": "no edges"}
     required_keys = ("edge_id", "source_node_id", "target_node_id", "edge_type")
@@ -797,8 +828,7 @@ def upsert_knowledge_edges(company_id: str, edges: list[dict[str, Any]]) -> dict
             "skipped": True,
             "reason": f"all {len(edges)} edge(s) missing required field(s) {required_keys}",
         }
-    dataset = settings.dataset_id(company_id)
-    table = f"`{settings.project_id}.{dataset}.knowledge_edges`"
+    table = f"`{_company_qualified(company_id, 'knowledge_edges')}`"
     rows_sql = []
     for edge in valid_edges:
         rows_sql.append(f'''
@@ -838,15 +868,14 @@ WHEN NOT MATCHED THEN INSERT ROW
 
 def upsert_current_kpi_definition(
     company_id: str,
-    record: dict[str, Any],
+    record: dict,
     approved: bool = False,
     approved_by: str | None = None,
-) -> dict[str, Any]:
+) -> dict:
     """Publish one KPI definition after explicit human approval."""
     if not approved:
         raise PermissionError("Human approval is required before updating current KPI definitions.")
-    dataset = tenant_dataset_id(company_id)
-    table = f"`{settings.project_id}.{dataset}.current_kpi_definitions`"
+    table = f"`{_company_qualified(company_id, 'current_kpi_definitions')}`"
     now = "CURRENT_TIMESTAMP()"
     sql = f"""
 MERGE {table} T
@@ -901,17 +930,16 @@ WHEN NOT MATCHED THEN INSERT (
 
 def upsert_current_focus_metric_definition(
     company_id: str,
-    record: dict[str, Any],
+    record: dict,
     approved: bool = False,
     approved_by: str | None = None,
-) -> dict[str, Any]:
+) -> dict:
     """Publish one focus metric definition after explicit human approval."""
     if not approved:
         raise PermissionError(
             "Human approval is required before updating current focus metric definitions."
         )
-    dataset = tenant_dataset_id(company_id)
-    table = f"`{settings.project_id}.{dataset}.current_focus_metric_definitions`"
+    table = f"`{_company_qualified(company_id, 'current_focus_metric_definitions')}`"
     now = "CURRENT_TIMESTAMP()"
     sql = f"""
 MERGE {table} T
@@ -969,23 +997,83 @@ WHEN NOT MATCHED THEN INSERT (
     return execute_sql(sql)
 
 
-def propose_custom_table_ddl(company_id: str, table_id: str, purpose: str, columns: list[dict[str, Any]]) -> dict[str, Any]:
-    dataset = settings.dataset_id(company_id)
-    project = settings.project_id
+def propose_custom_table_ddl(company_id: str, table_id: str, purpose: str, columns: list[dict]) -> dict:
+    safe_table_id = _safe_identifier(table_id, default="custom_table")
     base_columns = ["record_id STRING NOT NULL", "company_id STRING NOT NULL"]
     custom_columns = [f'{col["name"]} {col.get("type", "STRING")}' for col in columns]
     audit_columns = ["source_response_id STRING", "properties JSON", "created_at TIMESTAMP", "updated_at TIMESTAMP", "PRIMARY KEY (record_id) NOT ENFORCED"]
     ddl = f'''
-CREATE OR REPLACE TABLE `{project}.{dataset}.{table_id}` (
+CREATE OR REPLACE TABLE `{_company_qualified(company_id, safe_table_id)}` (
   {",\n  ".join(base_columns + custom_columns + audit_columns)}
 );
 '''.strip()
-    return {"company_id": company_id, "table_id": table_id, "purpose": purpose, "ddl": ddl, "human_review_required": True}
+    return {"company_id": company_id, "table_id": safe_table_id, "purpose": purpose, "ddl": ddl, "human_review_required": True}
 
 
-def sample_graph_query(company_id: str, keyword: str = "") -> dict[str, Any]:
-    dataset = settings.dataset_id(company_id)
-    graph = f"`{settings.project_id}.{dataset}.{settings.bq_graph_name}`"
+_ALLOWED_COLLECTION_COLUMN_TYPES = {"STRING", "FLOAT64", "INT64", "BOOL", "TIMESTAMP", "DATE", "JSON"}
+
+
+def create_research_collection_table(
+    company_id: str,
+    table_name: str,
+    purpose: str,
+    frequency: str,
+    target_role: str,
+    question_text: str,
+    value_type: str = "text",
+    extra_columns: list[dict] | None = None,
+) -> dict:
+    """Autonomously create a per-company tenant-dataset table for iteratively
+    collecting one KPI/focus-metric/observation-signal's real observed values
+    over time (daily/weekly/monthly). Call this at Wiki-generation time for
+    every candidate that needs ongoing tracking, then register the matching
+    schedule entry with ``register_research_schedule_item`` (same table_name)
+    so Research knows when it's due and where answers should land.
+
+    extra_columns is optional: [{"name": ..., "type": "STRING"|"FLOAT64"|...}]
+    for anything beyond the fixed observation shape (period/value/raw_answer).
+    """
+    safe_table = _safe_identifier(table_name, default="research_observations")
+    dataset = _dataset()
+    base_columns = [
+        "observation_id STRING NOT NULL",
+        "company_id STRING NOT NULL",
+        "period STRING NOT NULL",
+        "observed_at TIMESTAMP NOT NULL",
+        "respondent_role STRING",
+        "raw_answer STRING",
+        "value FLOAT64",
+    ]
+    custom_columns = [
+        f'{_safe_identifier(col["name"])} '
+        f'{col.get("type") if col.get("type") in _ALLOWED_COLLECTION_COLUMN_TYPES else "STRING"}'
+        for col in (extra_columns or [])
+    ]
+    audit_columns = ["properties JSON", "created_at TIMESTAMP NOT NULL"]
+    ddl = f'''
+CREATE TABLE IF NOT EXISTS `{dataset}.{_company_table(company_id, safe_table)}` (
+  {",\n  ".join(base_columns + custom_columns + audit_columns)}
+)
+CLUSTER BY company_id, period;
+'''.strip()
+    execution = execute_sql(ddl)
+    return {
+        "company_id": company_id,
+        "table_name": safe_table,
+        "dataset": dataset,
+        "purpose": purpose,
+        "frequency": frequency,
+        "target_role": target_role,
+        "question_text": question_text,
+        "value_type": value_type if value_type in ("text", "number") else "text",
+        "ddl": ddl,
+        "execution": execution,
+    }
+
+
+def sample_graph_query(company_id: str, keyword: str = "") -> dict:
+    graph_name = f"{_safe_company_id(company_id)}_{settings.bq_graph_name}"
+    graph = f"`{_dataset()}.{graph_name}`"
     where_clause = ""
     if keyword:
         where_clause = f'WHERE LOWER(n.label) LIKE LOWER("%{keyword}%")'
