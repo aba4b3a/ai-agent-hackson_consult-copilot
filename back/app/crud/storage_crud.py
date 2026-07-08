@@ -10,7 +10,13 @@ from app.db.storage import get_storage_client
 
 class StorageCrud:
     def _use_local_emulator(self) -> bool:
-        return settings.app_env == 'local' or settings.dry_run or not settings.wiki_bucket
+        # Mirrors app/db/bigquery.py's client selection: APP_ENV=local alone
+        # isn't a signal to fall back to a filesystem emulator — it only
+        # matters when there's actually no real bucket configured to fall
+        # back *from*. Without this, a real WIKI_BUCKET is silently ignored
+        # whenever APP_ENV=local (true for any devcontainer), even when
+        # pointed at real production credentials.
+        return settings.dry_run or not settings.wiki_bucket
 
     def _local_path(self, path: str) -> Path:
         safe_path = path.replace('\\', '/').strip('/').replace('..', '_')

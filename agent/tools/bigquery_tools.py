@@ -1010,6 +1010,67 @@ CREATE OR REPLACE TABLE `{_company_qualified(company_id, safe_table_id)}` (
     return {"company_id": company_id, "table_id": safe_table_id, "purpose": purpose, "ddl": ddl, "human_review_required": True}
 
 
+_ALLOWED_COLLECTION_COLUMN_TYPES = {"STRING", "FLOAT64", "INT64", "BOOL", "TIMESTAMP", "DATE", "JSON"}
+
+
+def create_research_collection_table(
+    company_id: str,
+    table_name: str,
+    purpose: str,
+    frequency: str,
+    target_role: str,
+    question_text: str,
+    value_type: str = "text",
+    extra_columns: list[dict] | None = None,
+) -> dict:
+    """Autonomously create a per-company tenant-dataset table for iteratively
+    collecting one KPI/focus-metric/observation-signal's real observed values
+    over time (daily/weekly/monthly). Call this at Wiki-generation time for
+    every candidate that needs ongoing tracking, then register the matching
+    schedule entry with ``register_research_schedule_item`` (same table_name)
+    so Research knows when it's due and where answers should land.
+
+    extra_columns is optional: [{"name": ..., "type": "STRING"|"FLOAT64"|...}]
+    for anything beyond the fixed observation shape (period/value/raw_answer).
+    """
+    safe_table = _safe_identifier(table_name, default="research_observations")
+    dataset = _dataset()
+    base_columns = [
+        "observation_id STRING NOT NULL",
+        "company_id STRING NOT NULL",
+        "period STRING NOT NULL",
+        "observed_at TIMESTAMP NOT NULL",
+        "respondent_role STRING",
+        "raw_answer STRING",
+        "value FLOAT64",
+    ]
+    custom_columns = [
+        f'{_safe_identifier(col["name"])} '
+        f'{col.get("type") if col.get("type") in _ALLOWED_COLLECTION_COLUMN_TYPES else "STRING"}'
+        for col in (extra_columns or [])
+    ]
+    audit_columns = ["properties JSON", "created_at TIMESTAMP NOT NULL"]
+    ddl = f'''
+CREATE TABLE IF NOT EXISTS `{dataset}.{_company_table(company_id, safe_table)}` (
+  {",\n  ".join(base_columns + custom_columns + audit_columns)}
+)
+CLUSTER BY company_id, period;
+'''.strip()
+    execution = execute_sql(ddl)
+    return {
+        "company_id": company_id,
+        "table_name": safe_table,
+        "dataset": dataset,
+        "purpose": purpose,
+        "frequency": frequency,
+        "target_role": target_role,
+        "question_text": question_text,
+        "value_type": value_type if value_type in ("text", "number") else "text",
+        "ddl": ddl,
+        "execution": execution,
+    }
+
+
 def sample_graph_query(company_id: str, keyword: str = "") -> dict:
     graph_name = f"{_safe_company_id(company_id)}_{settings.bq_graph_name}"
     graph = f"`{_dataset()}.{graph_name}`"
