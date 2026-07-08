@@ -146,7 +146,6 @@ export const dashboardMetricsSchema = z.object({
   sources_ingested: z.number(),
   observations_extracted: z.number(),
   entities_formed: z.number(),
-  relationships_created: z.number(),
   hypotheses_under_observation: z.number(),
   evidence_coverage: z.number(),
 });

@@ -40,7 +40,6 @@ const dashboard: Dashboard = {
     sources_ingested: 18,
     observations_extracted: 42,
     entities_formed: 27,
-    relationships_created: 19,
     hypotheses_under_observation: 3,
     evidence_coverage: 0.86,
   },

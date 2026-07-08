@@ -14,8 +14,6 @@ def test_discovery_dashboard_flow() -> None:
     assert dashboard.status_code == 200
     body = dashboard.json()
     assert body["metrics"]["sources_ingested"] >= 1
-    assert "relationships_created" in body["metrics"]
-    assert body["metrics"]["relationships_created"] >= 0
     assert body["signals"]
 
 

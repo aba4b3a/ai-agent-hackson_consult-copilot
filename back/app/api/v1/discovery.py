@@ -3,7 +3,6 @@ from fastapi import APIRouter, HTTPException, Query
 from app.schemas.discovery import (
     CopilotAnswer,
     CopilotAsk,
-    Dashboard,
     FollowupRequest,
     FollowupResponse,
     GraphSlice,
@@ -33,7 +32,7 @@ def create_workspace(payload: WorkspaceCreate) -> Workspace:
 
 
 @router.get("/workspaces/{workspace_id}/dashboard")
-def get_dashboard(workspace_id: str) -> Dashboard:
+def get_dashboard(workspace_id: str) -> dict[str, object]:
     return discovery_repository.dashboard(workspace_id)
 
 
