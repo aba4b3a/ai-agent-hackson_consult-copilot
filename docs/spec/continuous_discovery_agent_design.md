@@ -1339,3 +1339,39 @@ The next `tasks.md` should implement this design in the following order:
 18. Implement correction/supersession endpoints.
 19. Prepare demo dataset.
 20. Prepare hackathon demo scenario.
+
+## 23. Implementation Notes（ローカル開発・モデルバックエンド）
+
+実装で本設計を補足した点の記録。要件は変更しない。
+
+### 23.1 LLM バックエンドの切替（2026-07-07 動作確認済み）
+
+本設計は Gemini を前提とするが（§13）、実装はエージェントを **Google ADK** に統一し、
+`Agent(model=settings.model_id)` の **`MODEL_ID` 環境変数**でバックエンドを切り替える:
+
+- `MODEL_ID=ollama/gemma4:12b` — ローカルLLM（Ollama、LiteLLM 経由。GPU 推奨）
+- `MODEL_ID=gemini-3.1-flash-lite` 等 — **Gemini（Vertex AI express・APIキー方式）**。
+  `GOOGLE_GENAI_USE_VERTEXAI=true` + `GEMINI_API_KEY`（`AQ.` 形式の express キー）で認証。
+  copilot 経路（back → agent ADK api_server → Gemini）でエンドツーエンド動作を確認済み。
+
+認証まわりの注意点（`GOOGLE_CLOUD_PROJECT` を設定するとキーが無効化される等）は
+`agent/GEMINI_SETUP.md` に集約。`.env` 変更はコンテナの**再作成**（`--force-recreate`）が必要。
+
+### 23.2 BigQuery エミュレータ（ローカル）
+
+§9 の BigQuery はローカルでは **goccy/bigquery-emulator** で代替する（接続確認済み）:
+
+- back: `back/app/db/bigquery.py` — `APP_ENV=local` かつ `BIGQUERY_EMULATOR_HOST` 設定時に
+  `AnonymousCredentials` で接続（メタデータサーバ探索によるハング回避を含む）。
+- agent: `agent/tools/bigquery_tools.py` に同様の分岐。
+- **`PROJECT_ID` はエミュレータ起動時の `--project`（compose では `local-project`）と一致必須**。
+  不一致だと 404 project not found になる。
+- エミュレータ初期状態はデータセット `cda` のみ。企業別データセット（`cda_<company>`）と
+  テーブルはマイグレーション/オンボーディング API で作成する。
+
+### 23.3 コンテナ間接続
+
+Docker compose 内のサービス間 URL は `localhost` ではなくサービス名を使う:
+`AGENT_BASE_URL=http://agent:8080`（back→agent）、`BIGQUERY_EMULATOR_HOST=http://bigquery-emulator:9050`。
+back の copilot は agent 到達不能時に**サンプル応答へフォールバック**するため、
+「応答が返る＝AI が動いている」ではない点に注意（確認手順は `agent/GEMINI_SETUP.md`）。

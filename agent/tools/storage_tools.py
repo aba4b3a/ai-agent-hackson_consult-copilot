@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# NOTE: ADK ツールが受け渡す JSON ペイロードは、mypy strict（disallow_any_generics）
+# 対応のため裸の dict ではなく dict[str, Any] で注釈する。
+from typing import Any
+
 import json
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
@@ -25,7 +29,7 @@ def _tenant_prefix(company_id: str) -> str:
     return f"tenants/{_safe_path_part(company_id)}"
 
 
-def _upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain") -> dict:
+def _upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain") -> dict[str, Any]:
     if not settings.wiki_bucket:
         if settings.dry_run:
             return {
@@ -58,7 +62,7 @@ def _upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain
     }
 
 
-def upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain") -> dict:
+def upload_text_to_gcs(path: str, content: str, content_type: str = "text/plain") -> dict[str, Any]:
     """Backward-compatible low-level upload helper."""
     return _upload_text_to_gcs(_safe_path_part(path), content, content_type)
 
@@ -128,7 +132,7 @@ def write_wiki_file(
     content: str,
     content_type: str = "text/markdown; charset=utf-8",
     create_version_snapshot: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Write one LLM Wiki file under tenants/{company_id}/wiki/current."""
     safe_relative_path = _safe_path_part(relative_path)
     current_path = str(PurePosixPath(_tenant_prefix(company_id), "wiki", "current", safe_relative_path))
@@ -151,7 +155,7 @@ def write_wiki_files(
     company_id: str,
     files: dict[str, str],
     create_version_snapshot: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Write multiple LLM Wiki files under tenants/{company_id}/wiki/current."""
     results = []
     for relative_path, content in files.items():
@@ -174,7 +178,7 @@ def write_wiki_files(
     return {"company_id": company_id, "files_written": len(results), "results": results}
 
 
-def write_raw_answer(company_id: str, fiscal_year: int, filename: str, content: str) -> dict:
+def write_raw_answer(company_id: str, fiscal_year: int, filename: str, content: str) -> dict[str, Any]:
     """Write immutable raw answer content and return its GCS URI metadata."""
     safe_filename = _safe_path_part(filename)
     path = str(
@@ -189,7 +193,7 @@ def write_raw_answer(company_id: str, fiscal_year: int, filename: str, content: 
     return _upload_text_to_gcs(path, content, "application/jsonl; charset=utf-8")
 
 
-def write_derived_json(company_id: str, fiscal_year: int, filename: str, content: str | dict) -> dict:
+def write_derived_json(company_id: str, fiscal_year: int, filename: str, content: str | dict[str, Any]) -> dict[str, Any]:
     """Write derived canonical JSON/YAML and return its GCS URI metadata."""
     safe_filename = _safe_path_part(filename)
     body = json.dumps(content, ensure_ascii=False, indent=2) if isinstance(content, dict) else content
@@ -212,9 +216,9 @@ def write_derived_json(company_id: str, fiscal_year: int, filename: str, content
 def upload_company_wiki(
     company_id: str,
     wiki_markdown: str,
-    wiki_json: dict,
+    wiki_json: dict[str, Any],
     schema_sql: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Backward-compatible wiki upload used by the existing ADK agent."""
     files = {
         "company_profile.md": wiki_markdown,

@@ -27,6 +27,8 @@ class SchemaValidationError(ValueError):
 
 def load_schema(name: str) -> dict[str, Any]:
     path = SCHEMA_DIR / name
+    # json.loads の戻り値は Any のため、注釈付きの変数で受けて型を確定させる
+    # （mypy strict の no-any-return 対応）
     schema: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return schema
 

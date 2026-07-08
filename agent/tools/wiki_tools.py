@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+# NOTE: ADK ツールが受け渡す JSON ペイロードは、mypy strict（disallow_any_generics）
+# 対応のため裸の dict ではなく dict[str, Any] で注釈する。
+from typing import Any
+
 import json
 
 
-def render_company_profile_markdown(company_profile: dict) -> str:
+def render_company_profile_markdown(company_profile: dict[str, Any]) -> str:
     issues = company_profile.get("current_issues") or ["TBD"]
     issue_lines = "\n".join(f"- {issue}" for issue in issues)
     source_refs = company_profile.get("source_refs") or []
@@ -50,7 +54,7 @@ def render_company_profile_markdown(company_profile: dict) -> str:
 """
 
 
-def render_kpi_definitions_yaml(kpi_candidates: list[dict]) -> str:
+def render_kpi_definitions_yaml(kpi_candidates: list[dict[str, Any]]) -> str:
     lines = ["kpis:"]
     if not kpi_candidates:
         lines.append("  []")
@@ -77,7 +81,7 @@ def render_kpi_definitions_yaml(kpi_candidates: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_focus_metrics_yaml(focus_metric_candidates: list[dict]) -> str:
+def render_focus_metrics_yaml(focus_metric_candidates: list[dict[str, Any]]) -> str:
     lines = ["focus_metrics:"]
     if not focus_metric_candidates:
         lines.append("  []")
@@ -114,7 +118,7 @@ def render_focus_metrics_yaml(focus_metric_candidates: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_research_policy_yaml(company_id: str, research_plan: list[dict]) -> str:
+def render_research_policy_yaml(company_id: str, research_plan: list[dict[str, Any]]) -> str:
     lines = [
         "research_policy:",
         f"  company_id: {company_id}",
@@ -154,10 +158,10 @@ def render_research_policy_yaml(company_id: str, research_plan: list[dict]) -> s
 
 def render_wiki_files(
     company_id: str,
-    company_profile: dict,
-    kpi_candidates: list[dict],
-    focus_metric_candidates: list[dict],
-    research_plan: list[dict],
+    company_profile: dict[str, Any],
+    kpi_candidates: list[dict[str, Any]],
+    focus_metric_candidates: list[dict[str, Any]],
+    research_plan: list[dict[str, Any]],
 ) -> dict[str, str]:
     return {
         "company_profile.md": render_company_profile_markdown(company_profile),
@@ -183,10 +187,10 @@ def render_wiki_files(
 def render_wiki_markdown(
     company_id: str,
     company_name: str,
-    nodes: list[dict],
-    edges: list[dict],
-    recommended_questions: list[dict],
-    custom_tables: list[dict] | None = None,
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    recommended_questions: list[dict[str, Any]],
+    custom_tables: list[dict[str, Any]] | None = None,
 ) -> str:
     """Backward-compatible graph-oriented wiki renderer."""
     custom_tables = custom_tables or []
@@ -232,11 +236,11 @@ def render_wiki_markdown(
 def render_wiki_json(
     company_id: str,
     company_name: str,
-    nodes: list[dict],
-    edges: list[dict],
-    recommended_questions: list[dict],
-    custom_tables: list[dict] | None = None,
-) -> dict:
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    recommended_questions: list[dict[str, Any]],
+    custom_tables: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "company_id": company_id,
         "company_name": company_name,
@@ -248,7 +252,7 @@ def render_wiki_json(
     }
 
 
-def build_custom_table_wiki_update(table_proposal: dict) -> str:
+def build_custom_table_wiki_update(table_proposal: dict[str, Any]) -> str:
     return f"""
 ## Custom Table Proposal: `{table_proposal['table_id']}`
 
@@ -268,5 +272,5 @@ This table proposal requires human review before execution.
 """.strip()
 
 
-def to_pretty_json(data: dict) -> str:
+def to_pretty_json(data: dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
