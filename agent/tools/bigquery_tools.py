@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# NOTE: ADK ツールが受け渡す JSON ペイロードは、mypy strict（disallow_any_generics）
+# 対応のため裸の dict ではなく dict[str, Any] で注釈する。
+from typing import Any
+
 import json
 import os
 from datetime import datetime, timezone
@@ -38,7 +42,7 @@ def _tenant_dataset(company_id: str) -> str:
     return f"{settings.project_id}.{tenant_dataset_id(company_id)}"
 
 
-def _insert_json_rows(table: str, rows: list[dict]) -> dict:
+def _insert_json_rows(table: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         return {"skipped": True, "reason": "no rows", "table": table}
     if settings.dry_run:
@@ -54,7 +58,7 @@ def _json_value(value: object) -> str:
     return json.dumps(value if value is not None else {}, ensure_ascii=False)
 
 
-def _source_refs_to_columns(record: dict) -> dict:
+def _source_refs_to_columns(record: dict[str, Any]) -> dict[str, Any]:
     source_refs = record.get("source_refs") or []
     answer_ids = record.get("source_answer_event_ids") or [
         ref.removeprefix("answer_event_id:")
@@ -76,7 +80,7 @@ def _source_refs_to_columns(record: dict) -> dict:
     }
 
 
-def create_company_dataset(company_id: str) -> dict:
+def create_company_dataset(company_id: str) -> dict[str, Any]:
     dataset_id = settings.dataset_id(company_id)
     full_dataset_id = f"{settings.project_id}.{dataset_id}"
     if settings.dry_run:
@@ -98,7 +102,7 @@ def tenant_dataset_id(company_id: str) -> str:
     return f"{prefix}_{safe_company_id}"
 
 
-def generate_common_tables_ddl() -> dict:
+def generate_common_tables_ddl() -> dict[str, Any]:
     dataset = common_dataset_id()
     ddl = f"""
 CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{dataset}`
@@ -192,7 +196,7 @@ CLUSTER BY kpi_domain, kpi_type;
     return {"dataset": f"{settings.project_id}.{dataset}", "ddl": ddl}
 
 
-def generate_tenant_tables_ddl(company_id: str) -> dict:
+def generate_tenant_tables_ddl(company_id: str) -> dict[str, Any]:
     dataset = tenant_dataset_id(company_id)
     tenant = f"{settings.project_id}.{dataset}"
     ddl = f"""
@@ -382,19 +386,19 @@ CLUSTER BY company_id, status, metric_category;
     return {"company_id": company_id, "dataset": tenant, "ddl": ddl}
 
 
-def create_common_tables() -> dict:
+def create_common_tables() -> dict[str, Any]:
     ddl_result = generate_common_tables_ddl()
     execution = execute_sql(ddl_result["ddl"])
     return {"ddl": ddl_result, "execution": execution}
 
 
-def create_tenant_tables(company_id: str) -> dict:
+def create_tenant_tables(company_id: str) -> dict[str, Any]:
     ddl_result = generate_tenant_tables_ddl(company_id)
     execution = execute_sql(ddl_result["ddl"])
     return {"company_id": company_id, "ddl": ddl_result, "execution": execution}
 
 
-def generate_core_tables_ddl(company_id: str) -> dict:
+def generate_core_tables_ddl(company_id: str) -> dict[str, Any]:
     dataset = settings.dataset_id(company_id)
     project = settings.project_id
     graph_name = settings.bq_graph_name
@@ -477,7 +481,7 @@ EDGE TABLES (
     return {"company_id": company_id, "dataset": f"{project}.{dataset}", "graph": f"{project}.{dataset}.{graph_name}", "ddl": ddl}
 
 
-def execute_sql(sql: str) -> dict:
+def execute_sql(sql: str) -> dict[str, Any]:
     if settings.dry_run:
         return {"dry_run": True, "sql": sql}
     client = _client()
@@ -486,7 +490,7 @@ def execute_sql(sql: str) -> dict:
     return {"dry_run": False, "job_id": job.job_id}
 
 
-def create_core_tables(company_id: str) -> dict:
+def create_core_tables(company_id: str) -> dict[str, Any]:
     ddl_result = generate_core_tables_ddl(company_id)
     execution = execute_sql(ddl_result["ddl"])
     return {"company_id": company_id, "ddl": ddl_result, "execution": execution}
@@ -508,8 +512,8 @@ def insert_survey_response(
     tags: list[str] | None = None,
     related_node_ids: list[str] | None = None,
     related_edge_ids: list[str] | None = None,
-    answer_json: dict | None = None,
-) -> dict:
+    answer_json: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     dataset = settings.dataset_id(company_id)
     table = f"{settings.project_id}.{dataset}.survey_responses"
     row = {
@@ -540,7 +544,7 @@ def insert_survey_response(
     return {"dry_run": False, "table": table, "inserted": 1}
 
 
-def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dict:
+def insert_onboarding_answer_events(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Insert initial 18-question answer events into the tenant table."""
     table = f"{_tenant_dataset(company_id)}.onboarding_answer_events"
     now = _now_iso()
@@ -568,7 +572,7 @@ def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dic
     return _insert_json_rows(table, rows)
 
 
-def insert_kpi_candidates(company_id: str, records: list[dict]) -> dict:
+def insert_kpi_candidates(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Insert proposed KPI candidates. This never publishes current KPI definitions."""
     table = f"{_tenant_dataset(company_id)}.kpi_candidates"
     now = _now_iso()
@@ -605,7 +609,7 @@ def insert_kpi_candidates(company_id: str, records: list[dict]) -> dict:
     return _insert_json_rows(table, rows)
 
 
-def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict:
+def insert_focus_metric_candidates(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Insert proposed focus metric candidates. This never publishes current definitions."""
     table = f"{_tenant_dataset(company_id)}.focus_metric_candidates"
     now = _now_iso()
@@ -647,7 +651,7 @@ def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict
     return _insert_json_rows(table, rows)
 
 
-def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
+def insert_observation_signals(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Insert proposed observation signals. Approval to a signal is recorded
     via the back HITL pipeline (approval_status remains 'proposed' here)."""
     table = f"{_tenant_dataset(company_id)}.observation_signals"
@@ -687,7 +691,7 @@ def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
     return _insert_json_rows(table, rows)
 
 
-def insert_research_followup_question_events(company_id: str, records: list[dict]) -> dict:
+def insert_research_followup_question_events(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Insert follow-up questions generated from a research plan."""
     table = f"{_tenant_dataset(company_id)}.research_followup_question_events"
     now = _now_iso()
@@ -717,7 +721,7 @@ def insert_research_followup_question_events(company_id: str, records: list[dict
     return _insert_json_rows(table, rows)
 
 
-def insert_wiki_revision_log(company_id: str, records: list[dict]) -> dict:
+def insert_wiki_revision_log(company_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     """Return a safe revision-log write plan.
 
     The starter DDL does not define a wiki revision table yet, so this tool is
@@ -732,7 +736,7 @@ def insert_wiki_revision_log(company_id: str, records: list[dict]) -> dict:
     }
 
 
-def upsert_knowledge_nodes(company_id: str, nodes: list[dict]) -> dict:
+def upsert_knowledge_nodes(company_id: str, nodes: list[dict[str, Any]]) -> dict[str, Any]:
     if not nodes:
         return {"skipped": True, "reason": "no nodes"}
     required_keys = ("node_id", "node_type")
@@ -782,7 +786,7 @@ WHEN NOT MATCHED THEN INSERT ROW
     return result
 
 
-def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
+def upsert_knowledge_edges(company_id: str, edges: list[dict[str, Any]]) -> dict[str, Any]:
     if not edges:
         return {"skipped": True, "reason": "no edges"}
     required_keys = ("edge_id", "source_node_id", "target_node_id", "edge_type")
@@ -834,10 +838,10 @@ WHEN NOT MATCHED THEN INSERT ROW
 
 def upsert_current_kpi_definition(
     company_id: str,
-    record: dict,
+    record: dict[str, Any],
     approved: bool = False,
     approved_by: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Publish one KPI definition after explicit human approval."""
     if not approved:
         raise PermissionError("Human approval is required before updating current KPI definitions.")
@@ -897,10 +901,10 @@ WHEN NOT MATCHED THEN INSERT (
 
 def upsert_current_focus_metric_definition(
     company_id: str,
-    record: dict,
+    record: dict[str, Any],
     approved: bool = False,
     approved_by: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Publish one focus metric definition after explicit human approval."""
     if not approved:
         raise PermissionError(
@@ -965,7 +969,7 @@ WHEN NOT MATCHED THEN INSERT (
     return execute_sql(sql)
 
 
-def propose_custom_table_ddl(company_id: str, table_id: str, purpose: str, columns: list[dict]) -> dict:
+def propose_custom_table_ddl(company_id: str, table_id: str, purpose: str, columns: list[dict[str, Any]]) -> dict[str, Any]:
     dataset = settings.dataset_id(company_id)
     project = settings.project_id
     base_columns = ["record_id STRING NOT NULL", "company_id STRING NOT NULL"]
@@ -979,7 +983,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.{table_id}` (
     return {"company_id": company_id, "table_id": table_id, "purpose": purpose, "ddl": ddl, "human_review_required": True}
 
 
-def sample_graph_query(company_id: str, keyword: str = "") -> dict:
+def sample_graph_query(company_id: str, keyword: str = "") -> dict[str, Any]:
     dataset = settings.dataset_id(company_id)
     graph = f"`{settings.project_id}.{dataset}.{settings.bq_graph_name}`"
     where_clause = ""

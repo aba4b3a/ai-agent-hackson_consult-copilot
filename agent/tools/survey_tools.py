@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+# NOTE: ADK ツールが受け渡す JSON ペイロードは、mypy strict（disallow_any_generics）
+# 対応のため裸の dict ではなく dict[str, Any] で注釈する。
+from typing import Any
+
 from datetime import datetime, timezone
 from uuid import uuid4
 
 
-def generate_common_initial_survey(company_id: str, version: str = "v1") -> dict:
+def generate_common_initial_survey(company_id: str, version: str = "v1") -> dict[str, Any]:
     """Return the backend/Storage lookup contract for the initial survey.
 
     The fixed question set is intentionally not embedded in the agent package.
