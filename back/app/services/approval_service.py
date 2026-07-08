@@ -1,10 +1,17 @@
+"""Approval service: human-in-the-loop review of KPI/focus metric proposals.
+
+All approval records live in the company's own BigQuery tenant dataset
+(``approvals`` table) — no Firestore involved.
+"""
 from __future__ import annotations
 
+import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-from app.db.firestore import firestore_repo
+from app.core.config import settings
+from app.crud.bigquery_crud import bigquery_crud
 from app.schemas.approval import (
     ApprovalApplyResult,
     ApprovalCreate,
@@ -12,20 +19,88 @@ from app.schemas.approval import (
     ApprovalRecord,
     ApprovalStatus,
 )
+from app.utils.bigquery_sql import sql_literal
+from app.utils.time import utc_now_iso
 
-COLLECTION = "pending_approvals"
+TABLE = "approvals"
 
+_TIMESTAMP_FIELDS = ("created_at", "decided_at", "applied_at")
+_JSON_FIELDS = ("proposed_payload", "diff_payload", "applied_result")
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+_ensured_datasets: set[str] = set()
 
 
 def _new_id(target_type: str) -> str:
     return f"appr_{target_type}_{uuid.uuid4().hex[:12]}"
 
 
+def _tenant_dataset(company_id: str) -> str:
+    safe = company_id.replace("-", "_").replace(".", "_")
+    return f"cd_tenant_{safe}"
+
+
+def _table(company_id: str) -> str:
+    return f"{settings.project_id}.{_tenant_dataset(company_id)}.{TABLE}"
+
+
+def _ensure_table(company_id: str) -> None:
+    dataset = _tenant_dataset(company_id)
+    if dataset in _ensured_datasets or settings.dry_run:
+        _ensured_datasets.add(dataset)
+        return
+    ddl = f"""
+CREATE SCHEMA IF NOT EXISTS `{settings.project_id}.{dataset}`;
+
+CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{TABLE}` (
+  approval_id STRING NOT NULL,
+  company_id STRING NOT NULL,
+  target_type STRING NOT NULL,
+  target_id STRING NOT NULL,
+  title STRING NOT NULL,
+  summary STRING,
+  proposed_payload JSON,
+  diff_payload JSON,
+  confidence FLOAT64,
+  reason STRING,
+  status STRING NOT NULL,
+  created_by STRING NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  decided_by STRING,
+  decided_at TIMESTAMP,
+  decision_note STRING,
+  applied_at TIMESTAMP,
+  applied_result JSON
+);
+""".strip()
+    bigquery_crud.execute_sql(ddl)
+    _ensured_datasets.add(dataset)
+
+
+def _insert_row(table: str, row: dict) -> None:
+    if settings.dry_run:
+        return
+    columns = list(row.keys())
+    values_sql = ", ".join(sql_literal(row[column]) for column in columns)
+    sql = f"INSERT INTO `{table}` ({', '.join(columns)}) VALUES ({values_sql})"
+    bigquery_crud.execute_sql(sql)
+
+
+def _row_to_record(row: dict) -> ApprovalRecord:
+    normalized = dict(row)
+    for field in _TIMESTAMP_FIELDS:
+        value = normalized.get(field)
+        if isinstance(value, datetime):
+            normalized[field] = value.isoformat()
+    for field in _JSON_FIELDS:
+        value = normalized.get(field)
+        if isinstance(value, str):
+            normalized[field] = json.loads(value) if value else None
+    return ApprovalRecord(**normalized)
+
+
 class ApprovalService:
     def create(self, data: ApprovalCreate) -> ApprovalRecord:
+        _ensure_table(data.company_id)
         record = ApprovalRecord(
             approval_id=_new_id(data.target_type),
             company_id=data.company_id,
@@ -39,9 +114,9 @@ class ApprovalService:
             reason=data.reason,
             status="pending",
             created_by=data.created_by,
-            created_at=_now_iso(),
+            created_at=utc_now_iso(),
         )
-        firestore_repo.set(COLLECTION, record.approval_id, record.model_dump())
+        _insert_row(_table(data.company_id), record.model_dump())
         return record
 
     def list(
@@ -50,71 +125,86 @@ class ApprovalService:
         status: ApprovalStatus | None = None,
         limit: int | None = 100,
     ) -> list[ApprovalRecord]:
-        filters: dict[str, Any] = {"company_id": company_id}
+        _ensure_table(company_id)
+        clauses = [f"company_id = {sql_literal(company_id)}"]
         if status is not None:
-            filters["status"] = status
-        rows = firestore_repo.query(
-            COLLECTION,
-            filters=filters,
-            order_by="created_at",
-            descending=True,
-            limit=limit,
+            clauses.append(f"status = {sql_literal(status)}")
+        sql = (
+            f"SELECT * FROM `{_table(company_id)}` WHERE {' AND '.join(clauses)} "
+            f"ORDER BY created_at DESC LIMIT {int(limit) if limit else 1000}"
         )
-        return [ApprovalRecord(**row) for row in rows]
+        rows = bigquery_crud.query_rows(sql)
+        return [_row_to_record(row) for row in rows]
 
-    def get(self, approval_id: str) -> ApprovalRecord | None:
-        row = firestore_repo.get(COLLECTION, approval_id)
-        if row is None:
-            return None
-        return ApprovalRecord(**row)
+    def get(self, company_id: str, approval_id: str) -> ApprovalRecord | None:
+        _ensure_table(company_id)
+        sql = (
+            f"SELECT * FROM `{_table(company_id)}` "
+            f"WHERE approval_id = {sql_literal(approval_id)} LIMIT 1"
+        )
+        rows = bigquery_crud.query_rows(sql)
+        return _row_to_record(rows[0]) if rows else None
 
     def _transition(
         self,
+        company_id: str,
         approval_id: str,
         next_status: ApprovalStatus,
         decision: ApprovalDecision,
     ) -> ApprovalRecord:
-        existing = self.get(approval_id)
+        existing = self.get(company_id, approval_id)
         if existing is None:
             raise KeyError(approval_id)
         if existing.status != "pending":
             raise ValueError(
                 f"approval {approval_id} is not pending (current status={existing.status})"
             )
-        patch = {
-            "status": next_status,
-            "decided_by": decision.decided_by,
-            "decided_at": _now_iso(),
-            "decision_note": decision.decision_note,
-        }
-        updated = firestore_repo.update(COLLECTION, approval_id, patch)
-        return ApprovalRecord(**updated)
+        decided_at = utc_now_iso()
+        sql = f"""
+UPDATE `{_table(company_id)}`
+SET status = {sql_literal(next_status)},
+    decided_by = {sql_literal(decision.decided_by)},
+    decided_at = {sql_literal(decided_at)},
+    decision_note = {sql_literal(decision.decision_note)}
+WHERE approval_id = {sql_literal(approval_id)}
+""".strip()
+        bigquery_crud.execute_sql(sql)
+        updated = self.get(company_id, approval_id)
+        assert updated is not None
+        return updated
 
-    def approve(self, approval_id: str, decision: ApprovalDecision) -> ApprovalRecord:
-        return self._transition(approval_id, "approved", decision)
+    def approve(
+        self, company_id: str, approval_id: str, decision: ApprovalDecision
+    ) -> ApprovalRecord:
+        return self._transition(company_id, approval_id, "approved", decision)
 
-    def reject(self, approval_id: str, decision: ApprovalDecision) -> ApprovalRecord:
-        return self._transition(approval_id, "rejected", decision)
+    def reject(
+        self, company_id: str, approval_id: str, decision: ApprovalDecision
+    ) -> ApprovalRecord:
+        return self._transition(company_id, approval_id, "rejected", decision)
 
-    def mark_applied(self, approval_id: str, applied_result: dict[str, Any]) -> ApprovalApplyResult:
-        existing = self.get(approval_id)
+    def mark_applied(
+        self, company_id: str, approval_id: str, applied_result: dict[str, Any]
+    ) -> ApprovalApplyResult:
+        existing = self.get(company_id, approval_id)
         if existing is None:
             raise KeyError(approval_id)
         if existing.status != "approved":
             raise ValueError(
-                f"approval {approval_id} must be approved before apply (current status={existing.status})"
+                f"approval {approval_id} must be approved before apply "
+                f"(current status={existing.status})"
             )
-        patch = {
-            "status": "applied",
-            "applied_at": _now_iso(),
-            "applied_result": applied_result,
-        }
-        updated = firestore_repo.update(COLLECTION, approval_id, patch)
-        record = ApprovalRecord(**updated)
+        applied_at = utc_now_iso()
+        sql = f"""
+UPDATE `{_table(company_id)}`
+SET status = 'applied',
+    applied_at = {sql_literal(applied_at)},
+    applied_result = {sql_literal(applied_result)}
+WHERE approval_id = {sql_literal(approval_id)}
+""".strip()
+        bigquery_crud.execute_sql(sql)
         return ApprovalApplyResult(
-            approval_id=record.approval_id,
-            status=record.status,
-            applied_result=record.applied_result or {},
+            approval_id=approval_id, status="applied", applied_result=applied_result
         )
 
 

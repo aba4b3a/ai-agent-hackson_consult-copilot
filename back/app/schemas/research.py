@@ -41,6 +41,12 @@ class Assignment(BaseModel):
     expected_response_by: str | None = None
     answered_at: str | None = None
     followup_answer_event_id: str | None = None
+    # Joined in from the question record by the list_assignments endpoint so
+    # the UI can render the question without an extra round-trip.
+    question_text: str | None = None
+    question_category: str | None = None
+    reason: str | None = None
+    expected_answer_format: str | None = None
 
 
 class AssignmentList(BaseModel):

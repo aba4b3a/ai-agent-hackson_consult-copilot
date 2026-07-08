@@ -36,6 +36,7 @@ dist/
 .firebase/
 firebase-debug.log
 service-account*.json
+secret.json
 
 # Local artifacts
 tmp/

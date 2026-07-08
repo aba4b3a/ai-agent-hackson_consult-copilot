@@ -15,7 +15,7 @@ def _client() -> bigquery.Client:
         return bigquery.Client(project=settings.project_id, location=settings.location)
     else:
         # Use Google Cloud BigQuery for production
-        return bigquery.Client(project=settings.project_id)
+        return bigquery.Client(project=settings.project_id, location=settings.location)
 
 
 def _sql_string(value: str | None) -> str:
@@ -461,13 +461,13 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.knowledge_edges` (
 
 CREATE OR REPLACE PROPERTY GRAPH `{project}.{dataset}.{graph_name}`
 NODE TABLES (
-  `{project}.{dataset}.knowledge_nodes`
+  `{project}.{dataset}.knowledge_nodes` AS knowledge_nodes
     KEY (node_id)
     LABEL KnowledgeNode
     PROPERTIES (company_id, node_type, label, description, confidence, status, properties)
 )
 EDGE TABLES (
-  `{project}.{dataset}.knowledge_edges`
+  `{project}.{dataset}.knowledge_edges` AS knowledge_edges
     SOURCE KEY (source_node_id) REFERENCES knowledge_nodes (node_id)
     DESTINATION KEY (target_node_id) REFERENCES knowledge_nodes (node_id)
     LABEL KnowledgeEdge
@@ -569,7 +569,14 @@ def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dic
 
 
 def insert_kpi_candidates(company_id: str, records: list[dict]) -> dict:
-    """Insert proposed KPI candidates. This never publishes current KPI definitions."""
+    """Insert proposed KPI candidates. This never publishes current KPI definitions.
+
+    Each record requires the exact keys "kpi_candidate_id" and "kpi_name".
+    Optional keys: common_kpi_id, kpi_domain, kpi_type, description,
+    calculation_hint, data_source_hint, measurement_frequency, reason,
+    source_answer_event_ids, source_followup_answer_event_ids,
+    source_gcs_uris, confidence, importance_score, approval_status.
+    """
     table = f"{_tenant_dataset(company_id)}.kpi_candidates"
     now = _now_iso()
     rows = []
@@ -606,7 +613,16 @@ def insert_kpi_candidates(company_id: str, records: list[dict]) -> dict:
 
 
 def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict:
-    """Insert proposed focus metric candidates. This never publishes current definitions."""
+    """Insert proposed focus metric candidates. This never publishes current definitions.
+
+    Each record requires the exact keys "focus_metric_candidate_id" and
+    "metric_name". Optional keys: metric_category, description,
+    related_kpi_candidate_ids, related_common_kpi_ids,
+    observation_signal_types, calculation_hint, data_source_hint,
+    measurement_frequency, trigger_condition, followup_policy, reason,
+    source_answer_event_ids, source_followup_answer_event_ids,
+    source_gcs_uris, confidence, priority_score, approval_status.
+    """
     table = f"{_tenant_dataset(company_id)}.focus_metric_candidates"
     now = _now_iso()
     rows = []
@@ -688,7 +704,14 @@ def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
 
 
 def insert_research_followup_question_events(company_id: str, records: list[dict]) -> dict:
-    """Insert follow-up questions generated from a research plan."""
+    """Insert follow-up questions generated from a research plan.
+
+    Each record requires the exact keys "followup_question_id" and
+    "question_text". Optional keys: generated_at, question_category,
+    target_role, reason, related_kpi_candidates,
+    related_focus_metric_candidates, expected_answer_format,
+    priority_score, status, source_answer_event_ids, source_gcs_uri.
+    """
     table = f"{_tenant_dataset(company_id)}.research_followup_question_events"
     now = _now_iso()
     rows = []

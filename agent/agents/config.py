@@ -24,7 +24,7 @@ class Settings:
     bq_graph_name: str = os.getenv("BQ_GRAPH_NAME", "KnowledgeGraph")
 
     wiki_bucket: str = os.getenv("WIKI_BUCKET", "")
-    model_id: str = os.getenv("MODEL_ID", "ollama/gemma4:12b")
+    model_id: str = os.getenv("MODEL_ID", "ollama_chat/gemma4:12b")
 
     # Local development settings
     ollama_host: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
