@@ -4,7 +4,7 @@
 
 This document defines the technical design for **Continuous Discovery Agent MVP**, based on `continuous_discovery_agent_requirements.md`.
 
-The MVP is a hackathon-oriented organizational learning platform that collects qualitative business information from URL forms, voice input, sales notes, consultant notes, competitive intelligence inputs, and KPI files. It converts unstructured inputs into structured observations, entities, relationships, hypotheses, discovery signals, and weekly reports.
+The MVP is a hackathon-oriented organizational learning platform that collects qualitative business information from URL forms, voice input, sales notes, consultant notes, competitive intelligence inputs, and KPI files. It converts unstructured inputs into structured observations, entities, relationships, hypotheses, discovery signals, and periodic reports.
 
 The design follows a Kiro-like flow:
 
@@ -122,7 +122,7 @@ flowchart TB
         F2[Daily Report Form]
         F3[Search UI]
         F4[Knowledge Graph Viewer]
-        F5[Weekly Discovery Report]
+        F5[Monthly Discovery Report]
         F6[Report Copilot]
     end
 
@@ -324,7 +324,7 @@ flowchart TB
 
 **Responsibilities:**
 
-- Generate Weekly Discovery Reports.
+- Generate Monthly Discovery Reports.
 - Answer questions using LLM Wiki, BigQuery metrics, and Elasticsearch evidence retrieval.
 - Separate observed facts and hypotheses in all outputs.
 - Provide evidence snippets and source references.
@@ -354,7 +354,7 @@ flowchart TB
 | `extraction-worker` | Cloud Run Job or Cloud Run service | Gemini extraction from source text |
 | `indexing-worker` | Cloud Run Job or Cloud Run service | Elasticsearch indexing and reindexing |
 | `discovery-worker` | Cloud Run Job | Weekly/daily rule-based discovery signal detection |
-| `report-worker` | Cloud Run Job | Weekly Discovery Report generation |
+| `report-worker` | Cloud Run Job | Monthly Discovery Report generation |
 | `wiki-worker` | Cloud Run Job or service | LLM Wiki Markdown creation/update |
 
 ## 8. Event Flow
@@ -1075,7 +1075,7 @@ GET /api/graph/slice?workspace_id=ws_001&entity_id=ent_issue_price&depth=2&limit
 ### 15.7 Generate or Get Weekly Report
 
 ```http
-POST /api/workspaces/{workspace_id}/reports/weekly:generate
+POST /api/workspaces/{workspace_id}/reports/monthly:generate
 GET /api/workspaces/{workspace_id}/reports/latest
 ```
 
@@ -1175,7 +1175,7 @@ Features:
 - Evidence list for selected relationship.
 - Dense graph protection by limiting nodes/edges.
 
-### 16.5 Weekly Discovery Report Viewer
+### 16.5 Monthly Discovery Report Viewer
 
 Sections:
 
@@ -1200,7 +1200,7 @@ Guardrails:
 - Avoid final business decisions.
 - Suggest observation topics instead of definitive actions.
 
-## 17. Weekly Discovery Report Design
+## 17. Periodic Discovery Report Design
 
 ### 17.1 Report Generation Inputs
 
@@ -1211,6 +1211,14 @@ Guardrails:
 - KPI snapshots from BigQuery.
 - Evidence snippets from Elasticsearch.
 - Graph relationships from BigQuery Graph.
+- Stored report JSON from Cloud Storage when it already exists for the requested period.
+
+The current application exposes the previous-month report at
+`GET /api/v1/companies/{company_id}/report/monthly`. The backend first checks
+`tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json` in Cloud Storage
+or the local storage emulator. If the JSON exists, it is returned as the source
+of truth. If it does not exist, the backend generates the report from BigQuery
+or demo seed data, then saves the JSON to the same path.
 
 ### 17.2 Report Prompt Requirements
 
@@ -1229,11 +1237,11 @@ Use concise business language.
 ### 17.3 Report Output Template
 
 ```markdown
-# Weekly Discovery Report
+# Monthly Discovery Report
 
 ## 1. Summary
 
-## 2. Discovery Signals
+## 2. Monthly Indicators
 
 ## 3. Observed Facts
 
@@ -1247,6 +1255,33 @@ Use concise business language.
 
 ## 8. Limitations
 ```
+
+### 17.4 Monthly Report Response Shape
+
+The monthly report API returns JSON optimized for the report viewer:
+
+```json
+{
+  "header": {"title": "Monthly Discovery Report", "subtitle": "Cloud Storageに保存された前月レポート"},
+  "monthly": {
+    "title": "2026-06 月次レポート",
+    "period": "SMB-1042 / 2026-06",
+    "source": "cloud_storage",
+    "storagePath": "tenants/SMB-1042/reports/monthly/2026-06/report.json"
+  },
+  "metrics": [],
+  "charts": [],
+  "sections": [],
+  "highlights": [],
+  "snippets": [],
+  "recommendation": {}
+}
+```
+
+`monthly.source` is one of `cloud_storage`, `generated`, `generated_and_saved`,
+or `generated_unsaved`. UI should show the source status because consultants
+need to know whether they are reading the stored monthly report or a newly
+generated fallback.
 
 ## 18. Error Handling and Retry Strategy
 
@@ -1306,7 +1341,7 @@ Production hardening deferred:
 | R10 LLM Wiki | 12 |
 | R11 Rule-Based Discovery Detection | 6.3, 14 |
 | R12 Observation Policy | 6.1, 12, 16.2 |
-| R13 Weekly Discovery Report | 8.2, 17 |
+| R13 Discovery Report | 8.2, 17 |
 | R14 Graph Visualization | 10, 15.6, 16.4 |
 | R15 Search UI | 11, 15.5, 16.3 |
 | R16 Report Copilot | 6.4, 8.3, 15.8, 16.6 |
@@ -1332,7 +1367,7 @@ The next `tasks.md` should implement this design in the following order:
 11. Implement Elasticsearch indexing logic.
 12. Implement LLM Wiki Markdown writer.
 13. Implement rule-based discovery SQL and worker.
-14. Implement weekly report generator.
+14. Implement monthly report loader/generator.
 15. Implement Search UI and API.
 16. Implement graph slice API and viewer.
 17. Implement Report Copilot retrieval and answering flow.

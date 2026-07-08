@@ -111,10 +111,23 @@ make dev
 起動後の確認先:
 
 - Frontend: http://localhost:3000
+- Report: http://localhost:3000/report
 - Backend API: http://localhost:8000
 - Backend health: http://localhost:8000/healthz
 - Backend OpenAPI定義： http://localhost:8000/docs
 - BigQuery Emulator: http://localhost:9050
+
+## Report 画面
+
+`/report` は前月分の Monthly Discovery Report を表示します。バックエンドは
+`GET /api/v1/companies/{company_id}/report/monthly` で
+`tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json` を Cloud Storage
+またはローカル storage emulator から探索します。
+
+対象月のレポート JSON が存在する場合は保存済みレポートを表示し、存在しない場合は
+BigQuery の `knowledge_nodes` / `survey_responses`、または DRY_RUN 用の seed data
+から月次レポートを生成して同じパスに保存します。画面にはサマリ、KPI/根拠件数の
+グラフ、事実と仮説を分けたハイライト、根拠スニペット、Copilot 質問欄を表示します。
 
 ## よく使うコマンド
 
@@ -150,6 +163,7 @@ make build
 
 - Dashboard UI skeleton: 配置済み
 - FastAPI health endpoint: 配置済み
+- Monthly Report API and report viewer: 配置済み
 - Quality run placeholder API: 配置済み
 - Agent evaluation skeleton: 配置済み
 - Cloud Build / Terraform skeleton: 配置済み
