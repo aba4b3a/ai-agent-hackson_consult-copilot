@@ -37,6 +37,12 @@ disallow_any_generics = false
 # build/ は setuptools の生成物（Duplicate module エラー防止のため除外）
 exclude = ["build"]
 
+# google-cloud-storage の import に付けた type: ignore は、環境（スタブ解決の有無）
+# によって必要/不要の判定が変わるため、このモジュールのみ unused-ignore 警告を無効化。
+[[tool.mypy.overrides]]
+module = "tools.storage_tools"
+warn_unused_ignores = false
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
