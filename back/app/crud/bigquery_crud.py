@@ -9,8 +9,17 @@ class BigQueryCrud:
         full_dataset_id = f'{settings.project_id}.{dataset_id}'
         if settings.dry_run:
             return {'dry_run': True, 'dataset_id': dataset_id, 'full_dataset_id': full_dataset_id}
+        from google.api_core.exceptions import NotFound
         from google.cloud import bigquery
         client = get_bigquery_client()
+        # exists_ok=True は 409(Conflict) しか吸収しない。BigQuery エミュレータは
+        # 既存データセットの再作成に 500 を返すため api-core がリトライし続けて
+        # 最大10分ハングする。先に存在確認してから作成することで回避する。
+        try:
+            client.get_dataset(full_dataset_id)
+            return {'dry_run': False, 'dataset_id': dataset_id, 'full_dataset_id': full_dataset_id}
+        except NotFound:
+            pass
         dataset = bigquery.Dataset(full_dataset_id)
         dataset.location = settings.location
         client.create_dataset(dataset, exists_ok=True)

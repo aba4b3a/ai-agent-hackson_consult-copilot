@@ -48,8 +48,9 @@ services:
     volumes:
       - ./agent:/app
       # Gemini Enterprise (Vertex AI) 認証用のサービスアカウントJSON。
-      # agent/.env の GOOGLE_APPLICATION_CREDENTIALS と同じ絶対パスにマウントする。
-      - ./secret.json:./secret.json:ro
+      # agent/.env の GOOGLE_APPLICATION_CREDENTIALS(=/app/secret.json) と同じ絶対パスにマウントする。
+      # ADC を使わない場合もホスト側に空の secret.json が必要（無いと Docker がディレクトリを作ってしまう）。
+      - ./secret.json:/app/secret.json:ro
     depends_on:
       - bigquery-emulator
 
@@ -57,7 +58,7 @@ services:
     image: ghcr.io/goccy/bigquery-emulator:latest
     command:
       - --project=local-project
-      - --dataset=cda
+      - --dataset=consultant_copilot
     ports:
       - "9050:9050"
 
