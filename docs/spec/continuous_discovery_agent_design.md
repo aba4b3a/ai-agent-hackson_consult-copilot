@@ -638,70 +638,185 @@ Design rule: Hypotheses must be shown separately from observations in UI, report
 
 ## 10. BigQuery Graph Design
 
-### 10.1 Node Tables
+### 10.0 二層モデル（構造レイヤーと証拠レイヤー）
 
-BigQuery Graph uses selected rows from `entities` and derived views.
+本設計のグラフは次の二層で構成する（2026-07-09 改訂。実装 `knowledge_nodes` / `knowledge_edges` の語彙を正式仕様とし、旧仕様の Observation / Hypothesis / 証拠は証拠レイヤーとして再配置した）。
 
-Recommended node categories:
+```text
+┌───────────────────────────────────────────────┐
+│ 構造レイヤー（グラフとして描画する層）                      │
+│  knowledge_nodes（10ノード型） + knowledge_edges（7関係型）│
+│  = 企業の KPI 因果構造・顧客/商品/プロセスの関係            │
+└──────────────────┬────────────────────────────┘
+                   │ ノード詳細 API（§10.6）で参照
+┌──────────────────▼────────────────────────────┐
+│ 証拠レイヤー（ノードにしない層）                          │
+│  source_response_id（ノード/エッジ列） / survey_responses │
+│  = 旧仕様の Observation・Hypothesis の原文・出典            │
+└───────────────────────────────────────────────┘
+```
 
-- CustomerSegment
-- Product
-- Issue
-- Competitor
-- CompetitiveEvent
-- KPI
-- Observation
-- Hypothesis
+- **構造レイヤー**: ユーザがグラフ UI（§16.4）で見る対象。ノード数を絞った「企業の構造理解」を表す。
+- **証拠レイヤー**: 観察の原文・アンケート回答・出典。グラフのノードとしては描画せず、ノード選択時のサイドパネル（§16.4 / R14.4）から `source_response_id` 経由で参照する。事実と解釈の分離（R6）は「エッジの事実/仮説区分（§10.2）＋証拠レイヤーへの導線（§10.6）」で担保する。
 
-For MVP simplicity, individual customers are not required as graph nodes. Customer-level detail may be modeled later if needed.
+### 10.1 Node Types（構造レイヤー）
 
-### 10.2 Edge Tables
+ノードは `knowledge_nodes` テーブルの行である（列: `node_id`, `company_id`, `node_type`, `label`, `description`, `source_response_id`, `confidence`, `valid_from`, `valid_to`, `status`, `properties`, `created_at`, `updated_at`）。`source_response_id` は生成元 `survey_responses.response_id` への単一参照（将来、複数証拠を持たせる場合は `source_refs ARRAY<STRING>` への拡張を検討）。
 
-Edges come from `relationships`.
+正式なノード型（10種。2026-07-09 改訂で intake ルール抽出由来の `Person` / `Risk` を追加）:
 
-Supported MVP relationship types:
+| node_type | 意味 | 主な生成元 |
+|---|---|---|
+| `CompanyProfile` | 企業そのもの（1社1ノード。グラフの根） | seed / onboarding |
+| `CustomerSegment` | 顧客セグメント（例: 大手自動車部品メーカー） | seed / 抽出 |
+| `KPI` | 重要指標（例: 月次売上、リピート率） | seed / 抽出 |
+| `Process` | 業務プロセス（例: 検査工程、見積対応） | seed / 抽出 |
+| `ProductService` | 商品・サービス（例: 精密切削部品） | seed / 抽出 |
+| `ResearchPolicy` | 調査方針・観察テーマ（次に何を聞くか） | seed |
+| `Signal` | 変化の兆し・気づき（発見シグナル。仮説的な内容を含み得る） | seed / 抽出 |
+| `TacitKnowledge` | 暗黙知（ベテランの経験則・現場ノウハウ・属人スキル） | seed / 抽出 |
+| `Person` | 暗黙知・スキルの持ち主（回答中の人物言及から抽出） | intake 抽出 |
+| `Risk` | 事業リスク・懸念（退職・故障・トラブル等の兆候） | intake 抽出 |
 
-| Relationship Type | Meaning |
+- MVP では個別顧客はノード化しない（セグメント単位）。`Person` は顧客ではなく社内の知識保有者を表す。
+- **廃止した抽出語彙（2026-07-09）**: `Question`（質問原文は survey_responses と証拠レイヤーで担保）、`Skill`（TacitKnowledge に統合）。ローカルの BigQuery エミュレータは揮発性のため旧データ移行は不要。
+- 注記: agent の抽出出力に node_type の enum 制約が無いため、自由語彙が混入し得る。将来は抽出スキーマ側で本10型の enum 化を推奨。
+
+### 10.2 Edge Types
+
+エッジは `knowledge_edges` テーブルの行である（列: `edge_id`, `company_id`, `source_node_id`, `target_node_id`, `edge_type`, `description`, `source_response_id`, `confidence`, `strength`, `observed_count`, `properties`, `created_at`, `updated_at`）。
+
+正式な関係型（7種。2026-07-09 改訂で `KNOWS` を追加）と事実/仮説の区分:
+
+| edge_type | 意味 | 区分 |
+|---|---|---|
+| `CREATES` | プロセス・活動が価値や成果物を生み出す | 事実（観察由来） |
+| `DRIVES` | 要因が KPI・結果を押し上げる/動かす | 事実（観察由来） |
+| `KNOWS` | Person が暗黙知・スキルを持っている | 事実（観察由来） |
+| `LEADING_INDICATOR_OF` | 先行指標である（因果の仮説） | **仮説** |
+| `OBSERVES` | 調査方針・活動が対象を観察している | 事実（観察由来) |
+| `PRESSURES` | 外部要因・リスク・課題が対象に圧力をかける | 事実（観察由来） |
+| `PROTECTS` | 強み・暗黙知が対象を守っている | 事実（観察由来） |
+
+- `LEADING_INDICATOR_OF` は仮説的関連であり、UI では破線などで事実エッジと視覚的に区別する（R6 のグラフ上での担保手段）。抽出エッジは `properties.hypothesis` にも真偽を持つ。
+- `strength`（関係の強さ 0..1）と `observed_count`（観測回数）で確からしさを表す。
+
+#### intake ルール抽出のエッジ生成規則（rule_based_mvp）
+
+同一回答内で共起した抽出ノード・既存ノード（簡易名寄せ: 既存ノードの label が回答文に含まれる場合に突き当て）の型ペアに対して張る:
+
+| 型ペア（source → target） | edge_type | 区分 |
+|---|---|---|
+| Signal → KPI | `LEADING_INDICATOR_OF` | 仮説 |
+| Risk → KPI | `PRESSURES` | 事実 |
+| TacitKnowledge → KPI | `PROTECTS` | 事実 |
+| Person → TacitKnowledge | `KNOWS` | 事実 |
+
+旧抽出語彙 `RELATED_TO`（Question 中心の星形）は廃止し、上記マッピングに置換（2026-07-09）。名寄せで既存ノードに一致した場合は新規ノードを作らず既存ノードへ接続する（seed の KPI 因果グラフと intake 知識の分断防止）。高度な名寄せ（表記ゆれ・embedding）は将来課題。
+
+#### 旧語彙との対応（改訂の記録）
+
+| 旧仕様の語彙 | 本仕様での扱い |
 |---|---|
-| `MENTIONS` | Observation or customer segment mentions issue, product, competitor, etc. |
-| `HAS_ISSUE` | Customer segment has an issue |
-| `RELATES_TO` | Generic relation when a more specific relation is not available |
-| `COMPETES_WITH` | Product or company competes with competitor |
-| `MAY_CAUSE` | Hypothesis or event may cause an issue/signal |
-| `IMPACTS` | Issue or signal impacts KPI |
-| `SUPPORTS` | Observation supports hypothesis |
-| `CONTRADICTS` | Observation contradicts hypothesis |
+| CustomerSegment / KPI | そのまま（同名） |
+| Product | `ProductService` に対応 |
+| Issue | `Signal`（課題・変化の兆しとして表現）に対応 |
+| Observation | **証拠レイヤーへ移動**。ノード化せず `source_response_id` / `survey_responses` から参照 |
+| Hypothesis | **証拠レイヤー＋エッジ区分へ移動**。`Signal` の仮説的側面と `LEADING_INDICATOR_OF` エッジで表現 |
+| Competitor / CompetitiveEvent | **現行語彙に無い（既知ギャップ）**。R9.2 の部分未充足。node_type 追加は agent プロンプト・seed データに波及するため将来拡張タスクとする |
+| MENTIONS | ≈ `OBSERVES` |
+| IMPACTS | ≈ `DRIVES` / `PRESSURES` |
+| MAY_CAUSE | ≈ `LEADING_INDICATOR_OF` |
+| SUPPORTS / CONTRADICTS | 証拠レイヤーで表現（ノード詳細 API の証拠一覧が支持/矛盾の判断材料を提供） |
 
 ### 10.3 Graph Query Use Cases
 
-1. Given a customer segment, find top related issues and competitors.
-2. Given a discovery signal, find related customer segments, products, issues, KPIs, and hypotheses.
-3. Given a competitor, find related observations, affected products, and possible KPI impact.
-4. Given a KPI, find issues and hypotheses that may explain changes.
+1. 顧客セグメントを起点に、関連する Signal（課題・変化）と商品・KPI を辿る。
+2. Signal を起点に、関連する顧客セグメント・プロセス・KPI・先行指標仮説を辿る。
+3. KPI を起点に、それを動かす要因（DRIVES / PRESSURES / LEADING_INDICATOR_OF）を遡って説明候補を得る。
+4. TacitKnowledge を起点に、それが守っている価値（PROTECTS）と関係する顧客・商品を確認する。
 
-### 10.4 Graph Slice API Strategy
+### 10.4 Graph Slice API
 
-The graph UI should not render the entire graph. It should request bounded slices.
-
-Example request:
+グラフ UI は全グラフを描画せず、常に制限付きスライスを要求する。
 
 ```http
-GET /api/graph/slice?workspace_id=ws_001&entity_id=ent_issue_price&depth=2&limit=50&period=last_30_days
+GET /api/v1/companies/{company_id}/graph/slice
 ```
 
-Example response:
+| パラメータ | 型 / 範囲 | 既定 | 意味 |
+|---|---|---|---|
+| `center_node_id` | string | なし | 中心ノード。**省略時はオーバービュースライス**（confidence 降順の上位ノード＋strength 降順の上位エッジ。初期表示に使う） |
+| `depth` | 1..2 | 1 | 中心ノードからの距離。**無向**（source/target どちら向きでも辿る）、edge_type は問わない |
+| `limit` | 1..100 | 50 | ノード数上限。超過時は **strength 降順 → confidence 降順** で切り詰め、`meta.truncated=true` を返す |
+| `types` | CSV | なし | node_type によるフィルタ（例 `types=Signal,KPI`）。中心ノード自身はフィルタ対象外 |
+| `period` | enum | `all` | `last_7_days` / `last_30_days` / `last_90_days` / `all`。ノード・エッジの `created_at` 基準でフィルタ（観測時刻列が無いため。将来 `observed_at` を持つ場合はそちらを基準に移行する） |
+
+レスポンス:
 
 ```json
 {
   "nodes": [
-    {"id": "ent_issue_price", "type": "Issue", "label": "Price concern"},
-    {"id": "ent_segment_small_retail", "type": "CustomerSegment", "label": "Small retail customers"}
+    {"node_id": "kpi_repeat_rate", "node_type": "KPI", "label": "リピート率",
+     "description": "既存顧客の再受注率", "confidence": 0.9, "status": "active"}
   ],
   "edges": [
-    {"from": "ent_segment_small_retail", "to": "ent_issue_price", "type": "MENTIONS", "evidence_count": 31}
-  ]
+    {"source_node_id": "sig_inspection_delay", "target_node_id": "kpi_repeat_rate",
+     "edge_type": "PRESSURES", "strength": 0.7, "observed_count": 3,
+     "description": "検査遅延がリピート率に圧力をかけている"}
+  ],
+  "meta": {"truncated": false, "center_node_id": null, "period": "all", "source": "bigquery"}
 }
 ```
+
+- `meta.source` はデータ由来（`bigquery` / `sample`）。DRY_RUN や未投入時の seed フォールバックを UI・デバッグから判別できるようにする。
+- エッジは `description`（関係の説明文）を含み、UI の関係一覧・選択関係カードに表示する。
+- グラフ画面（§16.4）は本 API をデータ源とし、`LEADING_INDICATOR_OF` エッジは**破線**で描画して事実エッジと区別する（§10.2 / R6）。
+
+### 10.5 Entity Search API
+
+グラフ UI のエンティティ検索（§16.4）から `center_node_id` を解決するための API。
+
+```http
+GET /api/v1/companies/{company_id}/graph/entities?q=検査&types=Signal,Process&limit=20
+```
+
+- `q`: `label` / `description` に対する部分一致（大文字小文字を区別しない）。
+- `types`: node_type の CSV フィルタ（省略可）。
+- `limit`: 既定 20。
+
+レスポンス:
+
+```json
+[
+  {"node_id": "sig_inspection_delay", "node_type": "Signal", "label": "検査工程の遅延", "confidence": 0.8}
+]
+```
+
+### 10.6 Node Detail / Evidence API（証拠レイヤーへの入口）
+
+ノード選択時のサイドパネル（§16.4 / R14.4）の供給源。構造レイヤーから証拠レイヤーへ降りる唯一の正式経路。
+
+```http
+GET /api/v1/companies/{company_id}/graph/nodes/{node_id}
+```
+
+レスポンス:
+
+- ノードの全属性（`properties` の展開を含む）。
+- 隣接エッジ一覧（direction / edge_type / strength / observed_count / 相手ノードの label / source_response_id）。
+- **証拠一覧**: ノード自身と隣接エッジの `source_response_id` を `survey_responses` に解決した結果（質問文・原文回答・回答者ロール・収集日時）。
+
+存在しない `node_id` は 404 を返す。
+
+### 10.7 既存 API の位置づけと異常系
+
+- `GET /{company_id}/graph/nodes`（confidence 上位20ノード＋strength 上位30エッジ固定）は、§10.4 の `center_node_id` 省略時と実質等価であり、**slice API へ統合予定**（互換のため当面残置可）。
+- `GET /{company_id}/graph/query` は BigQuery Notebook 向けの GQL 文字列生成ユーティリティであり、クエリを実行しない。アプリのグラフ描画経路ではない。
+- 異常系:
+  - 該当ノードなし → 空配列で 200。
+  - `node_id` 不在 → 404。
+  - クエリタイムアウト → `limit` / `depth` を下げて再試行（§18 と整合）。
 
 ## 11. Elasticsearch Design
 
@@ -1069,8 +1184,10 @@ Response:
 ### 15.6 Get Graph Slice
 
 ```http
-GET /api/graph/slice?workspace_id=ws_001&entity_id=ent_issue_price&depth=2&limit=50
+GET /api/v1/companies/{company_id}/graph/slice?center_node_id=sig_inspection_delay&depth=2&limit=50&period=last_30_days
 ```
+
+パラメータ・レスポンスの完全仕様は §10.4 を参照。エンティティ検索は §10.5、ノード詳細・証拠は §10.6。
 
 ### 15.7 Generate or Get Weekly Report
 
@@ -1401,8 +1518,9 @@ The next `tasks.md` should implement this design in the following order:
 - agent: `agent/tools/bigquery_tools.py` に同様の分岐。
 - **`PROJECT_ID` はエミュレータ起動時の `--project`（compose では `local-project`）と一致必須**。
   不一致だと 404 project not found になる。
-- エミュレータ初期状態はデータセット `cda` のみ。企業別データセット（`cda_<company>`）と
-  テーブルはマイグレーション/オンボーディング API で作成する。
+- データセットは全社共有の1つ（`BQ_DATASET_PREFIX`、既定 `consultant_copilot`）で、
+  企業ごとの区別はテーブル名プレフィックス（`SMB_1042_knowledge_nodes` 等）で行う。
+  エミュレータは永続化しないため、再起動後は `back/scripts/seed_emulator.py` で再投入する。
 
 ### 23.3 コンテナ間接続
 
@@ -1410,3 +1528,16 @@ Docker compose 内のサービス間 URL は `localhost` ではなくサービ�
 `AGENT_BASE_URL=http://agent:8080`（back→agent）、`BIGQUERY_EMULATOR_HOST=http://bigquery-emulator:9050`。
 back の copilot は agent 到達不能時に**サンプル応答へフォールバック**するため、
 「応答が返る＝AI が動いている」ではない点に注意（確認手順は `agent/GEMINI_SETUP.md`）。
+
+### 23.4 グラフ API とナレッジ抽出語彙（2026-07-09 実装）
+
+- §10.4〜10.6 のグラフ API 3本（slice / entities / ノード詳細+証拠）を実装
+  （`back/app/services/graph_service.py`、tasks 12.5〜12.7）。BQ 未投入・DRY_RUN 時は
+  seed へフォールバックし、`meta.source`（`bigquery` / `sample`）で判別できる。
+- intake ルール抽出（`back/app/services/knowledge_service.py`）の語彙を §10.1/10.2 の
+  正式語彙（10ノード型・7関係型）に統一。旧語彙 Question / Skill / RELATED_TO は廃止。
+- 簡易名寄せを実装: 既存ノードの label が回答文に含まれる場合、新規ノードを作らず
+  既存ノードへエッジ接続する（KPI 因果グラフと intake 知識の分断防止）。
+- 注意: **DRY_RUN=true では intake 提出は BigQuery に書き込まれない**（原文 JSON の
+  ローカル保存のみ）。グラフへ反映して確認する場合は DRY_RUN=false ＋エミュレータ起動
+  ＋ `seed_emulator.py` 投入が必要。

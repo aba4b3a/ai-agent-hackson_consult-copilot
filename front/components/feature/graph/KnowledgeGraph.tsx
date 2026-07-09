@@ -199,6 +199,7 @@ export const KnowledgeGraphSection = () => {
                     className={edgeToneClass[edge.tone]}
                     strokeWidth={Math.max(2, Math.round(edge.strength * 7))}
                     strokeLinecap="round"
+                    strokeDasharray={edge.hypothesis ? "6 4" : undefined}
                   />
                 );
               })}

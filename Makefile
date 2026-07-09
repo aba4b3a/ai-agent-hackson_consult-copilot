@@ -1,8 +1,8 @@
 .PHONY: setup dev lint terraform-check test seed-emulator build clean
 
+# npm install is run during docker compose up in front service
 setup:
 	docker compose build
-	# npm install is run during docker compose up in front service
 
 dev:
 	docker compose up --build
@@ -25,9 +25,11 @@ test:
 	docker compose run --rm --no-deps back pytest
 	docker compose run --rm --no-deps agent pytest
 
+# The BigQuery emulator has no persistent volume, so its data is lost on
+# every restart; re-run this after that happens.
+# (Keep comments outside the recipe: on Windows, make passes tab-indented
+#  lines to cmd.exe, which cannot execute "#" comment lines.)
 seed-emulator:
-	# The BigQuery emulator has no persistent volume, so its data is lost on
-	# every restart; re-run this after that happens.
 	docker compose run --rm back python scripts/seed_emulator.py
 
 build:
