@@ -1,0 +1,55 @@
+# Root-level dockerignore — applies when building the nginx image with
+# context = repo root. Keep this list tight: anything not needed by the
+# front build must be excluded to keep the context small and avoid Windows
+# stat errors on cache dirs.
+
+# VCS / IDE
+.git
+.gitignore
+.github
+.vscode
+.idea
+.devcontainer
+
+# Node / front
+**/node_modules
+front/.next
+front/out
+front/test-results
+front/playwright-report
+front/tsconfig.tsbuildinfo
+
+# Python caches (blocking Windows Docker context scan)
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/venv
+**/*.pyc
+**/*.pyo
+
+# Local runtimes / data
+.local_storage
+ollama
+**/*.log
+
+# Infra we don't need in the nginx image
+infra/terraform
+infra/cloudbuild
+infra/scripts
+infra/firebase
+docs
+
+# Secrets — never bake into an image
+**/.env
+**/.env.*
+!**/.env.example
+secret.json
+*.pem
+*.key
+
+# The other Dockerfiles' contexts are separate; ignore them here to keep
+# the root context small.
+back
+agent

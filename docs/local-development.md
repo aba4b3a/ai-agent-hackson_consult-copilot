@@ -62,7 +62,7 @@ make dev
 Or run compose directly:
 
 ```bash
-docker compose up --build
+docker compose --profile dev up --build
 ```
 
 The following services will start:
@@ -74,6 +74,30 @@ The following services will start:
 - **Backend health**: http://localhost:8000/api/v1/health
 - **BigQuery Emulator**: http://localhost:9050
 - **Ollama**: http://localhost:11434
+
+### (Optional) Sidecar mode — Cloud Run reproduction
+
+To verify the production Cloud Run sidecar routing locally (nginx +
+back + agent on a single host port :8080, sharing localhost like Cloud
+Run's multi-container service does):
+
+```bash
+make sidecar
+# or:
+docker compose --profile sidecar up --build
+```
+
+Endpoints from the host:
+
+```bash
+curl http://localhost:8080/                 # front static (served by nginx)
+curl http://localhost:8080/api/v1/health    # back via nginx reverse proxy
+curl http://localhost:8080/agent/list-apps  # agent via nginx reverse proxy
+```
+
+The dev profile and sidecar profile both bind port 8080; do not run them
+at the same time. Switch modes with `docker compose --profile <mode> down`
+first, then `up` the other.
 
 ### Step 3: Setup Ollama Models
 
@@ -132,22 +156,22 @@ only needs Docker.
 
 ```bash
 # All services
-docker compose logs -f
+docker compose --profile dev logs -f
 
 # Specific service
-docker compose logs -f back
-docker compose logs -f front
-docker compose logs -f agent
+docker compose --profile dev logs -f back
+docker compose --profile dev logs -f front
+docker compose --profile dev logs -f agent
 ```
 
 ### Restart Services
 
 ```bash
 # Specific service
-docker compose up --build back
+docker compose --profile dev up --build back
 
 # All services
-docker compose up --build
+docker compose --profile dev up --build
 ```
 
 ### Execute Commands
@@ -176,7 +200,7 @@ docker compose down
 docker compose down -v
 
 # Start fresh
-docker compose up --build
+docker compose --profile dev up --build
 ```
 
 ## Environment Configuration
@@ -226,7 +250,7 @@ docker compose ps bigquery-emulator
 docker compose logs bigquery-emulator
 
 # Restart
-docker compose up --build bigquery-emulator
+docker compose --profile dev up --build bigquery-emulator
 ```
 
 ### Ollama Connection Issues

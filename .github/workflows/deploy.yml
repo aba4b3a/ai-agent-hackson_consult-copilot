@@ -1,0 +1,131 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Only one deploy at a time.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # required for Workload Identity Federation
+
+env:
+  REGION: asia-northeast1
+  SERVICE_PREFIX: consult-copilot
+  AR_REPOSITORY: consult-copilot
+  CLOUD_RUN_SERVICE: consult-copilot-app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud via WIF
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          BASE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}"
+          SHA="${GITHUB_SHA::12}"
+          echo "nginx=$BASE/nginx:$SHA" >> "$GITHUB_OUTPUT"
+          echo "back=$BASE/back:$SHA"   >> "$GITHUB_OUTPUT"
+          echo "agent=$BASE/agent:$SHA" >> "$GITHUB_OUTPUT"
+
+      # --- Build & push nginx (bakes the front static export) ---
+      - name: Build nginx (front + reverse-proxy) image
+        run: |
+          docker build \
+            -t "${{ steps.tags.outputs.nginx }}" \
+            -f infra/nginx/Dockerfile \
+            .
+      - name: Push nginx image
+        run: docker push "${{ steps.tags.outputs.nginx }}"
+
+      # --- Build & push back ---
+      - name: Build back image
+        run: |
+          docker build \
+            -t "${{ steps.tags.outputs.back }}" \
+            -f back/Dockerfile \
+            back
+      - name: Push back image
+        run: docker push "${{ steps.tags.outputs.back }}"
+
+      # --- Build & push agent ---
+      - name: Build agent image
+        run: |
+          docker build \
+            -t "${{ steps.tags.outputs.agent }}" \
+            -f agent/Dockerfile \
+            agent
+      - name: Push agent image
+        run: docker push "${{ steps.tags.outputs.agent }}"
+
+      # --- Deploy the multi-container Cloud Run service ---
+      #
+      # `gcloud run services replace` is used because `gcloud run deploy` does
+      # not yet support setting sidecar container images in one command. We
+      # download the current service definition, rewrite the three image
+      # fields, then apply.
+      - name: Install PyYAML (used to patch Cloud Run YAML)
+        run: pip install --quiet pyyaml
+
+      - name: Update Cloud Run service with new image tags
+        run: |
+          set -euo pipefail
+
+          gcloud run services describe "${{ env.CLOUD_RUN_SERVICE }}" \
+            --region "${{ env.REGION }}" \
+            --format export > service.yaml
+
+          python3 - <<'PY'
+          import sys
+          import yaml
+
+          with open("service.yaml") as f:
+              svc = yaml.safe_load(f)
+
+          images = {
+              "nginx": "${{ steps.tags.outputs.nginx }}",
+              "back":  "${{ steps.tags.outputs.back }}",
+              "agent": "${{ steps.tags.outputs.agent }}",
+          }
+
+          containers = svc["spec"]["template"]["spec"]["containers"]
+          for c in containers:
+              name = c.get("name")
+              if name in images:
+                  c["image"] = images[name]
+
+          with open("service.yaml", "w") as f:
+              yaml.safe_dump(svc, f, sort_keys=False)
+          PY
+
+          gcloud run services replace service.yaml --region "${{ env.REGION }}"
+
+      - name: Emit deployment summary
+        run: |
+          echo "### Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- nginx: ${{ steps.tags.outputs.nginx }}"  >> "$GITHUB_STEP_SUMMARY"
+          echo "- back:  ${{ steps.tags.outputs.back }}"   >> "$GITHUB_STEP_SUMMARY"
+          echo "- agent: ${{ steps.tags.outputs.agent }}"  >> "$GITHUB_STEP_SUMMARY"
