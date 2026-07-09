@@ -426,7 +426,7 @@ def generate_core_tables_ddl(company_id: str) -> dict:
 CREATE SCHEMA IF NOT EXISTS `{project}.{dataset}`
 OPTIONS(location="{settings.location}");
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{survey_responses}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{survey_responses}` (
   response_id STRING NOT NULL,
   company_id STRING NOT NULL,
   question_id STRING,
@@ -447,7 +447,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.{survey_responses}` (
   PRIMARY KEY (response_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_nodes}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{knowledge_nodes}` (
   node_id STRING NOT NULL,
   company_id STRING NOT NULL,
   node_type STRING NOT NULL,
@@ -464,7 +464,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_nodes}` (
   PRIMARY KEY (node_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_edges}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{knowledge_edges}` (
   edge_id STRING NOT NULL,
   company_id STRING NOT NULL,
   source_node_id STRING NOT NULL,
