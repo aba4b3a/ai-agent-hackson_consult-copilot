@@ -102,6 +102,8 @@ export type GraphEdge = {
   tone: "blue" | "rose" | "amber" | "violet" | "slate";
   strength: number;
   description?: string;
+  // LEADING_INDICATOR_OF（仮説）エッジは破線で描画する（design §10.2 / R6）
+  hypothesis?: boolean;
 };
 
 export type GraphView = {

@@ -282,6 +282,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 > _Note (2026-07-07): Gemini 呼び出し基盤は ADK で稼働確認済み（`MODEL_ID` で Ollama ローカルLLM ⇔ Gemini/Vertex express を切替、copilot 経路で E2E 確認）。設定手順と注意点は `agent/GEMINI_SETUP.md`、設計補足は design.md §23.1。_
 
+> _Note (2026-07-09): intake のルールベース抽出（`back/app/services/knowledge_service.py`）の語彙を design §10.1/10.2 の正式語彙（10ノード型・7関係型）に統一。Question/Skill/RELATED_TO は廃止し、エッジは型ペア規則（§10.2 参照）で生成。Gemini 抽出（7.1〜7.3）を実装する際も同じ10型 enum を出力スキーマに使うこと。_
+
 - [ ] 7.1 Define structured extraction schema
   - Define JSON schema for observations, entities, relationships, hypotheses, evidence snippets, and recommended follow-up topics.
   - Include `type`, `name`, `summary`, `confidence`, `source_id`, `evidence_quote`, and `fact_or_hypothesis` fields where appropriate.
@@ -306,6 +308,7 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Create new entities when no clear match exists.
   - Keep logic lightweight and tolerant of duplicates for the MVP.
   - _Requirements: R5, R7_
+  - 注記（2026-07-09）: 簡易版を実装済み — 既存ノードの label が回答文に含まれる場合は新規ノードを作らず既存ノードへエッジ接続する（`knowledge_service._match_existing_nodes`）。表記ゆれ・別名・embedding による高度な名寄せは未実装（残タスク）。
 
 - [ ] 7.5 Implement relationship creation
   - Convert extracted relationships into BigQuery `relationships` rows.
@@ -468,6 +471,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Accept workspace, graph type, center entity, date range, and limit parameters.
   - Return nodes and edges formatted for frontend graph rendering.
   - _Requirements: R9, R14_
+  - 注記（2026-07-09）: 現行実装の `GET /{company_id}/graph/nodes` は design §10.4 の center 省略時（オーバービュースライス）相当。フル仕様の実装は 12.5〜12.7 で行う。
+  - 注記（2026-07-10）: front のグラフ画面は slice API（12.5）へ移行済みのため、旧 `/graph/nodes` はどの画面からも未使用。§10.7 のとおり互換のため当面残置するが将来削除候補。
 
 - [ ] 12.3 Implement graph summarization
   - Generate a short plain-language summary of the graph slice.
@@ -478,6 +483,25 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Add loading, timeout, and cached/mock fallback behavior in UI.
   - Make clear that BigQuery Graph analysis may be slower than operational graph databases.
   - _Requirements: R9, R14, R20_
+
+- [x] 12.5 Implement graph slice API full spec (design §10.4)
+  - `GET /api/v1/companies/{company_id}/graph/slice` を実装する。
+  - `center_node_id`（省略時オーバービュー）/ `depth`（1..2, 無向）/ `limit`（切り詰めは strength 降順→confidence 降順、`meta.truncated`）/ `types`（node_type CSV）/ `period`（created_at 基準）をサポート。
+  - _Requirements: R9, R14_
+  - 実装: `back/app/services/graph_service.py` + `back/app/api/v1/endpoints/graph.py`。BQ 未投入時は seed フォールバック（`meta.source` で判別）。テスト: `back/tests/test_graph_api.py`
+
+- [x] 12.6 Implement graph entity search API (design §10.5)
+  - `GET /api/v1/companies/{company_id}/graph/entities` を実装する。
+  - `q`（label/description 部分一致・大文字小文字無視）と `types` フィルタをサポートし、グラフビューアのエンティティ検索から center_node_id を解決できるようにする。
+  - _Requirements: R9, R14_
+  - 実装: 12.5 と同じサービス/エンドポイント/テストに含む
+
+- [x] 12.7 Implement node detail / evidence API (design §10.6)
+  - `GET /api/v1/companies/{company_id}/graph/nodes/{node_id}` を実装する。
+  - ノード全属性＋隣接エッジ一覧＋ノード/隣接エッジの `source_response_id` を解決した証拠一覧（survey_responses の原文）を返す。存在しない node_id は 404。
+  - 証拠レイヤー（design §10.0）への正式な導線であり、R6 の「事実と解釈の分離」をノード詳細で担保する。
+  - _Requirements: R6, R9, R14_
+  - 実装: 12.5 と同じサービス/エンドポイント/テストに含む
 
 ---
 
@@ -562,6 +586,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
   - Show mobile-friendly graph cards, mini network views, relationship lists, and key node summaries.
   - Allow graph filter by segment, product, competitor, KPI, and date range.
   - _Requirements: R9, R14_
+  - 注記（2026-07-09）: グラフの語彙は design §10.0〜10.2 の二層モデル（10ノード型・7関係型）に従う。エンティティ検索は §10.5、フィルタ/期間/深さは §10.4、ノード詳細サイドパネルは §10.6 の API を使用する。Competitor タブは node_type 未対応のため将来拡張（§10.2 対応表参照）。
+  - 注記（2026-07-10）: グラフ画面のデータ源を §10.4 slice API に接続済み（`front/lib/graph-transform.ts` で表示モデルへ変換、仮説エッジは破線描画）。エンティティ検索・ノード詳細サイドパネル・depth/period コントロール等のフル機能は残タスク。
 
 - [ ] 15.5 Build search and evidence screen
   - Provide keyword search box and filters.

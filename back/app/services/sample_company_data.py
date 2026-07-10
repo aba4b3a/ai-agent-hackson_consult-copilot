@@ -187,12 +187,10 @@ class SampleCompanyData:
             'LEADING_INDICATOR_OF': 'rose',
             'PRESSURES': 'rose',
             'PROTECTS': 'violet',
-            'MEASURES': 'amber',
-            'INFORMS': 'blue',
+            'KNOWS': 'violet',
             'DRIVES': 'blue',
             'CREATES': 'amber',
             'OBSERVES': 'blue',
-            'AFFECTS': 'slate',
         }
         positions = ['center', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight']
         layout_points = [
@@ -235,7 +233,7 @@ class SampleCompanyData:
                 'id': edge.get('edge_id', f'edge-{index}'),
                 'source': edge.get('source_node_id'),
                 'target': edge.get('target_node_id'),
-                'label': edge.get('edge_type', 'RELATED_TO'),
+                'label': edge.get('edge_type', 'OBSERVES'),
                 'tone': edge_tone_map.get(edge.get('edge_type'), 'slate'),
                 'strength': max(0.2, min(1.0, float(edge.get('strength') or edge.get('confidence') or 0.55))),
                 'description': edge.get('description', ''),

@@ -114,7 +114,7 @@ class DashboardService:
         total_responses = resp_rows[0]["cnt"] if resp_rows else 0
         score = min(100, int((total_nodes / max(1, total_nodes + 5)) * 100))
 
-        tone_map = {"TacitKnowledge": "purple", "KPI": "yellow", "Signal": "green", "Person": "blue"}
+        tone_map = {"TacitKnowledge": "purple", "KPI": "yellow", "Signal": "green", "Person": "blue", "Risk": "rose"}
         accumulation = [
             {"id": f"acc-{i}", "label": node_type, "value": cnt,
              "tone": tone_map.get(node_type, "blue")}
@@ -172,7 +172,7 @@ class DashboardService:
         if total_nodes == 0 and sample_graph:
             return sample_graph
 
-        tone_map = {"Signal": "rose", "KPI": "amber", "TacitKnowledge": "violet", "Person": "cyan"}
+        tone_map = {"Signal": "rose", "KPI": "amber", "TacitKnowledge": "violet", "Person": "cyan", "Risk": "rose"}
         positions = ["topLeft", "topRight", "bottomLeft", "bottomRight", "center"]
         nodes_for_display = [
             {
@@ -196,10 +196,10 @@ class DashboardService:
                 "stats": f"Nodes {total_nodes} / Relations {total_edges}",
             },
             "views": [
-                {"id": "v1", "label": "Issue", "tone": "blue"},
+                {"id": "v1", "label": "Signal", "tone": "yellow"},
                 {"id": "v2", "label": "KPI", "tone": "green"},
-                {"id": "v3", "label": "Signal", "tone": "yellow"},
-                {"id": "v4", "label": "Person", "tone": "purple"},
+                {"id": "v3", "label": "Tacit", "tone": "purple"},
+                {"id": "v4", "label": "Person", "tone": "blue"},
             ],
             "relation": {
                 "title": "Selected relation",
@@ -314,13 +314,15 @@ class DashboardService:
         return report
 
     def _build_monthly_report(self, company_id: str, start: date, end: date, period_key: str) -> dict:
-        dataset = settings.dataset_id(company_id)
-        project = settings.project_id
+        # 共有データセット + 企業プレフィックス付きテーブル名（qualified_table）に統一。
+        # 旧 per-company データセット時代の `{project}.{dataset}.knowledge_nodes` 形式の直し漏れを修正。
+        knowledge_nodes = settings.qualified_table(company_id, 'knowledge_nodes')
+        survey_responses = settings.qualified_table(company_id, 'survey_responses')
         sample_report = sample_company_data.monthly_report(company_id, period_key)
 
         signal_rows = _query(f"""
             SELECT node_type, label, description, confidence, created_at
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE node_type IN ('Signal','Risk','KPI')
               AND DATE(created_at) >= DATE('{start.isoformat()}')
               AND DATE(created_at) < DATE('{end.isoformat()}')
@@ -328,7 +330,7 @@ class DashboardService:
         """)
         tacit_rows = _query(f"""
             SELECT node_type, label, description, confidence, created_at
-            FROM `{project}.{dataset}.knowledge_nodes`
+            FROM `{knowledge_nodes}`
             WHERE node_type = 'TacitKnowledge'
               AND DATE(created_at) >= DATE('{start.isoformat()}')
               AND DATE(created_at) < DATE('{end.isoformat()}')
@@ -336,7 +338,7 @@ class DashboardService:
         """)
         response_rows = _query(f"""
             SELECT raw_answer, numeric_value, collected_at
-            FROM `{project}.{dataset}.survey_responses`
+            FROM `{survey_responses}`
             WHERE DATE(collected_at) >= DATE('{start.isoformat()}')
               AND DATE(collected_at) < DATE('{end.isoformat()}')
             ORDER BY collected_at DESC LIMIT 50
