@@ -25,6 +25,10 @@ _RETRY_DELAY_SECONDS = 1.0
 # approval per AGENTS.md), replying with a human-readable summary instead.
 _KPI_CANDIDATE_TOOL_NAME = "insert_kpi_candidates"
 
+# 転送先の ADK アプリ。会話専用の copilot_agent（tools/sub_agents なし、design §23.6）。
+# オンボーディング処理用の "agents"（Orchestrator）とは別アプリ。
+_AGENT_APP_NAME = "copilot_agent"
+
 
 def _agent_url() -> str:
     return os.getenv('AGENT_BASE_URL', 'http://localhost:8080')
@@ -33,10 +37,13 @@ def _agent_url() -> str:
 class CopilotService:
     async def chat(self, company_id: str, message: str, session_id: str | None = None) -> dict:
         agent_url = _agent_url()
-        sid = session_id or f"session_{company_id}"
+        # 会話ごとに一意なセッションを発行する（design §23.5）。固定IDにすると
+        # 全画面・全期間の会話が1つの ADK セッションに蓄積され文脈汚染が起きる。
+        # front は初回応答の session_id を保持して続きのメッセージに載せてくる。
+        sid = session_id or f"session_{company_id}_{uuid.uuid4().hex[:8]}"
 
         payload = {
-            "app_name": "agents",
+            "app_name": _AGENT_APP_NAME,
             "user_id": company_id,
             "session_id": sid,
             "new_message": {"role": "user", "parts": [{"text": message}]},
@@ -53,7 +60,7 @@ class CopilotService:
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     # セッション作成（409=既存は無視）
                     r = await client.post(
-                        f"{agent_url}/apps/agents/users/{company_id}/sessions/{sid}",
+                        f"{agent_url}/apps/{_AGENT_APP_NAME}/users/{company_id}/sessions/{sid}",
                         json={},
                     )
                     if r.status_code not in (200, 409):
@@ -133,6 +140,8 @@ def _extract_tool_call_json(text: str) -> dict | None:
 
 
 def _handle_tool_call_reply(reply: str, company_id: str) -> str:
+    # copilot_agent は tools を持たないため通常は発火しない。誤って旧 Orchestrator に
+    # 向けた場合や将来の変更に対する防御として残している。
     tool_call = _extract_tool_call_json(reply)
     if tool_call is None or tool_call.get("name") != _KPI_CANDIDATE_TOOL_NAME:
         return reply

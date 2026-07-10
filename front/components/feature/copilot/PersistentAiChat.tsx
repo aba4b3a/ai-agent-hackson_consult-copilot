@@ -24,12 +24,19 @@ const defaultGreeting: ChatEntry = {
 
 const chatStorageKey = (companyCode: string) => `consult-copilot.persistent-chat.${companyCode}`;
 
+// 旧実装の固定セッションID（uuidサフィックス無し）。全会話が1つのADKセッションに
+// 蓄積され文脈汚染を起こしていたため、復元時に検出して会話ごと破棄する（design §23.6）。
+const isLegacySessionId = (companyCode: string, sessionId?: string) =>
+  sessionId === `session_${companyCode}`;
+
 const loadStoredChat = (companyCode: string): StoredChat | null => {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(chatStorageKey(companyCode));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as StoredChat;
+    const stored = JSON.parse(raw) as StoredChat;
+    if (isLegacySessionId(companyCode, stored.sessionId)) return null;
+    return stored;
   } catch {
     return null;
   }
@@ -58,9 +65,9 @@ const buildGroundedPrompt = ({
   wikiSnippets: string[];
   knowledgeSignals: string[];
 }) => {
-  const wikiContext = wikiPaths.length > 0 ? wikiPaths.join(", ") : "current LLM Wiki files";
-  const wikiEvidence = wikiSnippets.length > 0 ? wikiSnippets.join("\n---\n") : "No Wiki snippet could be loaded before this request.";
-  const signalContext = knowledgeSignals.length > 0 ? knowledgeSignals.join(" / ") : "BigQuery knowledge stats and current definitions";
+  const wikiContext = wikiPaths.length > 0 ? wikiPaths.join(", ") : "（Wikiファイル一覧は取得できませんでした）";
+  const wikiEvidence = wikiSnippets.length > 0 ? wikiSnippets.join("\n---\n") : "（Wiki抜粋は取得できませんでした）";
+  const signalContext = knowledgeSignals.length > 0 ? knowledgeSignals.join(" / ") : "（ナレッジシグナルは取得できませんでした）";
 
   return [
     "Consult Copilot persistent chat request.",
@@ -175,14 +182,19 @@ export const PersistentAiChat = () => {
     setSending(true);
 
     try {
-      const groundedPrompt = buildGroundedPrompt({
-        question: trimmed,
-        companyCode: activeCompany.code,
-        wikiPaths,
-        wikiSnippets,
-        knowledgeSignals,
-      });
-      const response = await sendCopilotMessage(groundedPrompt, sessionId, activeCompany.code);
+      // 参考情報（Wiki抜粋等）は会話の初回のみ添付する（design §23.6）。
+      // ADKセッションが履歴を保持するため、毎回添付すると同じ資料が全ターンに
+      // 重複蓄積して会話が崩れる。継続メッセージは素の質問文だけを送る。
+      const prompt = sessionId
+        ? trimmed
+        : buildGroundedPrompt({
+            question: trimmed,
+            companyCode: activeCompany.code,
+            wikiPaths,
+            wikiSnippets,
+            knowledgeSignals,
+          });
+      const response = await sendCopilotMessage(prompt, sessionId, activeCompany.code);
       setSessionId(response.session_id);
       setMessages((prev) => [...prev, { role: "assistant", text: response.reply }]);
     } catch {
@@ -203,6 +215,13 @@ export const PersistentAiChat = () => {
     void ask(input);
   };
 
+  // UI履歴とADKセッションを同時にリセットする（片方だけ残る非対称を防ぐ、design §23.6）
+  const startNewConversation = () => {
+    if (sending) return;
+    setMessages([defaultGreeting]);
+    setSessionId(undefined);
+  };
+
   return (
     <aside className="fixed inset-y-0 right-0 z-30 hidden w-[26rem] border-l border-slate-200 bg-white text-slate-950 shadow-[-18px_0_40px_rgba(15,23,42,0.08)] xl:flex xl:flex-col">
       <header className="border-b border-slate-100 px-5 pb-4 pt-5">
@@ -212,7 +231,17 @@ export const PersistentAiChat = () => {
             <h2 className="mt-1 text-lg font-black">Consult Copilot</h2>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{activeCompany.code} / {activeCompany.name}</p>
           </div>
-          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">PC</span>
+          <div className="flex flex-col items-end gap-2">
+            <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">PC</span>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              disabled={sending}
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-40"
+            >
+              新しい会話
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">

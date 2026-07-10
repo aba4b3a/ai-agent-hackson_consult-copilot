@@ -1541,3 +1541,33 @@ back の copilot は agent 到達不能時に**サンプル応答へフォール
 - 注意: **DRY_RUN=true では intake 提出は BigQuery に書き込まれない**（原文 JSON の
   ローカル保存のみ）。グラフへ反映して確認する場合は DRY_RUN=false ＋エミュレータ起動
   ＋ `seed_emulator.py` 投入が必要。
+
+### 23.5 Copilot のセッション管理（2026-07-10 修正）
+
+- 旧実装は session_id 未指定時に `session_{company_id}` **固定**を使っていたため、
+  Report Copilot・右下固定チャット・過去の動作確認を含む**全会話が1つの ADK セッション
+  に蓄積**され、文脈汚染（前の話題を引きずる・繰り返し・空イベント残留）が起きていた。
+- 修正後: session_id 未指定なら会話ごとに一意な `session_{company_id}_{uuid8}` を発行。
+  front（ReportCopilot / PersistentAiChat）は初回応答の session_id を保持して続きを送る
+  ため、会話内の連続性は保たれる。画面を開き直す（固定チャットは履歴クリア）と新しい
+  会話になる。
+- ADK のセッション DB（`agent/agents/.adk/session.db`）は誤って git 管理されていたため
+  除外（ローカル実行時に生成される揮発データ）。
+
+### 23.6 Copilot 会話エージェントとコンテキスト方針（2026-07-10 修正）
+
+会話が不自然になる問題（メタな自己紹介・話題の引きずり・資料の重複蓄積）への対応:
+
+- **会話専用エージェント `copilot_agent` を ADK の別アプリとして新設**し、back の copilot
+  経路（`POST /{company}/report/copilot`）の転送先を Orchestrator から切替。§6.4 の
+  Report Copilot に相当する読み取り専用の会話役で、**tools・sub_agents を持たない**
+  （書き込み系 tool call の漏れやサブエージェント transfer を構造的に排除）。
+  Orchestrator / Research / Knowledge はオンボーディング処理用としてそのまま残す。
+- **参考情報（LLM Wiki 抜粋・ナレッジシグナル）は会話の初回メッセージにのみ添付**する。
+  ADK セッションが履歴を保持するため、毎回添付すると同じ資料が全ターンに重複蓄積し
+  会話が崩れる。継続メッセージは素の質問文のみを送る。
+- **旧固定セッション ID の移行**: §23.5 以前の `session_{company_id}`（uuid サフィックス
+  無し）が front の localStorage に残っている場合は復元時に検出して破棄し、新しい会話を
+  開始する。
+- **UI 履歴とセッションは同一寿命**: 固定チャットに「新しい会話」ボタンを設け、UI の
+  吹き出し履歴と session_id を同時にリセットする（片方だけ残る非対称を防ぐ）。

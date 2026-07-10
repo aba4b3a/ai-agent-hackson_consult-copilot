@@ -535,6 +535,8 @@ The MVP is designed for a hackathon-scale build. It prioritizes rapid knowledge 
 
 ## 14. Report Copilot
 
+> _Note (2026-07-10): 会話品質の修正を実施（design §23.5/§23.6）。①セッションを会話ごとに分離（固定IDによる文脈汚染を解消）②会話専用の `copilot_agent`（読み取り専用・tools/sub_agents なし）を ADK 別アプリとして新設し back の転送先を切替 ③参考情報の添付は会話初回のみ ④固定チャットに「新しい会話」ボタンと旧セッション破棄の移行処理を追加。_
+
 - [ ] 14.1 Implement copilot question API
   - Create `POST /api/copilot/ask`.
   - Accept question, workspace, optional report ID, and optional context filters.
