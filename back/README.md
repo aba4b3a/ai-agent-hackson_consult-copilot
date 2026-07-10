@@ -99,3 +99,51 @@ def create_user(data):
     ```bash
     pytest tests/
     ```
+
+---
+
+## BigQuery エミュレータの起動（ローカル実データ運用）
+
+`DRY_RUN=true`（既定）では BigQuery への読み書きは行われず、全画面が
+`app/storage_seed/` の seed サンプルにフォールバックします。intake 提出をグラフ・
+ダッシュボードに実際に反映させたい場合は、以下の手順でエミュレータ運用に切り替えます。
+
+### 手順
+
+1. `back/.env` を編集する:
+   ```dotenv
+   DRY_RUN=false
+   # WIKI_BUCKET は必ず空（または未設定）にする。ダミー値のままだと
+   # 原文保存が実 GCS に向かい 404 → intake 提出が 500 になる。
+   #WIKI_BUCKET=""
+   BIGQUERY_EMULATOR_HOST=http://bigquery-emulator:9050
+   PROJECT_ID=local-project   # エミュレータ起動時の --project と一致必須
+   ```
+2. スタックを起動する（`docker compose up` は env_file を再読込して作り直すため、
+   `.env` 変更後も `make dev` でよい。`docker compose restart` は env を再読込しないので不可）:
+   ```bash
+   make dev
+   ```
+3. **seed を投入する（エミュレータ起動のたびに必要）**:
+   ```bash
+   make seed-emulator
+   ```
+
+### 注意点
+
+- **エミュレータは永続化ボリュームを持たない**ため、コンテナが再起動するとデータは
+  すべて消えます。`make dev` を Ctrl+C で止めて上げ直した場合は `make seed-emulator`
+  を再実行してください（動かしたまま裏で `make dev` した場合は不要）。
+- データセットは全社共有の1つ（`BQ_DATASET_PREFIX`、既定 `consultant_copilot`）で、
+  企業ごとの区別はテーブル名プレフィックス（例 `SMB_1042_knowledge_nodes`）で行います。
+- 実 GCP には接続しません（`APP_ENV=local` ＋ `BIGQUERY_EMULATOR_HOST` 設定時は
+  匿名認証でエミュレータへ、Cloud Storage は `WIKI_BUCKET` が空なら `.local_storage/` へ）。
+
+### 動作確認
+
+- `GET /api/v1/health` → `"dry_run": false` になっているか
+- `GET /api/v1/companies/SMB-1042/graph/slice` → `meta.source` が `"bigquery"` か
+  （`"sample"` なら seed 未投入 or エミュレータ未起動でフォールバック中）
+- グラフ画面（/graph）の subtitle が「BigQuery 実データ」表示になっているか
+
+詳細な設計背景は `docs/spec/continuous_discovery_agent_design.md` §23.2 / §23.4 を参照。
