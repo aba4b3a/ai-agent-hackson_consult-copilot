@@ -5,8 +5,9 @@ import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
-import { useInitialSurvey, useInitialSurveyStatus, useSubmitInitialSurvey } from "@/hooks/use-intake";
+import { useInitialSurvey, useInitialSurveyStatus, useRetryOnboarding, useSubmitInitialSurvey } from "@/hooks/use-intake";
 import type { InitialSurveyStatus, OnboardingStatus, SurveyAnswerPayload, SurveyQuestion, SurveyTemplate } from "@/services/intake-service";
+import { OnboardingFollowupStep } from "./OnboardingFollowupStep";
 
 type AnswerValue = string | string[];
 type ChatMessage = { role: "assistant" | "user"; text: string };
@@ -164,12 +165,37 @@ const resolveAnswerDisplay = (question: SurveyQuestion, rawAnswer: string) => {
   return rawAnswer;
 };
 
-const OnboardingStatusBanner = ({ status, error }: { status?: OnboardingStatus; error?: string | null }) => {
+const OnboardingStatusBanner = ({
+  status,
+  error,
+  onRetry,
+  retrying,
+}: {
+  status?: OnboardingStatus;
+  error?: string | null;
+  onRetry?: () => void;
+  retrying?: boolean;
+}) => {
   if (status === "processing") {
     return (
       <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
         <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700" aria-hidden="true" />
         Wikiを作成しています。しばらくお待ちください…
+      </div>
+    );
+  }
+  if (status === "awaiting_followup") {
+    return (
+      <div className="mt-3 rounded-lg bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
+        追加質問にご回答ください。すべて回答するとWikiが自動的に確定されます。
+      </div>
+    );
+  }
+  if (status === "finalizing") {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700" aria-hidden="true" />
+        Wikiを確定しています。しばらくお待ちください…
       </div>
     );
   }
@@ -182,8 +208,21 @@ const OnboardingStatusBanner = ({ status, error }: { status?: OnboardingStatus; 
   }
   if (status === "failed") {
     return (
-      <div className="mt-3 rounded-lg bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">
-        Wikiの作成に失敗しました。{error ? `(${error})` : ""} しばらくしてから再度回答を送信してください。
+      <div className="mt-3 space-y-2 rounded-lg bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">
+        <p>
+          Wikiの作成に失敗しました。{error ? `(${error})` : ""}
+          一時的な通信エラーの可能性があります。回答をやり直す必要はありません。
+        </p>
+        {onRetry ? (
+          <button
+            type="button"
+            disabled={retrying}
+            className="rounded-full bg-rose-600 px-4 py-2 text-xs font-black text-white disabled:bg-rose-300"
+            onClick={onRetry}
+          >
+            {retrying ? "再試行中…" : "再試行する"}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -194,10 +233,14 @@ const AnsweredSurveySummary = ({
   template,
   status,
   onEdit,
+  onRetry,
+  retrying,
 }: {
   template: SurveyTemplate;
   status: InitialSurveyStatus;
   onEdit: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) => {
   const answersByQuestionId = new Map(status.answers.map((answer) => [answer.question_id, answer]));
 
@@ -222,7 +265,12 @@ const AnsweredSurveySummary = ({
         {status.answered_count} / {status.total_count} 問に回答済みです。
       </div>
 
-      <OnboardingStatusBanner status={status.onboarding_status} error={status.onboarding_error} />
+      <OnboardingStatusBanner
+        status={status.onboarding_status}
+        error={status.onboarding_error}
+        onRetry={onRetry}
+        retrying={retrying}
+      />
 
       <div className="mt-5 space-y-3">
         {template.questions.map((question) => {
@@ -314,6 +362,7 @@ export const InitialSurveyForm = () => {
   const { data, isLoading, isError } = useInitialSurvey();
   const { data: status, isLoading: isStatusLoading } = useInitialSurveyStatus();
   const submitSurvey = useSubmitInitialSurvey();
+  const retryOnboarding = useRetryOnboarding();
   const [step, setStep] = useState(0);
   const [respondentRole, setRespondentRole] = useState("owner");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
@@ -331,10 +380,25 @@ export const InitialSurveyForm = () => {
   if (isLoading || isStatusLoading) return <LoadingState message="Loading..." active="intake" />;
   if (isError || !data || !question) return <LoadingState message="質問定義を取得できませんでした。" isError active="intake" />;
 
+  if (status?.answered && status.onboarding_status === "awaiting_followup") {
+    return (
+      <PhoneFrame>
+        <OnboardingFollowupStep />
+        <BottomNav active="intake" />
+      </PhoneFrame>
+    );
+  }
+
   if (status?.answered && !isEditing) {
     return (
       <PhoneFrame>
-        <AnsweredSurveySummary template={data} status={status} onEdit={() => setIsEditing(true)} />
+        <AnsweredSurveySummary
+          template={data}
+          status={status}
+          onEdit={() => setIsEditing(true)}
+          onRetry={() => retryOnboarding.mutate()}
+          retrying={retryOnboarding.isPending}
+        />
         <BottomNav active="intake" />
       </PhoneFrame>
     );
@@ -480,7 +544,12 @@ export const InitialSurveyForm = () => {
         {submitSurvey.isSuccess ? (
           <>
             <div className="mt-4 rounded-lg bg-teal-50 px-4 py-3 text-sm font-black text-teal-700">送信しました。Wikiの作成を開始します。</div>
-            <OnboardingStatusBanner status={status?.onboarding_status} error={status?.onboarding_error} />
+            <OnboardingStatusBanner
+              status={status?.onboarding_status}
+              error={status?.onboarding_error}
+              onRetry={() => retryOnboarding.mutate()}
+              retrying={retryOnboarding.isPending}
+            />
           </>
         ) : null}
         {submitSurvey.isError ? (

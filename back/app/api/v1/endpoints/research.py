@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from app.schemas.research import (
     Assignment,
@@ -11,6 +11,7 @@ from app.schemas.research import (
     FollowupAnswerSubmit,
     FollowupQuestionCreate,
 )
+from app.services.onboarding_service import onboarding_service
 from app.services.research_service import research_service
 
 router = APIRouter()
@@ -41,10 +42,11 @@ def list_assignments(
     company_id: str,
     target_role: str | None = Query(default=None),
     status: AssignmentStatus | None = Query(default="open"),
+    origin: str | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
 ):
     base = research_service.list_assignments(
-        company_id, target_role=target_role, status=status, limit=limit
+        company_id, target_role=target_role, status=status, origin=origin, limit=limit
     )
     # Enrich each assignment with its question text/category so the UI can
     # render the question without an extra round-trip.
@@ -63,6 +65,7 @@ def list_assignments(
             enriched_item["target_candidate_table"] = question.get("target_candidate_table")
             enriched_item["target_candidate_id"] = question.get("target_candidate_id")
             enriched_item["target_candidate_name"] = question.get("target_candidate_name")
+            enriched_item["origin"] = question.get("origin")
         enriched.append(enriched_item)
     payload = base.model_dump()
     payload["items"] = enriched
@@ -70,13 +73,15 @@ def list_assignments(
 
 
 @router.post("/{company_id}/research/answers", response_model=FollowupAnswerResult)
-def submit_followup_answer(company_id: str, data: FollowupAnswerSubmit):
+def submit_followup_answer(company_id: str, data: FollowupAnswerSubmit, background_tasks: BackgroundTasks):
     try:
-        return research_service.submit_answer(company_id, data)
+        result = research_service.submit_answer(company_id, data)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"assignment {data.assignment_id} not found")
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    onboarding_service.maybe_finalize_after_followup(company_id, background_tasks)
+    return result
 
 
 @router.post("/{company_id}/research/tick")

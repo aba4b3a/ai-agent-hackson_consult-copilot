@@ -95,6 +95,8 @@ class CompanyService:
         size_hint: str | None = None,
     ) -> dict:
         _ensure_table()
+        if self.get(company_id) is not None:
+            raise ValueError(f'company {company_id} already exists')
         now = utc_now_iso()
         row: dict[str, Any] = {
             "company_id": company_id,

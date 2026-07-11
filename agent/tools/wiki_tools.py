@@ -162,7 +162,12 @@ def render_wiki_files(
     kpi_candidates: list[dict[str, Any]],
     focus_metric_candidates: list[dict[str, Any]],
     research_plan: list[dict[str, Any]],
+    status: str = "confirmed",
 ) -> dict[str, str]:
+    """status is "draft" right after initial intake (before the onboarding
+    follow-up questions are answered) or "confirmed" once the wiki has been
+    re-rendered with those answers folded in. Recorded in manifest.json so
+    anything reading the wiki can tell which stage produced it."""
     return {
         "company_profile.md": render_company_profile_markdown(company_profile),
         "kpi_definitions.yaml": render_kpi_definitions_yaml(kpi_candidates),
@@ -171,6 +176,7 @@ def render_wiki_files(
         "manifest.json": json.dumps(
             {
                 "company_id": company_id,
+                "status": status,
                 "files": [
                     "company_profile.md",
                     "kpi_definitions.yaml",

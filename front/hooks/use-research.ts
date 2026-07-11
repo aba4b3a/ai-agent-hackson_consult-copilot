@@ -11,11 +11,18 @@ import {
 export const useAssignments = (params: {
   targetRole?: string;
   status?: AssignmentStatus;
+  origin?: string;
 }) => {
   const { activeCompany } = useAuth();
 
   return useQuery({
-    queryKey: ["research-assignments", activeCompany.code, params.targetRole ?? "all", params.status ?? "open"],
+    queryKey: [
+      "research-assignments",
+      activeCompany.code,
+      params.targetRole ?? "all",
+      params.status ?? "open",
+      params.origin ?? "all",
+    ],
     queryFn: () => listAssignments(params, activeCompany.code),
     staleTime: 15_000,
   });

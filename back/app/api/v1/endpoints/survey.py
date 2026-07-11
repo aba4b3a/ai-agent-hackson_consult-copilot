@@ -35,3 +35,12 @@ def create_initial_survey_submission(
     result = response_service.create_submission(company_id, data)
     background_tasks.add_task(onboarding_service.run_agent_onboarding, company_id, data.answers)
     return result
+
+
+@router.post('/{company_id}/survey/initial/onboarding/retry')
+def retry_initial_survey_onboarding(company_id: str, background_tasks: BackgroundTasks):
+    """Manually retry after onboarding_status='failed' (e.g. a transient
+    agent-connectivity error) — re-runs whichever stage actually failed
+    without requiring the user to resubmit any answers."""
+    background_tasks.add_task(onboarding_service.retry_failed_onboarding, company_id)
+    return {'status': 'retry_scheduled'}
