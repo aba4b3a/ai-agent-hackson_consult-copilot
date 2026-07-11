@@ -20,7 +20,9 @@ resource "google_compute_backend_service" "default" {
   name                  = "${var.service_prefix}-alb-backend"
   protocol              = "HTTP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
-  timeout_sec           = 60
+  # Note: timeout_sec is NOT supported when the backend is a Serverless NEG
+  # (Cloud Run / App Engine / Cloud Functions). GCP rejects the field with a
+  # 400. Request-level timeouts are governed by the Cloud Run service itself.
 
   backend {
     group = google_compute_region_network_endpoint_group.cloud_run_neg.id
