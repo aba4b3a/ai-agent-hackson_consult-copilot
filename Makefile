@@ -1,19 +1,28 @@
-.PHONY: setup dev lint terraform-check test seed-emulator build clean
+.PHONY: setup dev sidecar lint terraform-check test seed-emulator build clean
 
-# npm install is run during docker compose up in front service
+# The base docker-compose file gates everything by profile now. Every
+# command that touches Compose picks a profile — `dev` is the default for
+# these targets; use `make sidecar` (or `docker compose --profile sidecar
+# ...`) for the Cloud Run reproduction.
+COMPOSE := docker compose --profile dev
+
 setup:
-	docker compose build
+	$(COMPOSE) build
+	# npm install is run during docker compose up in front service
 
 dev:
-	docker compose up --build
+	$(COMPOSE) up --build
+
+sidecar:
+	docker compose --profile sidecar up --build
 
 lint:
-	docker compose run --rm --no-deps front npm run lint
-	docker compose run --rm --no-deps front npm run typecheck
-	docker compose run --rm --no-deps back ruff check .
-	docker compose run --rm --no-deps back mypy app
-	docker compose run --rm --no-deps agent ruff check .
-	docker compose run --rm --no-deps agent mypy .
+	$(COMPOSE) run --rm --no-deps front npm run lint
+	$(COMPOSE) run --rm --no-deps front npm run typecheck
+	$(COMPOSE) run --rm --no-deps back ruff check .
+	$(COMPOSE) run --rm --no-deps back mypy app
+	$(COMPOSE) run --rm --no-deps agent ruff check .
+	$(COMPOSE) run --rm --no-deps agent mypy .
 
 terraform-check:
 	cd infra/terraform && terraform fmt -check -recursive
@@ -21,23 +30,21 @@ terraform-check:
 	cd infra/terraform/environments/dev && terraform validate
 
 test:
-	docker compose run --rm --no-deps front npm run test:e2e
-	docker compose run --rm --no-deps back pytest
-	docker compose run --rm --no-deps agent pytest
+	$(COMPOSE) run --rm --no-deps front npm run test:e2e
+	$(COMPOSE) run --rm --no-deps back pytest
+	$(COMPOSE) run --rm --no-deps agent pytest
 
-# The BigQuery emulator has no persistent volume, so its data is lost on
-# every restart; re-run this after that happens.
-# (Keep comments outside the recipe: on Windows, make passes tab-indented
-#  lines to cmd.exe, which cannot execute "#" comment lines.)
 seed-emulator:
-	docker compose run --rm back python scripts/seed_emulator.py
+	# The BigQuery emulator has no persistent volume, so its data is lost on
+	# every restart; re-run this after that happens.
+	$(COMPOSE) run --rm back python scripts/seed_emulator.py
 
 build:
-	docker compose run --rm --no-deps front npm run build
+	$(COMPOSE) run --rm --no-deps front npm run build
 	docker build -t consult-copilot-back:local ./back
 	docker build -t consult-copilot-agent:local ./agent
 
 clean:
-	docker compose down -v
+	docker compose --profile dev --profile sidecar down -v
 	rm -rf front/.next front/out front/node_modules
 	rm -rf back/.venv agent/.venv

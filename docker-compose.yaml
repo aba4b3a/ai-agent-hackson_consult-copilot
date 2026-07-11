@@ -1,5 +1,28 @@
+# Two modes in one file, selected by Compose profile (choose one — they
+# cannot run simultaneously because both bind host port 8080):
+#
+#   docker compose --profile dev up          # local dev with hot reload
+#     front (npm run dev, :3000), back (:8000), agent (:8080),
+#     bigquery-emulator (:9050), ollama (:11434), devcontainer.
+#     Standard docker networking — containers reach each other by service
+#     name (e.g. bigquery-emulator:9050 from back).
+#
+#   docker compose --profile sidecar up      # Cloud Run reproduction
+#     nginx (:8080 — the ONLY public port), back-sidecar, agent-sidecar.
+#     All three share nginx's network namespace via
+#     `network_mode: "service:nginx"`, matching Cloud Run's multi-container
+#     localhost sharing. Verify routing:
+#       curl http://localhost:8080/
+#       curl http://localhost:8080/api/v1/health
+#       curl http://localhost:8080/agent/list-apps
+#
+# `docker compose up` (no --profile) starts nothing on purpose. Always
+# pick a profile explicitly.
+
 services:
+  # ---------------- dev profile: hot-reload local dev ----------------
   devcontainer:
+    profiles: [dev]
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
@@ -12,6 +35,7 @@ services:
       - ollama
 
   front:
+    profiles: [dev]
     image: node:24-bookworm
     working_dir: /workspace/front
     volumes:
@@ -26,12 +50,15 @@ services:
       - back
 
   back:
+    profiles: [dev]
     build:
       context: ./back
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    env_file: ./back/.env
+    env_file:
+      - path: ./back/.env
+        required: false
     volumes:
       - ./back:/app
     depends_on:
@@ -39,12 +66,15 @@ services:
       - ollama
 
   agent:
+    profiles: [dev]
     build:
       context: ./agent
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    env_file: ./agent/.env
+    env_file:
+      - path: ./agent/.env
+        required: false
     volumes:
       - ./agent:/app
       # Gemini Enterprise (Vertex AI) 認証用のサービスアカウントJSON。
@@ -55,6 +85,7 @@ services:
       - bigquery-emulator
 
   bigquery-emulator:
+    profiles: [dev]
     image: ghcr.io/goccy/bigquery-emulator:latest
     command:
       - --project=local-project
@@ -63,6 +94,7 @@ services:
       - "9050:9050"
 
   ollama:
+    profiles: [dev]
     image: ollama/ollama:0.30.10
     container_name: ollama-ai
     ports:
@@ -71,8 +103,6 @@ services:
       - ./ollama:/root/.ollama
     restart: always
     gpus: all
-    # command: >
-    #   "sleep 10 && OLLAMA_HOST=http://ollama-ai:11434 ollama pull gemma4:12b"
     environment:
       # Default context (4096) leaves almost no room to generate once the
       # multi-agent orchestrator/knowledge-agent system prompts are included.
@@ -88,6 +118,73 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+
+  # ---------------- sidecar (Cloud Run reproduction) ----------------
+  # Activated by `--profile sidecar`. Not started by default.
+  #
+  # For local convenience we avoid `docker build` for back/agent and
+  # `pip install` at container start instead — this sidesteps a Windows
+  # issue where root-owned `.pytest_cache` directories block the classic
+  # Docker builder's context scan. Production still uses back/Dockerfile
+  # and agent/Dockerfile via GitHub Actions on Linux.
+  nginx:
+    profiles: [sidecar]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./front/out:/usr/share/nginx/html:ro
+    ports:
+      - "8080:8080"
+
+  back-sidecar:
+    profiles: [sidecar]
+    image: python:3.12-slim
+    network_mode: "service:nginx"
+    depends_on:
+      - nginx
+    working_dir: /app
+    volumes:
+      - ./back:/app
+    command: >
+      sh -c "pip install --quiet uv &&
+             uv pip install --system . --group dev &&
+             exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      APP_ENV: local
+      DEBUG: "true"
+      DRY_RUN: "true"
+      GCP_PROJECT: local-project
+      PROJECT_ID: local-project
+      LOCATION: asia-northeast1
+      BQ_DATASET_PREFIX: consultant_copilot
+      WIKI_BUCKET: ""
+      AGENT_BASE_URL: "http://127.0.0.1:8081"
+      PYTHONPATH: /app
+
+  agent-sidecar:
+    profiles: [sidecar]
+    image: python:3.12-slim
+    network_mode: "service:nginx"
+    depends_on:
+      - nginx
+    working_dir: /app
+    volumes:
+      - ./agent:/app
+    command: >
+      sh -c "pip install --quiet uv &&
+             uv pip install --system . --group dev &&
+             exec adk api_server --host 0.0.0.0 --port 8081 agents"
+    environment:
+      APP_ENV: local
+      DRY_RUN: "true"
+      GCP_PROJECT: local-project
+      PROJECT_ID: local-project
+      LOCATION: asia-northeast1
+      GOOGLE_CLOUD_PROJECT: local-project
+      GOOGLE_CLOUD_LOCATION: asia-northeast1
+      GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
+      BQ_DATASET_PREFIX: consultant_copilot
+      WIKI_BUCKET: ""
 
 volumes:
   front_node_modules:

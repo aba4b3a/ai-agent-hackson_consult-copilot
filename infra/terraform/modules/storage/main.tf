@@ -1,27 +1,32 @@
 resource "google_storage_bucket" "artifacts" {
-  name                        = "${var.project_id}-qualityops-artifacts"
+  name                        = "${var.project_id}-${var.service_prefix}-artifacts"
   location                    = var.region
   uniform_bucket_level_access = true
+  force_destroy               = false
 
   lifecycle_rule {
     condition {
       age = 14
     }
-
     action {
       type = "Delete"
     }
+  }
+
+  labels = {
+    project = var.service_prefix
+    layer   = "artifacts"
   }
 }
 
 # LLM Wiki bucket: per-project, versioning enabled.
 # Layout (matches agent/tools/storage_tools.py):
-#   tenants/{company_id}/wiki/current/*        ... latest version of each wiki file
-#   tenants/{company_id}/wiki/versions/<ts>/*  ... explicit point-in-time snapshots
+#   tenants/{company_id}/wiki/current/*
+#   tenants/{company_id}/wiki/versions/<ts>/*
 #   tenants/{company_id}/raw/fiscal_year=<n>/answers/*
 #   tenants/{company_id}/derived/fiscal_year=<n>/*
 resource "google_storage_bucket" "llm_wiki" {
-  name                        = "${var.project_id}-llm-wiki"
+  name                        = "${var.project_id}-${var.service_prefix}-wiki"
   location                    = var.region
   uniform_bucket_level_access = true
   force_destroy               = false
@@ -30,11 +35,10 @@ resource "google_storage_bucket" "llm_wiki" {
     enabled = true
   }
 
-  # 90 days after a version is *replaced* (no longer live), demote storage class.
   lifecycle_rule {
     condition {
-      age                = 90
-      with_state         = "ARCHIVED"
+      age                   = 90
+      with_state            = "ARCHIVED"
       matches_storage_class = ["STANDARD"]
     }
     action {
@@ -43,8 +47,6 @@ resource "google_storage_bucket" "llm_wiki" {
     }
   }
 
-  # 365 days after a version is replaced, delete that historical version.
-  # Live (current) objects are never affected by with_state=ARCHIVED rules.
   lifecycle_rule {
     condition {
       age        = 365
@@ -56,7 +58,7 @@ resource "google_storage_bucket" "llm_wiki" {
   }
 
   labels = {
-    project = "consult-copilot"
+    project = var.service_prefix
     layer   = "wiki"
   }
 }

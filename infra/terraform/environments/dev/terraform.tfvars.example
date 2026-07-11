@@ -1,0 +1,15 @@
+# Copy to `terraform.tfvars` and fill in. Do NOT commit terraform.tfvars.
+project_id        = "your-gcp-project-id"
+region            = "asia-northeast1"
+service_prefix    = "consult-copilot"
+bq_dataset_prefix = "consultant_copilot"
+github_repository = "your-org/your-repo"
+
+# On first apply, leave the image_* variables at their defaults (hello world).
+# After the first successful `terraform apply`, run the GitHub Actions
+# workflow (or the local `docker build` / `gcloud run deploy` commands in
+# docs/deploy.md) — Cloud Run's image tags will be updated out-of-band and
+# Terraform will ignore drift on them.
+# image_nginx = "asia-northeast1-docker.pkg.dev/<project>/consult-copilot/nginx:<sha>"
+# image_back  = "asia-northeast1-docker.pkg.dev/<project>/consult-copilot/back:<sha>"
+# image_agent = "asia-northeast1-docker.pkg.dev/<project>/consult-copilot/agent:<sha>"
