@@ -21,21 +21,21 @@ export const ResearchInbox = () => {
   const submit = useSubmitFollowupAnswer();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  if (isLoading) return <LoadingState message="質問を読込中..." active="research" />;
-  if (isError || !data) return <LoadingState isError message="Research Agent からの質問を取得できませんでした。" active="research" />;
+  if (isLoading) return <LoadingState message="追加質問を読込中..." active="research" />;
+  if (isError || !data) return <LoadingState isError message="追加質問を取得できませんでした。" active="research" />;
 
   return (
     <PhoneFrame>
       <div className="px-5 pb-24 pt-5 md:px-7 md:pb-8 md:pt-8">
         <header className="space-y-1">
           <p className="text-xs font-black text-blue-600">Research Inbox</p>
-          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">ナレッジ確定のための質問</h1>
+          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">暗黙知を引き出す追加質問</h1>
           <p className="text-xs font-bold text-slate-500">
-            BigQuery上のKPI候補・注目指標候補・シグナル候補のうち、まだ確定していない項目を埋めるための質問です。回答すると該当レコードの確度(confidence)が更新されます。
+            現場メモや初期ヒアリングだけでは足りない文脈を、AIエージェントが質問として整理します。短い回答でも、事実・仮説・次に観測すべきテーマへつなげます。
           </p>
         </header>
 
-        <section className="mt-4 flex flex-wrap gap-2">
+        <section className="mt-4 flex flex-wrap gap-2" aria-label="回答者の役割">
           {ROLES.map((option) => {
             const active = option.value === role;
             return (
@@ -56,7 +56,7 @@ export const ResearchInbox = () => {
         <section className="mt-3 space-y-3">
           {data.items.length === 0 ? (
             <Card className="rounded-lg p-4 text-xs font-bold text-slate-500">
-              今は{ROLES.find((option) => option.value === role)?.label}宛の追加質問はありません。
+              現在、{ROLES.find((option) => option.value === role)?.label}向けの追加質問はありません。
             </Card>
           ) : (
             data.items.map((item) => {
@@ -64,18 +64,16 @@ export const ResearchInbox = () => {
               return (
                 <Card key={item.assignment_id} className="space-y-3 rounded-lg">
                   <div className="flex items-center justify-between gap-2 text-[11px] font-black text-slate-500">
-                    <span>{item.question_category ?? "観測"}</span>
+                    <span>{item.question_category ?? "観測テーマ"}</span>
                     <span>{item.created_at.slice(0, 16)}</span>
                   </div>
                   {item.target_candidate_name ? (
-                    <p className="text-[11px] font-black text-teal-700">
-                      対象: {item.target_candidate_name}
-                    </p>
+                    <p className="text-[11px] font-black text-teal-700">対象: {item.target_candidate_name}</p>
                   ) : null}
-                  <p className="text-sm font-black leading-snug text-slate-950">{item.question_text ?? "(質問テキスト未取得)"}</p>
-                  {item.reason ? <p className="text-[11px] font-bold text-slate-500">理由: {item.reason}</p> : null}
+                  <p className="text-sm font-black leading-snug text-slate-950">{item.question_text ?? "(質問文を取得できませんでした)"}</p>
+                  {item.reason ? <p className="text-[11px] font-bold text-slate-500">質問の意図: {item.reason}</p> : null}
                   {item.expected_answer_format ? (
-                    <p className="text-[11px] font-bold text-slate-500">回答形式: {item.expected_answer_format}</p>
+                    <p className="text-[11px] font-bold text-slate-500">回答の目安: {item.expected_answer_format}</p>
                   ) : null}
                   <textarea
                     className="min-h-20 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-blue-500"
@@ -83,7 +81,7 @@ export const ResearchInbox = () => {
                     onChange={(event) =>
                       setDrafts((prev) => ({ ...prev, [item.assignment_id]: event.target.value }))
                     }
-                    placeholder="観測した内容を短く"
+                    placeholder="現場で見聞きしたこと、顧客の発言、違和感などを短く入力"
                   />
                   <div className="flex justify-end">
                     <button
@@ -110,7 +108,7 @@ export const ResearchInbox = () => {
 
         {submit.isSuccess ? (
           <div className="mt-3 rounded-lg bg-teal-50 px-3 py-2 text-xs font-black text-teal-700">
-            回答を記録しました。対象レコードの確度(confidence)が更新されます。
+            回答を記録しました。ナレッジ形成の材料として反映されます。
           </div>
         ) : null}
         {submit.isError ? (

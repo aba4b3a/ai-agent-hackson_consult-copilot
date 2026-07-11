@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
 
 const platformSignals = [
-  { label: "初期ヒアリング", detail: "18問から企業モデルを作成", mark: "01" },
-  { label: "KPI候補", detail: "結果指標と先行指標を分離", mark: "KPI" },
-  { label: "LLM Wiki", detail: "企業別ナレッジを版管理", mark: "DB" },
+  { label: "初期ヒアリング", detail: "現場メモや経営者の仮説から開始", mark: "01" },
+  { label: "追加ヒアリング", detail: "不足している文脈をAIが質問", mark: "Q" },
+  { label: "知識資産化", detail: "事実・仮説・根拠を整理して蓄積", mark: "K" },
 ];
 
 export const SignInPage = () => {
@@ -39,18 +39,18 @@ export const SignInPage = () => {
               </span>
             </div>
             <div>
-              <p className="text-sm font-black">Consult Copilot</p>
-              <p className="text-xs font-semibold text-white/70">AI組織学習プラットフォーム</p>
+              <p className="text-sm font-black">Knowledge Farmer</p>
+              <p className="text-xs font-semibold text-white/70">AIエージェント型ナレッジ形成プラットフォーム</p>
             </div>
           </div>
 
           <div className="mt-14 max-w-2xl lg:mt-0">
-            <p className="text-sm font-bold text-emerald-100">コンサルタント向けサインイン</p>
+            <p className="text-sm font-bold text-emerald-100">中小企業支援のためのワークスペース</p>
             <h1 className="mt-4 text-4xl font-black leading-tight tracking-normal text-white sm:text-5xl">
-              企業固有のKPIと観測方針を、継続質問から育てる。
+              企業の暗黙知を耕し、改善に使える知識資産へ育てる。
             </h1>
             <p className="mt-5 max-w-xl text-base font-medium leading-8 text-white/78">
-              初期回答、Research Agentの追加質問、人間承認をつなぎ、LLM WikiとBigQueryへ反映するための作業入口です。
+              現場の短いメモ、顧客の声、経営者の仮説をAIエージェントが引き出し、整理し、コンサルタントが次の改善に使える形へ育てます。
             </p>
           </div>
 
@@ -75,7 +75,7 @@ export const SignInPage = () => {
               <p className="text-xs font-black uppercase tracking-normal text-emerald-700">Secure workspace</p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">サインイン</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                サインイン後、画面右上で担当企業を選択・切り替えできます。
+                サインイン後、企業を選択して観測・ナレッジ・レポートを確認できます。
               </p>
             </div>
 

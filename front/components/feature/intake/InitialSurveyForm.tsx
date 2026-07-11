@@ -35,7 +35,7 @@ const buildFollowupPrompt = (question: SurveyQuestion) => {
     return "競合名、比較された観点、最終的な購買結果が分かると分析しやすいです。";
   }
   if (question.question_category === "current_kpi") {
-    return "その数値を誰が、どの頻度で、どの判断に使っているかも分かるとKPI候補にしやすいです。";
+    return "その数値を誰が、どの頻度で、どの判断に使っているかも分かると観測指標にしやすいです。";
   }
   return "具体例、頻度、関係する商品・顧客層が分かれば追加で教えてください。";
 };
