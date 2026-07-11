@@ -2,11 +2,17 @@ name: ci
 
 on:
   pull_request:
-  push:
     branches:
-      - main
+      - develop
+  workflow_dispatch:
 
 jobs:
+  ai-review:
+    uses: aba4b3a/ai-agent-hackason_ai-common/.github/workflows/ai-review.yml@5620f881413f5a961e6f956ff8f73db255e46cdb
+
+  security-check:
+    uses: aba4b3a/ai-agent-hackason_ai-common/.github/workflows/security-check.yml@5620f881413f5a961e6f956ff8f73db255e46cdb
+
   front:
     runs-on: ubuntu-latest
     defaults:
