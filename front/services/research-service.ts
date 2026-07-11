@@ -20,6 +20,7 @@ export type Assignment = {
   target_candidate_table: string | null;
   target_candidate_id: string | null;
   target_candidate_name: string | null;
+  origin: string | null;
 };
 
 export type AssignmentList = {
@@ -47,10 +48,12 @@ export type FollowupAnswerResult = {
 export const listAssignments = (params: {
   targetRole?: string;
   status?: AssignmentStatus;
+  origin?: string;
 }, targetCompanyId = companyId): Promise<AssignmentList> => {
   const search = new URLSearchParams();
   if (params.targetRole) search.set("target_role", params.targetRole);
   if (params.status) search.set("status", params.status);
+  if (params.origin) search.set("origin", params.origin);
   const qs = search.toString();
   return apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/research/assignments${qs ? `?${qs}` : ""}`);
 };

@@ -27,7 +27,8 @@ class ResponseService:
         nodes, edges = knowledge_service.extract_from_response(company_id, response)
         response.related_node_ids = [n.node_id for n in nodes]
         response.related_edge_ids = [e.edge_id for e in edges]
-        response_persistence = bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'survey_responses'), [{**response.model_dump(), 'created_at': collected_at}])
+        row = {**response.model_dump(), 'created_at': collected_at, 'answer_json': json.dumps(response.answer_json, ensure_ascii=False)}
+        response_persistence = bigquery_crud.insert_json_rows(settings.qualified_table(company_id, 'survey_responses'), [row])
         graph_persistence = knowledge_service.persist_nodes_edges(company_id, nodes, edges)
         return SurveyResponseCreateResult(response=response, extracted_nodes=[n.model_dump() for n in nodes], extracted_edges=[e.model_dump() for e in edges], persistence={'response': response_persistence, 'graph': graph_persistence})
 

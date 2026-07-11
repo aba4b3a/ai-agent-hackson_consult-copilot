@@ -26,6 +26,10 @@ class FollowupQuestionCreate(BaseModel):
     target_candidate_table: str | None = None
     target_candidate_id: str | None = None
     target_candidate_name: str | None = None
+    # "onboarding" for questions generated right after initial intake, None
+    # for gap-detection/manual follow-ups — lets the onboarding pipeline
+    # tell its own follow-up round apart from everything else Research asks.
+    origin: str | None = None
 
 
 class AssignmentCreate(BaseModel):
@@ -56,6 +60,7 @@ class Assignment(BaseModel):
     target_candidate_table: str | None = None
     target_candidate_id: str | None = None
     target_candidate_name: str | None = None
+    origin: str | None = None
 
 
 class AssignmentList(BaseModel):

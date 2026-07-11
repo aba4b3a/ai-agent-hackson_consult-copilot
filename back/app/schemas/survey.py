@@ -138,3 +138,5 @@ class InitialSurveyStatus(BaseModel):
     answered_count: int
     total_count: int
     answers: list[SurveyAnswerRead] = Field(default_factory=list)
+    onboarding_status: str | None = None
+    onboarding_error: str | None = None

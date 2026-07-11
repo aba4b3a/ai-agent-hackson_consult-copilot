@@ -255,10 +255,14 @@ CREATE TABLE IF NOT EXISTS `{tenant}.{research_followup_question_events}` (
   target_candidate_table STRING,
   target_candidate_id STRING,
   target_candidate_name STRING,
+  origin STRING,
   created_at TIMESTAMP NOT NULL
 )
 PARTITION BY DATE(generated_at)
 CLUSTER BY company_id, status, question_category;
+
+ALTER TABLE `{tenant}.{research_followup_question_events}`
+  ADD COLUMN IF NOT EXISTS origin STRING;
 
 CREATE TABLE IF NOT EXISTS `{tenant}.{followup_answer_events}` (
   followup_answer_event_id STRING NOT NULL,
@@ -426,7 +430,7 @@ def generate_core_tables_ddl(company_id: str) -> dict:
 CREATE SCHEMA IF NOT EXISTS `{project}.{dataset}`
 OPTIONS(location="{settings.location}");
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{survey_responses}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{survey_responses}` (
   response_id STRING NOT NULL,
   company_id STRING NOT NULL,
   question_id STRING,
@@ -447,7 +451,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.{survey_responses}` (
   PRIMARY KEY (response_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_nodes}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{knowledge_nodes}` (
   node_id STRING NOT NULL,
   company_id STRING NOT NULL,
   node_type STRING NOT NULL,
@@ -464,7 +468,7 @@ CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_nodes}` (
   PRIMARY KEY (node_id) NOT ENFORCED
 );
 
-CREATE OR REPLACE TABLE `{project}.{dataset}.{knowledge_edges}` (
+CREATE TABLE IF NOT EXISTS `{project}.{dataset}.{knowledge_edges}` (
   edge_id STRING NOT NULL,
   company_id STRING NOT NULL,
   source_node_id STRING NOT NULL,
@@ -551,7 +555,7 @@ def insert_survey_response(
         "tags": tags or [],
         "related_node_ids": related_node_ids or [],
         "related_edge_ids": related_edge_ids or [],
-        "answer_json": answer_json or {},
+        "answer_json": _json_value(answer_json),
         "created_at": collected_at,
     }
     if settings.dry_run:
@@ -579,10 +583,10 @@ def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dic
                 "respondent_role": record.get("respondent_role"),
                 "answered_at": record.get("answered_at", now),
                 "answer_text": record.get("answer_text"),
-                "answer_payload": record.get("answer_payload", {}),
+                "answer_payload": _json_value(record.get("answer_payload")),
                 "extracted_summary": record.get("extracted_summary"),
-                "extracted_entities": record.get("extracted_entities", {}),
-                "extracted_signals": record.get("extracted_signals", {}),
+                "extracted_entities": _json_value(record.get("extracted_entities")),
+                "extracted_signals": _json_value(record.get("extracted_signals")),
                 "source_gcs_uri": record.get("source_gcs_uri"),
                 "source_file_generation": record.get("source_file_generation"),
                 "created_at": record.get("created_at", now),
@@ -733,7 +737,10 @@ def insert_research_followup_question_events(company_id: str, records: list[dict
     "question_text". Optional keys: generated_at, question_category,
     target_role, reason, related_kpi_candidates,
     related_focus_metric_candidates, expected_answer_format,
-    priority_score, status, source_answer_event_ids, source_gcs_uri.
+    priority_score, status, source_answer_event_ids, source_gcs_uri, origin.
+    Set origin="onboarding" for questions generated right after initial
+    intake, so the backend can tell them apart from gap-detection/manual
+    follow-ups and know when the onboarding follow-up round is complete.
     """
     table = _company_qualified(company_id, "research_followup_question_events")
     now = _now_iso()
@@ -757,6 +764,7 @@ def insert_research_followup_question_events(company_id: str, records: list[dict
                 "status": record.get("status", "proposed"),
                 "source_answer_event_ids": record.get("source_answer_event_ids", []),
                 "source_gcs_uri": record.get("source_gcs_uri"),
+                "origin": record.get("origin"),
                 "created_at": record.get("created_at", now),
             }
         )

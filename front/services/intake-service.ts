@@ -66,12 +66,23 @@ export type SurveyAnswerRead = {
   collected_at: string;
 };
 
+export type OnboardingStatus =
+  | "pending"
+  | "processing"
+  | "awaiting_followup"
+  | "finalizing"
+  | "completed"
+  | "failed"
+  | null;
+
 export type InitialSurveyStatus = {
   company_id: string;
   answered: boolean;
   answered_count: number;
   total_count: number;
   answers: SurveyAnswerRead[];
+  onboarding_status?: OnboardingStatus;
+  onboarding_error?: string | null;
 };
 
 export const getInitialSurvey = (targetCompanyId = companyId): Promise<SurveyTemplate> =>
@@ -79,6 +90,11 @@ export const getInitialSurvey = (targetCompanyId = companyId): Promise<SurveyTem
 
 export const getInitialSurveyStatus = (targetCompanyId = companyId): Promise<InitialSurveyStatus> =>
   apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial/submissions`);
+
+export const retryOnboarding = (targetCompanyId = companyId) =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial/onboarding/retry`, {
+    method: "POST",
+  });
 
 export const submitInitialSurvey = (body: {
   respondent_role: string;

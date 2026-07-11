@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from app.schemas.survey import (
     InitialSurveyStatus,
     SurveyResponseCreate,
@@ -6,6 +6,7 @@ from app.schemas.survey import (
     SurveySubmissionCreate,
     SurveySubmissionResult,
 )
+from app.services.onboarding_service import onboarding_service
 from app.services.response_service import response_service
 from app.services.survey_service import survey_service
 
@@ -28,5 +29,18 @@ def create_survey_response(company_id: str, data: SurveyResponseCreate):
 
 
 @router.post('/{company_id}/survey/initial/submissions', response_model=SurveySubmissionResult)
-def create_initial_survey_submission(company_id: str, data: SurveySubmissionCreate):
-    return response_service.create_submission(company_id, data)
+def create_initial_survey_submission(
+    company_id: str, data: SurveySubmissionCreate, background_tasks: BackgroundTasks
+):
+    result = response_service.create_submission(company_id, data)
+    background_tasks.add_task(onboarding_service.run_agent_onboarding, company_id, data.answers)
+    return result
+
+
+@router.post('/{company_id}/survey/initial/onboarding/retry')
+def retry_initial_survey_onboarding(company_id: str, background_tasks: BackgroundTasks):
+    """Manually retry after onboarding_status='failed' (e.g. a transient
+    agent-connectivity error) — re-runs whichever stage actually failed
+    without requiring the user to resubmit any answers."""
+    background_tasks.add_task(onboarding_service.retry_failed_onboarding, company_id)
+    return {'status': 'retry_scheduled'}

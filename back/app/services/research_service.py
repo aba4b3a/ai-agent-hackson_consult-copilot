@@ -44,6 +44,14 @@ _ensured_companies: set[str] = set()
 # still below the confidence threshold, becomes a follow-up question. This is
 # the primary loop the Research screen exists to drive — the ad-hoc
 # agent-authored follow-ups are a secondary source of questions.
+#
+# checked_fields' second element is a plain-language question fragment, not
+# a jargon label — the respondent is a small-business owner/staff member
+# without IT or management vocabulary, so "算出方法" ("calculation method"),
+# "データの取得元" ("data source"), etc. must never appear in question text
+# shown to them (observed directly: a respondent flagged the old wording —
+# "「商品別利益」の算出方法・データの取得元を教えてください。" — as not
+# something you'd ask a small-business owner).
 _GAP_TARGETS: list[dict[str, Any]] = [
     {
         "table": "kpi_candidates",
@@ -51,9 +59,9 @@ _GAP_TARGETS: list[dict[str, Any]] = [
         "name_field": "kpi_name",
         "category": "KPI確認",
         "checked_fields": [
-            ("calculation_hint", "算出方法"),
-            ("data_source_hint", "データの取得元"),
-            ("measurement_frequency", "計測頻度"),
+            ("calculation_hint", "その数字は普段どうやって把握していますか？(レジの記録を見る、感覚で分かる、など)"),
+            ("data_source_hint", "その数字は、どこを見ると分かりますか？(レジ・帳簿・メモなど)"),
+            ("measurement_frequency", "だいたいどれくらいの頻度で確認していますか？(毎日・週1回・月1回など)"),
         ],
     },
     {
@@ -62,9 +70,9 @@ _GAP_TARGETS: list[dict[str, Any]] = [
         "name_field": "metric_name",
         "category": "注目指標確認",
         "checked_fields": [
-            ("calculation_hint", "算出方法"),
-            ("data_source_hint", "データの取得元"),
-            ("trigger_condition", "着目すべき変化の条件"),
+            ("calculation_hint", "その数字は普段どうやって把握していますか？"),
+            ("data_source_hint", "その数字は、どこを見ると分かりますか？"),
+            ("trigger_condition", "『これはいつもと違うな』と感じるのは、どんな時ですか？"),
         ],
     },
     {
@@ -73,9 +81,9 @@ _GAP_TARGETS: list[dict[str, Any]] = [
         "name_field": "signal_name",
         "category": "シグナル確認",
         "checked_fields": [
-            ("detection_rule", "検知条件"),
-            ("expected_source", "情報の入手元"),
-            ("expected_frequency", "確認頻度"),
+            ("detection_rule", "それに気づくのは、どんな時ですか？"),
+            ("expected_source", "それは普段、どこで気づいたり、誰から聞いたりしますか？"),
+            ("expected_frequency", "だいたいどれくらいの頻度で気づきますか？"),
         ],
     },
 ]
@@ -137,13 +145,15 @@ CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{questions_table}` (
   target_candidate_table STRING,
   target_candidate_id STRING,
   target_candidate_name STRING,
+  origin STRING,
   created_at TIMESTAMP NOT NULL
 );
 
 ALTER TABLE `{settings.project_id}.{dataset}.{questions_table}`
   ADD COLUMN IF NOT EXISTS target_candidate_table STRING,
   ADD COLUMN IF NOT EXISTS target_candidate_id STRING,
-  ADD COLUMN IF NOT EXISTS target_candidate_name STRING;
+  ADD COLUMN IF NOT EXISTS target_candidate_name STRING,
+  ADD COLUMN IF NOT EXISTS origin STRING;
 
 CREATE TABLE IF NOT EXISTS `{settings.project_id}.{dataset}.{assignments_table}` (
   assignment_id STRING NOT NULL,
@@ -219,6 +229,7 @@ class ResearchService:
             "target_candidate_table": data.target_candidate_table,
             "target_candidate_id": data.target_candidate_id,
             "target_candidate_name": data.target_candidate_name,
+            "origin": data.origin,
             "created_at": now,
         }
         result = _insert_row(_table(data.company_id, QUESTIONS_TABLE), row)
@@ -259,21 +270,28 @@ class ResearchService:
         company_id: str,
         target_role: str | None = None,
         status: AssignmentStatus | None = "open",
+        origin: str | None = None,
         limit: int = 200,
     ) -> AssignmentList:
         _ensure_tables(company_id)
-        clauses = [f"company_id = {sql_literal(company_id)}"]
+        clauses = [f"a.company_id = {sql_literal(company_id)}"]
         if target_role is not None:
-            clauses.append(f"target_role = {sql_literal(target_role)}")
+            clauses.append(f"a.target_role = {sql_literal(target_role)}")
         if status is not None:
-            clauses.append(f"status = {sql_literal(status)}")
+            clauses.append(f"a.status = {sql_literal(status)}")
+        if origin is not None:
+            clauses.append(f"q.origin = {sql_literal(origin)}")
         sql = (
-            f"SELECT * FROM `{_table(company_id, ASSIGNMENTS_TABLE)}` "
-            f"WHERE {' AND '.join(clauses)} ORDER BY created_at DESC LIMIT {int(limit)}"
+            f"SELECT a.* FROM `{_table(company_id, ASSIGNMENTS_TABLE)}` a "
+            f"JOIN `{_table(company_id, QUESTIONS_TABLE)}` q "
+            f"ON q.followup_question_id = a.followup_question_id "
+            f"WHERE {' AND '.join(clauses)} ORDER BY a.created_at DESC LIMIT {int(limit)}"
         )
         rows = bigquery_crud.query_rows(sql)
         items = [Assignment(**_stringify_timestamps(row)) for row in rows]
-        if status in (None, "open"):
+        # Schedule-driven items never carry an onboarding/gap origin — only
+        # fold them in when the caller isn't filtering by origin.
+        if origin is None and status in (None, "open"):
             items = items + self._resolve_scheduled_assignments(company_id, target_role)
         return AssignmentList(
             company_id=company_id, target_role=target_role, items=items, total=len(items)
@@ -488,16 +506,13 @@ LIMIT 1
         candidate_id: str,
         candidate_name: str,
         confidence: float | None,
-        missing_labels: list[str],
+        missing_prompts: list[str],
     ) -> dict[str, Any]:
-        if missing_labels:
-            question_text = f"「{candidate_name}」の{'・'.join(missing_labels)}を教えてください。"
+        if missing_prompts:
+            question_text = f"「{candidate_name}」について教えてください。{' '.join(missing_prompts)}"
         else:
-            question_text = f"「{candidate_name}」は現在の実態と合っていますか？裏付けとなる情報があれば教えてください。"
-        reason = (
-            f"{target['table']}の「{candidate_name}」がまだ確定していません"
-            f"(confidence={confidence if confidence is not None else '未設定'})。"
-        )
+            question_text = f"「{candidate_name}」は、最近の実感と合っていますか？気づいたことがあれば教えてください。"
+        reason = f"「{candidate_name}」について、もう少し詳しく教えていただきたいです。"
         data = FollowupQuestionCreate(
             company_id=company_id,
             followup_question_id=_new_id("fq"),
@@ -540,17 +555,17 @@ WHERE company_id = {sql_literal(company_id)} AND approval_status = 'proposed'
                 candidate_id = row[target["id_field"]]
                 candidate_name = row[target["name_field"]]
                 confidence = row.get("confidence")
-                missing_labels = [
-                    label for field, label in target["checked_fields"] if not row.get(field)
+                missing_prompts = [
+                    prompt for field, prompt in target["checked_fields"] if not row.get(field)
                 ]
                 is_low_confidence = confidence is None or confidence < _LOW_CONFIDENCE_THRESHOLD
-                if not missing_labels and not is_low_confidence:
+                if not missing_prompts and not is_low_confidence:
                     continue
                 if self._has_recent_gap_question(company_id, candidate_id):
                     continue
                 created.append(
                     self._create_gap_question(
-                        company_id, target, candidate_id, candidate_name, confidence, missing_labels
+                        company_id, target, candidate_id, candidate_name, confidence, missing_prompts
                     )
                 )
         return {"created_count": len(created), "items": created}

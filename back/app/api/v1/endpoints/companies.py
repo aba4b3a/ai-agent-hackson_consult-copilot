@@ -18,9 +18,12 @@ def prepare_onboarding(company_id: str, data: CompanyOnboardingPrepareRequest):
 
 @router.post('', response_model=CompanyRecord)
 def create_company(data: CompanyCreate):
-    return company_service.create(
-        data.company_id, data.company_name, data.industry_hint, data.size_hint
-    )
+    try:
+        return company_service.create(
+            data.company_id, data.company_name, data.industry_hint, data.size_hint
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @router.delete('/{company_id}', response_model=CompanyRecord)

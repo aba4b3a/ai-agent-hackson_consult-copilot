@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.crud.storage_crud import storage_crud
 from app.schemas.survey import InitialSurveyStatus, SurveyAnswerRead, SurveyQuestion, SurveyTemplate
+from app.services.company_service import company_service
 from app.services.sample_company_data import sample_company_data
 
 
@@ -116,12 +117,15 @@ class SurveyService:
             latest_by_question.values(),
             key=lambda answer: question_ids.index(answer.question_id) if answer.question_id in question_ids else len(question_ids),
         )
+        company = company_service.get(company_id)
         return InitialSurveyStatus(
             company_id=company_id,
             answered=len(answers) > 0,
             answered_count=len(answers),
             total_count=len(question_ids),
             answers=answers,
+            onboarding_status=company.get('onboarding_status') if company else None,
+            onboarding_error=company.get('onboarding_error') if company else None,
         )
 
 

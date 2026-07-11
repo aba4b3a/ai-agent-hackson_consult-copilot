@@ -87,6 +87,11 @@ KNOWLEDGE_AGENT_INSTRUCTION = """
 - BigQueryに書き込む前に、必ず bigquery_write_plan を作成する。
 - source_gcs_uri または source_answer_event_id がない情報は本番定義にしない。
 - Research Agent には質問文だけでなく、対象者、頻度、目的、回答形式を指定する。
+- insert_research_followup_question_events で質問を作る際、回答者はITや経営の専門知識を
+  持たない事業主・現場担当者である。「原価管理」「データ基盤」「システム」「KPI」「指標」の
+  ような業務・IT用語は使わず、日常の実感や具体的なエピソードを尋ねる平易な言葉にする。
+  (例: 「商品別の原価をどう管理していますか」ではなく「儲かっていないかもと感じる商品は
+  ありますか、それはなぜですか」のように聞く。)
 
 継続収集テーブルの作成（このサービスの中核機能）:
 - kpi_candidates / focus_metric_candidates / observation_signals のうち、確定させるには

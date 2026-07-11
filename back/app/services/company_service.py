@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS `{_table()}` (
   created_at TIMESTAMP NOT NULL,
   updated_at TIMESTAMP
 );
+
+ALTER TABLE `{_table()}`
+  ADD COLUMN IF NOT EXISTS onboarding_error STRING;
 """.strip()
     bigquery_crud.execute_sql(ddl)
     _ensured = True
@@ -92,6 +95,8 @@ class CompanyService:
         size_hint: str | None = None,
     ) -> dict:
         _ensure_table()
+        if self.get(company_id) is not None:
+            raise ValueError(f'company {company_id} already exists')
         now = utc_now_iso()
         row: dict[str, Any] = {
             "company_id": company_id,
@@ -127,6 +132,23 @@ class CompanyService:
         )
         rows = bigquery_crud.query_rows(sql)
         return _row_to_dict(rows[0]) if rows else None
+
+    def update_onboarding_status(
+        self, company_id: str, onboarding_status: str, onboarding_error: str | None = None
+    ) -> None:
+        """Called by the onboarding pipeline (see onboarding_service.run_agent_onboarding)
+        as it moves a company through pending -> processing -> completed/failed."""
+        _ensure_table()
+        if settings.dry_run:
+            return
+        sql = f"""
+UPDATE `{_table()}`
+SET onboarding_status = {sql_literal(onboarding_status)},
+    onboarding_error = {sql_literal(onboarding_error)},
+    updated_at = {sql_literal(utc_now_iso())}
+WHERE company_id = {sql_literal(company_id)}
+""".strip()
+        bigquery_crud.execute_sql(sql)
 
     def deactivate(self, company_id: str) -> dict:
         """Logical delete: flips active_status to 'inactive'. Does not touch
