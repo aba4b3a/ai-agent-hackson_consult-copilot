@@ -30,6 +30,19 @@ resource "google_project_iam_member" "runtime_bq_jobuser" {
   member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+# Multiple services issue `CREATE SCHEMA IF NOT EXISTS ...` at startup — even
+# when the dataset already exists, BigQuery still requires
+# bigquery.datasets.create on the project to run that DDL. The narrower
+# jobUser role above does not grant it. bigquery.user does, and also lets the
+# app manage tenant-scoped datasets it creates itself. Data access on
+# other-owned datasets is still gated by dataset-level grants (dataEditor
+# above), so this stays inside the least-privilege envelope for our use case.
+resource "google_project_iam_member" "runtime_bq_user" {
+  project = var.project_id
+  role    = "roles/bigquery.user"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
 # GCS: object-level access on the two app buckets only.
 resource "google_storage_bucket_iam_member" "runtime_wiki_admin" {
   bucket = var.wiki_bucket

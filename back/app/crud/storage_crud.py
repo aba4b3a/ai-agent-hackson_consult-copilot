@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from google.api_core.exceptions import NotFound as GcpNotFound
+from google.cloud.storage.exceptions import InvalidResponse as GcsInvalidResponse
+
 from app.core.config import settings
 from app.db.storage import get_storage_client
 
@@ -63,7 +66,18 @@ class StorageCrud:
         client = get_storage_client()
         bucket = client.bucket(settings.wiki_bucket)
         blob = bucket.blob(path)
-        return blob.download_as_text(encoding='utf-8')
+        try:
+            return blob.download_as_text(encoding='utf-8')
+        except GcpNotFound as exc:
+            raise FileNotFoundError(f'gs://{settings.wiki_bucket}/{path}') from exc
+        except GcsInvalidResponse as exc:
+            # GCS media download raises InvalidResponse (not NotFound) for 404,
+            # so callers can't distinguish "missing" from other transport errors
+            # unless we normalize here. Match the emulator branch above.
+            response = getattr(exc, 'response', None)
+            if getattr(response, 'status_code', None) == 404:
+                raise FileNotFoundError(f'gs://{settings.wiki_bucket}/{path}') from exc
+            raise
 
     def exists(self, path: str) -> bool:
         if self._use_local_emulator():
