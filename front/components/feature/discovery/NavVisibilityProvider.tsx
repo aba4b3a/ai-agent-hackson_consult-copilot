@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "consult-copilot.nav-collapsed";
+const STORAGE_KEY = "knowledge-farmer.nav-collapsed";
 
 type NavVisibilityContextValue = {
   isNavCollapsed: boolean;

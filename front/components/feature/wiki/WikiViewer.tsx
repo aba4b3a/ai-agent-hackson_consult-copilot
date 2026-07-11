@@ -63,9 +63,9 @@ export const WikiViewer = () => {
     }
   }, [filesQuery.data?.items, selectedPath]);
 
-  if (filesQuery.isLoading) return <LoadingState message="Wiki ファイルを読込中..." active="wiki" />;
+  if (filesQuery.isLoading) return <LoadingState message="企業ナレッジを読込中..." active="wiki" />;
   if (filesQuery.isError || !filesQuery.data) {
-    return <LoadingState isError message="Wiki ファイル一覧を取得できませんでした。" active="wiki" />;
+    return <LoadingState isError message="企業ナレッジの一覧を取得できませんでした。" active="wiki" />;
   }
 
   const versionList = versionsQuery.data?.versions ?? [];
@@ -78,17 +78,17 @@ export const WikiViewer = () => {
     <PhoneFrame>
       <div className="px-5 pb-24 pt-5 md:px-7 md:pb-8 md:pt-8">
         <header className="space-y-1">
-          <p className="text-xs font-black text-blue-600">LLM Wiki</p>
-          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">企業ナレッジ Wiki</h1>
+          <p className="text-xs font-black text-blue-600">Company Memory</p>
+          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">企業ナレッジ</h1>
           <p className="text-xs font-bold text-slate-500">
-            company_profile.md / kpi_definitions.yaml / focus_metrics.yaml / research_policy.yaml をここで閲覧できます。
+            事業理解、顧客、商品、競合、観測テーマ、仮説などを企業の記憶として確認できます。
           </p>
         </header>
 
         <section className="mt-4 grid gap-2">
           {filesQuery.data.items.length === 0 ? (
             <Card className="rounded-lg p-3 text-xs font-bold text-slate-500">
-              Wiki ファイルがまだありません。
+              企業ナレッジはまだありません。
             </Card>
           ) : (
             filesQuery.data.items.map((file) => (

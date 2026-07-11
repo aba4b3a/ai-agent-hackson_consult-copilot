@@ -82,7 +82,7 @@ export const KnowledgeDashboard = () => {
   const kpiTrends = useKpiTrends();
 
   if (isLoading) return <LoadingState message="Loading..." active="knowledge" />;
-  if (isError || !data) return <LoadingState isError message="データの取得に失敗しました。" active="knowledge" />;
+  if (isError || !data) return <LoadingState isError message="ナレッジの取得に失敗しました。" active="knowledge" />;
 
   const trendItems = kpiTrends.data?.items ?? [];
 
@@ -100,17 +100,17 @@ export const KnowledgeDashboard = () => {
         </header>
 
         <section className="mt-5">
-          <p className="text-[10px] font-bold text-slate-500 md:text-xs">Knowledge Dashboard</p>
+          <p className="text-[10px] font-bold text-slate-500 md:text-xs">Knowledge Farm</p>
           <h1 className="text-[18px] font-black tracking-tight text-slate-950 md:text-2xl">{data.header.subtitle}</h1>
         </section>
 
         <Card className="mt-4">
-          <SectionTitle>KPI Trend</SectionTitle>
+          <SectionTitle>観測指標の変化</SectionTitle>
           {kpiTrends.isLoading ? (
             <p className="mt-3 text-[11px] font-bold text-slate-400">読込中...</p>
           ) : trendItems.length === 0 ? (
             <p className="mt-3 text-[11px] font-bold leading-relaxed text-slate-500">
-              KPIの推移データはまだありません。週次の追加質問への回答が蓄積されると表示されます。
+              観測指標の推移はまだありません。追加質問への回答が蓄積されると表示されます。
             </p>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -139,7 +139,7 @@ export const KnowledgeDashboard = () => {
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <Card>
-            <SectionTitle>Accumulation</SectionTitle>
+            <SectionTitle>蓄積状況</SectionTitle>
             <div className="mt-3 grid grid-cols-4 gap-2">
               {data.accumulation.map((metric) => (
                 <div key={metric.id} className="text-center">
@@ -151,7 +151,7 @@ export const KnowledgeDashboard = () => {
           </Card>
 
           <Card>
-            <SectionTitle>Formation Pipeline</SectionTitle>
+            <SectionTitle>ナレッジ形成の流れ</SectionTitle>
             <div className="mt-3 space-y-3">
               {data.pipeline.map((item) => (
                 <div key={item.id} className="flex items-center gap-3">
@@ -179,7 +179,7 @@ export const KnowledgeDashboard = () => {
         </Card>
 
         <Card className="mt-3">
-          <SectionTitle>Recent Knowledge</SectionTitle>
+          <SectionTitle>最近育ったナレッジ</SectionTitle>
           <ul className="mt-2 space-y-1.5">
             {data.recentKnowledge.map((knowledge) => (
               <li key={knowledge} className="text-[11px] font-extrabold leading-relaxed text-slate-700 md:text-sm">・{knowledge}</li>

@@ -10,20 +10,20 @@ import { useApprovalList, useApproveApproval, useRejectApproval } from "@/hooks/
 import type { ApprovalRecord, ApprovalStatus } from "@/services/approval-service";
 
 const STATUS_LABELS: Record<ApprovalStatus, string> = {
-  pending: "未承認",
-  approved: "承認済",
-  rejected: "却下",
-  applied: "反映済",
+  pending: "確認待ち",
+  approved: "承認済み",
+  rejected: "差し戻し",
+  applied: "反映済み",
   cancelled: "取消",
 };
 
 const TARGET_LABELS: Record<string, string> = {
   kpi_candidate: "KPI候補",
   focus_metric_candidate: "重点管理指標候補",
-  custom_table: "カスタム表",
-  wiki_update: "Wiki更新",
-  schema_migration: "スキーマ変更",
-  observation_signal: "観測シグナル",
+  custom_table: "ナレッジ項目",
+  wiki_update: "企業ナレッジ更新",
+  schema_migration: "整理ルール変更",
+  observation_signal: "変化の兆候",
   other: "その他",
 };
 
@@ -35,11 +35,11 @@ const StatusFilter = ({
   onChange: (next: ApprovalStatus | undefined) => void;
 }) => {
   const options: { label: string; value: ApprovalStatus | undefined }[] = [
-    { label: "未承認", value: "pending" },
-    { label: "承認済", value: "approved" },
-    { label: "却下", value: "rejected" },
-    { label: "反映済", value: "applied" },
-    { label: "全て", value: undefined },
+    { label: "確認待ち", value: "pending" },
+    { label: "承認済み", value: "approved" },
+    { label: "差し戻し", value: "rejected" },
+    { label: "反映済み", value: "applied" },
+    { label: "すべて", value: undefined },
   ];
   return (
     <div className="flex flex-wrap gap-2">
@@ -106,19 +106,19 @@ const ApprovalDetail = ({
         </span>
       </div>
       <p className="text-xs font-semibold leading-relaxed text-slate-600">{record.summary}</p>
-      {record.reason ? <p className="text-xs font-bold text-slate-500">理由: {record.reason}</p> : null}
+      {record.reason ? <p className="text-xs font-bold text-slate-500">判断材料: {record.reason}</p> : null}
       {typeof record.confidence === "number" ? (
-        <p className="text-xs font-bold text-slate-500">確度: {(record.confidence * 100).toFixed(0)}%</p>
+        <p className="text-xs font-bold text-slate-500">信頼度: {(record.confidence * 100).toFixed(0)}%</p>
       ) : null}
       <details className="rounded-lg border border-slate-200 bg-white p-3">
-        <summary className="cursor-pointer text-xs font-black text-slate-700">提案内容(JSON)</summary>
+        <summary className="cursor-pointer text-xs font-black text-slate-700">提案内容</summary>
         <pre className="mt-2 max-h-72 overflow-auto text-[11px] leading-relaxed text-slate-700">
           {JSON.stringify(record.proposed_payload, null, 2)}
         </pre>
       </details>
       {record.diff_payload ? (
         <details className="rounded-lg border border-slate-200 bg-white p-3">
-          <summary className="cursor-pointer text-xs font-black text-slate-700">差分(JSON)</summary>
+          <summary className="cursor-pointer text-xs font-black text-slate-700">変更差分</summary>
           <pre className="mt-2 max-h-72 overflow-auto text-[11px] leading-relaxed text-slate-700">
             {JSON.stringify(record.diff_payload, null, 2)}
           </pre>
@@ -127,7 +127,7 @@ const ApprovalDetail = ({
 
       {isActionable ? (
         <div className="space-y-2 rounded-lg bg-slate-50 p-3">
-          <label className="block text-[11px] font-black text-slate-600">承認者ID/メール</label>
+          <label className="block text-[11px] font-black text-slate-600">確認者</label>
           <input
             className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-blue-500"
             value={decidedBy}
@@ -139,7 +139,7 @@ const ApprovalDetail = ({
             className="min-h-16 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-blue-500"
             value={note}
             onChange={(event) => onChangeNote(event.target.value)}
-            placeholder="判断理由・条件など"
+            placeholder="承認条件、差し戻し理由、次回確認事項など"
           />
           <div className="flex gap-2">
             <button
@@ -148,7 +148,7 @@ const ApprovalDetail = ({
               disabled={!decidedBy.trim() || pending}
               onClick={onApprove}
             >
-              承認
+              承認する
             </button>
             <button
               type="button"
@@ -156,14 +156,14 @@ const ApprovalDetail = ({
               disabled={!decidedBy.trim() || pending}
               onClick={onReject}
             >
-              却下
+              差し戻す
             </button>
           </div>
         </div>
       ) : (
         <div className="rounded-lg bg-slate-50 p-3 text-[11px] font-bold text-slate-600">
-          {record.decided_by ? <p>判定者: {record.decided_by}</p> : null}
-          {record.decided_at ? <p>判定日時: {record.decided_at}</p> : null}
+          {record.decided_by ? <p>確認者: {record.decided_by}</p> : null}
+          {record.decided_at ? <p>確認日時: {record.decided_at}</p> : null}
           {record.decision_note ? <p>メモ: {record.decision_note}</p> : null}
         </div>
       )}
@@ -186,17 +186,17 @@ export const ApprovalsList = () => {
     [data?.items, selectedId],
   );
 
-  if (isLoading) return <LoadingState message="承認待ち項目を読込中..." active="approvals" />;
-  if (isError || !data) return <LoadingState isError message="承認データを取得できませんでした。" active="approvals" />;
+  if (isLoading) return <LoadingState message="確認待ち項目を読込中..." active="approvals" />;
+  if (isError || !data) return <LoadingState isError message="確認データを取得できませんでした。" active="approvals" />;
 
   return (
     <PhoneFrame>
       <div className="px-5 pb-24 pt-5 md:px-7 md:pb-8 md:pt-8">
         <header className="space-y-1">
           <p className="text-xs font-black text-blue-600">Human-in-the-loop</p>
-          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">承認キュー</h1>
+          <h1 className="text-xl font-black tracking-tight text-slate-950 md:text-2xl">人間確認キュー</h1>
           <p className="text-xs font-bold text-slate-500">
-            KPI候補・重点指標・Wiki更新・スキーマ変更などをここで承認します。承認後にBigQueryおよびWikiの本番定義が更新されます。
+            AIが整理した観測指標、変化の兆候、企業ナレッジの更新案をここで確認します。重要な更新は人間が判断してから、支援先企業の知識資産へ反映します。
           </p>
         </header>
 

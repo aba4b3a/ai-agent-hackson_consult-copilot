@@ -11,7 +11,7 @@ export const DiscoveryFeed = () => {
   const { data, isLoading, isError } = useDashboard();
 
   if (isLoading) return <LoadingState message="Loading..." active="home" />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="home" />;
+  if (isError || !data) return <LoadingState message="情報の取得に失敗しました。" isError active="home" />;
 
   return (
     <PhoneFrame>
@@ -31,7 +31,7 @@ export const DiscoveryFeed = () => {
 
         <section className="mt-6">
           <p className="text-[10px] font-bold text-slate-500 md:text-xs">Discovery Feed</p>
-          <h1 className="text-[18px] font-black tracking-tight text-slate-950 md:text-2xl">コンサル発見を横断ダッシュボード</h1>
+          <h1 className="text-[18px] font-black tracking-tight text-slate-950 md:text-2xl">変化の兆候と次の観測テーマ</h1>
         </section>
 
         <section className="mt-4 rounded-[24px] bg-teal-900 p-5 text-white shadow-[0_18px_40px_rgba(15,118,110,0.22)] md:rounded-[28px]">
@@ -47,7 +47,7 @@ export const DiscoveryFeed = () => {
         </section>
 
         <section className="mt-6">
-          <SectionTitle>Client Portfolio</SectionTitle>
+          <SectionTitle>支援先企業</SectionTitle>
           <div className="mt-3 grid grid-cols-3 gap-3 md:gap-4">
             {data.portfolio.map((client) => (
               <button
@@ -63,7 +63,7 @@ export const DiscoveryFeed = () => {
         </section>
 
         <section className="mt-6">
-          <SectionTitle>Next actions</SectionTitle>
+          <SectionTitle>次に確認すること</SectionTitle>
           <div className="mt-3 space-y-3">
             {data.nextActions.map((action) => (
               <button

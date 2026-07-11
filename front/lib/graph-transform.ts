@@ -77,14 +77,14 @@ export const sliceToGraphData = (slice: GraphSliceResponse): GraphData => {
   return {
     header: {
       title: "Knowledge Graph",
-      subtitle: slice.meta.source === "bigquery" ? "BigQuery 実データ" : "サンプルデータ（seed）",
+      subtitle: slice.meta.source === "bigquery" ? "企業ナレッジから生成" : "デモ用サンプル",
     },
     filters: ["全て", ...types],
     map: {
       title: "Knowledge Map",
       nodes,
       edges,
-      stats: `Nodes ${nodes.length} / Relations ${edges.length}${slice.meta.truncated ? "（上限で切り詰め）" : ""}`,
+      stats: `知識 ${nodes.length} / 関係 ${edges.length}${slice.meta.truncated ? "（一部のみ表示）" : ""}`,
     },
     views: types.map((type, index) => ({
       id: `view-${type}`,
@@ -92,17 +92,17 @@ export const sliceToGraphData = (slice: GraphSliceResponse): GraphData => {
       tone: viewTones[index % viewTones.length],
     })),
     relation: {
-      title: "Selected relation",
-      segment: topEdge?.label ?? "データなし",
+      title: "選択中の関係",
+      segment: topEdge?.label ?? "関係なし",
       evidence: topEdge?.description ?? "関係の説明はまだありません",
       customers: "",
       hypothesis: topEdge?.hypothesis ? "この関係は仮説（先行指標の可能性）です" : "",
       confidence: Math.round((topEdge?.strength ?? 0.5) * 100),
     },
     lens: [
-      { id: "l1", label: "Fact graph", value: `観測された関係 ${factCount} 件` },
-      { id: "l2", label: "Hypothesis graph", value: `仮説の関係（破線） ${hypothesisCount} 件` },
-      { id: "l3", label: "Nodes", value: `${nodes.length} 件（${types.join(" / ")}）` },
+      { id: "l1", label: "観測された関係", value: `${factCount} 件` },
+      { id: "l2", label: "仮説として見る関係", value: `${hypothesisCount} 件` },
+      { id: "l3", label: "知識項目", value: `${nodes.length} 件（${types.join(" / ")}）` },
     ],
   };
 };

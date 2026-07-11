@@ -28,13 +28,13 @@ type BottomNavProps = {
 };
 
 const tabs: { key: BottomNavKey; label: string; href: string; icon: IconType }[] = [
-  { key: "home", label: "Home", href: "/", icon: FiHome },
-  { key: "intake", label: "Intake", href: "/intake", icon: FiClipboard },
-  { key: "research", label: "Research", href: "/research", icon: FiSearch },
-  { key: "knowledge", label: "Knowledge", href: "/knowledge", icon: FiBarChart2 },
-  { key: "wiki", label: "Wiki", href: "/wiki", icon: FiBookOpen },
-  { key: "approvals", label: "Approve", href: "/approvals", icon: FiCheckCircle },
-  { key: "report", label: "Report", href: "/report", icon: FiMessageSquare },
+  { key: "home", label: "発見", href: "/", icon: FiHome },
+  { key: "intake", label: "初期把握", href: "/intake", icon: FiClipboard },
+  { key: "research", label: "質問", href: "/research", icon: FiSearch },
+  { key: "knowledge", label: "知識", href: "/knowledge", icon: FiBarChart2 },
+  { key: "wiki", label: "記録", href: "/wiki", icon: FiBookOpen },
+  { key: "approvals", label: "確認", href: "/approvals", icon: FiCheckCircle },
+  { key: "report", label: "月次", href: "/report", icon: FiMessageSquare },
 ];
 
 export const BottomNav = ({ active = "home" }: BottomNavProps) => {

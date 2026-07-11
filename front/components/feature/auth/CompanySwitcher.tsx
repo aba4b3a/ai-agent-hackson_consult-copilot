@@ -119,7 +119,7 @@ export const CompanySwitcher = () => {
 
   const handleDeleteCompany = async () => {
     const target = activeCompany;
-    if (!window.confirm(`${target.code} / ${target.name} を削除しますか？\n(BigQuery上のデータは論理削除され、一覧から非表示になります。実データは残ります。)`)) {
+    if (!window.confirm(`${target.code} / ${target.name} を一覧から非表示にしますか？\n企業ナレッジや観測履歴は保持されます。`)) {
       return;
     }
 
@@ -140,7 +140,7 @@ export const CompanySwitcher = () => {
         setDeleteError(result.error);
       }
     } catch {
-      setDeleteError("削除に失敗しました。バックエンドの起動状態を確認してください。");
+      setDeleteError("一覧から非表示にできませんでした。しばらくしてから再度お試しください。");
     } finally {
       setIsDeleting(false);
     }

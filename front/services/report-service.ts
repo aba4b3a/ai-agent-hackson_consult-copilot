@@ -41,7 +41,7 @@ export const getReportData = async (targetCompanyId = companyId): Promise<Report
         title: "現場の補足を集める",
         subtitle: "定型フォームで足りない文脈を短い会話で補足します",
       },
-      topic: "価格・競合・顧客変化など、KPI候補に関係する論点を確認します",
+      topic: "価格・競合・顧客変化など、改善の兆候に関係する論点を確認します",
       messages: [
         {
           id: "m1",
@@ -55,9 +55,9 @@ export const getReportData = async (targetCompanyId = companyId): Promise<Report
         },
       ],
       extraction: {
-        title: "抽出候補",
+        title: "ナレッジ化の候補",
         observation: "学生顧客から価格関連発言が週3件発生",
-        entities: "顧客層: 学生 / 商品: 唐揚げ定食 / シグナル: price_complaint",
+        entities: "顧客層: 学生 / 商品: 唐揚げ定食 / 変化の兆候: 価格への反応",
       },
       voiceAction: {
         title: "音声で補足",

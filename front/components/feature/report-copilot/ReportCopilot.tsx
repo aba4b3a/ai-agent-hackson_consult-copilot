@@ -9,7 +9,7 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useReportCopilot } from "@/hooks/use-report-copilot";
 import { sendCopilotMessage } from "@/services/report-copilot-service";
 import type { MonthlyReportMetric, ReportCopilotHighlight, MonthlyReportSection } from "@/lib/schemas";
-import { FiBarChart2, FiDatabase, FiFileText, FiMessageCircle, FiRefreshCw } from "react-icons/fi";
+import { FiBarChart2, FiFileText, FiMessageCircle, FiRefreshCw } from "react-icons/fi";
 
 type ChatEntry = { role: "user" | "assistant"; text: string };
 
@@ -102,7 +102,7 @@ export const ReportCopilot = () => {
   };
 
   if (isLoading) return <LoadingState message="Loading..." active="report" />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="report" />;
+  if (isError || !data) return <LoadingState message="月次レポートの取得に失敗しました。" isError active="report" />;
 
   return (
     <PhoneFrame>
@@ -110,15 +110,15 @@ export const ReportCopilot = () => {
         <section className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-600 ring-1 ring-slate-200 md:text-xs">
-              <FiDatabase aria-hidden="true" className="h-3 w-3" />
-              {data.monthly.source === "cloud_storage" ? "Loaded from Cloud Storage" : "Generated monthly report"}
+              <FiFileText aria-hidden="true" className="h-3 w-3" />
+              {data.monthly.source === "cloud_storage" ? "保存済み月次レポート" : "生成された月次レポート"}
             </p>
             <h1 className="mt-3 text-[22px] font-black leading-tight text-slate-950 md:text-3xl">{data.header.title}</h1>
             <p className="mt-2 text-[11px] font-extrabold text-slate-500 md:text-sm">{data.header.subtitle}</p>
           </div>
           <div className="text-left md:text-right">
             <p className="text-[10px] font-black uppercase text-slate-500 md:text-xs">{data.monthly.period}</p>
-            <p className="mt-1 text-[10px] font-bold text-slate-400 md:text-xs">{data.monthly.storagePath}</p>
+            <p className="mt-1 text-[10px] font-bold text-slate-400 md:text-xs">事実・仮説・根拠を分けて確認</p>
           </div>
         </section>
 
@@ -140,7 +140,7 @@ export const ReportCopilot = () => {
           <Card className="rounded-lg">
             <div className="mb-4 flex items-center gap-2">
               <FiBarChart2 aria-hidden="true" className="h-4 w-4 text-blue-600" />
-              <SectionTitle>Monthly indicators</SectionTitle>
+              <SectionTitle>月次の観測指標</SectionTitle>
             </div>
             <BarChart items={data.charts} />
           </Card>
@@ -155,7 +155,7 @@ export const ReportCopilot = () => {
         </section>
 
         <Card className="mt-4 rounded-lg">
-          <SectionTitle>Evidence snippets</SectionTitle>
+          <SectionTitle>根拠となる観測メモ</SectionTitle>
           <ul className="mt-3 space-y-1.5">
             {data.snippets.map((s) => (
               <li key={s} className="text-[11px] font-extrabold leading-relaxed text-slate-600 md:text-sm">- {s}</li>
@@ -167,7 +167,7 @@ export const ReportCopilot = () => {
         <Card className="mt-4 rounded-lg">
           <div className="flex items-center gap-2">
             <FiMessageCircle aria-hidden="true" className="h-4 w-4 text-blue-600" />
-            <SectionTitle>Copilot に質問する</SectionTitle>
+            <SectionTitle>レポートを深掘りする</SectionTitle>
           </div>
           {chat.length > 0 && (
             <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
@@ -193,7 +193,7 @@ export const ReportCopilot = () => {
           <div className="mt-3 flex gap-2">
             <input
               className="flex-1 rounded-full bg-slate-50 px-4 py-2.5 text-[11px] font-extrabold text-slate-800 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 md:text-sm"
-              placeholder="例: 価格不満の原因は？"
+              placeholder="例: 次回訪問で何を確認すべき？"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}

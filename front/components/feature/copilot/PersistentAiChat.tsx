@@ -19,10 +19,10 @@ type StoredChat = {
 
 const defaultGreeting: ChatEntry = {
   role: "assistant",
-  text: "企業や直近の情報を前提に、KPI候補、重点管理指標、観測方針、追加質問を一緒に確認できます。",
+  text: "企業のナレッジと直近の観測を前提に、次回ヒアリング、変化の兆候、追加で確認すべきことを一緒に整理できます。",
 };
 
-const chatStorageKey = (companyCode: string) => `consult-copilot.persistent-chat.${companyCode}`;
+const chatStorageKey = (companyCode: string) => `knowledge-farmer.persistent-chat.${companyCode}`;
 
 const loadStoredChat = (companyCode: string): StoredChat | null => {
   if (typeof window === "undefined") return null;
@@ -40,9 +40,9 @@ const saveStoredChat = (companyCode: string, state: StoredChat) => {
 };
 
 const starterPrompts = [
-  "今の重点管理指標で優先して見るべき変化は？",
-  "この企業のKPI候補と根拠を整理して",
-  "次にResearch Agentが聞くべき質問は？",
+  "次回訪問で何を確認すべき？",
+  "今月の変化の兆候と根拠を整理して",
+  "次に現場へ聞くべき質問は？",
 ];
 
 const buildGroundedPrompt = ({
@@ -58,19 +58,19 @@ const buildGroundedPrompt = ({
   wikiSnippets: string[];
   knowledgeSignals: string[];
 }) => {
-  const wikiContext = wikiPaths.length > 0 ? wikiPaths.join(", ") : "current LLM Wiki files";
-  const wikiEvidence = wikiSnippets.length > 0 ? wikiSnippets.join("\n---\n") : "No Wiki snippet could be loaded before this request.";
-  const signalContext = knowledgeSignals.length > 0 ? knowledgeSignals.join(" / ") : "BigQuery knowledge stats and current definitions";
+  const wikiContext = wikiPaths.length > 0 ? wikiPaths.join(", ") : "current company knowledge files";
+  const wikiEvidence = wikiSnippets.length > 0 ? wikiSnippets.join("\n---\n") : "No company knowledge snippet could be loaded before this request.";
+  const signalContext = knowledgeSignals.length > 0 ? knowledgeSignals.join(" / ") : "current knowledge signals and observation themes";
 
   return [
-    "Consult Copilot persistent chat request.",
+    "Knowledge Farmer persistent chat request.",
     `company_id: ${companyCode}`,
     "回答方針:",
-    "- 挨拶や雑談など、具体的な質問を含まない発言には、下記の参考情報を無理に使わず、短く自然な会話として応答してください。",
-    "- KPI、重点管理指標、企業課題、Wikiの内容など具体的なテーマに関する質問には、可能な限り下記の LLM Wiki と BigQuery の構造化データを参照し、根拠があるものと仮説を分けて回答してください。",
-    `LLM Wiki candidates: ${wikiContext}`,
-    `LLM Wiki snippets:\n${wikiEvidence}`,
-    `BigQuery context candidates: ${signalContext}`,
+    "- 挨拶や雑談など、具体的な質問を含まない発言には、参考情報を無理に使わず、短く自然な会話として応答してください。",
+    "- 企業課題、顧客の声、観測テーマ、仮説、次回ヒアリングに関する質問には、可能な限り下記の企業ナレッジと観測情報を参照し、事実と仮説を分けて回答してください。",
+    `Company knowledge candidates: ${wikiContext}`,
+    `Company knowledge snippets:\n${wikiEvidence}`,
+    `Observation context candidates: ${signalContext}`,
     `User question: ${question}`,
   ].join("\n");
 };
@@ -161,8 +161,8 @@ export const PersistentAiChat = () => {
   }, [knowledge.data]);
 
   const sourceStatus = [
-    { label: "企業情報", ready: wikiContext.isSuccess, loading: wikiContext.isLoading },
-    { label: "各種データ", ready: knowledge.isSuccess, loading: knowledge.isLoading },
+    { label: "企業ナレッジ", ready: wikiContext.isSuccess, loading: wikiContext.isLoading },
+    { label: "観測メモ", ready: knowledge.isSuccess, loading: knowledge.isLoading },
     { label: "AI", ready: true, loading: false },
   ];
 
@@ -190,7 +190,7 @@ export const PersistentAiChat = () => {
         ...prev,
         {
           role: "assistant",
-          text: "Copilot APIに接続できませんでした。バックエンドとAgent Runtimeが起動しているか確認してください。",
+          text: "一時的に回答を生成できませんでした。少し時間をおいて再度お試しください。",
         },
       ]);
     } finally {
@@ -208,8 +208,8 @@ export const PersistentAiChat = () => {
       <header className="border-b border-slate-100 px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-normal text-blue-600">AI Chat</p>
-            <h2 className="mt-1 text-lg font-black">Consult Copilot</h2>
+            <p className="text-[10px] font-black uppercase tracking-normal text-blue-600">Report Copilot</p>
+            <h2 className="mt-1 text-lg font-black">Knowledge Farmer</h2>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{activeCompany.code} / {activeCompany.name}</p>
           </div>
           <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">PC</span>
@@ -220,7 +220,7 @@ export const PersistentAiChat = () => {
             <div key={source.label} className="rounded-md border border-slate-200 px-2 py-2">
               <p className="text-[10px] font-black text-slate-600">{source.label}</p>
               <p className={`mt-1 text-[10px] font-black ${source.ready ? "text-emerald-600" : source.loading ? "text-amber-600" : "text-slate-400"}`}>
-                {source.ready ? "参照可" : source.loading ? "読込中" : "未接続"}
+                {source.ready ? "参照可" : source.loading ? "読込中" : "未取得"}
               </p>
             </div>
           ))}
@@ -243,7 +243,7 @@ export const PersistentAiChat = () => {
           ))}
           {sending ? (
             <div className="mr-8 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-500">
-              Wiki と BigQuery の文脈を確認しています...
+              企業ナレッジと観測メモを確認しています...
             </div>
           ) : null}
         </div>
@@ -270,7 +270,7 @@ export const PersistentAiChat = () => {
           <input
             ref={inputRef}
             className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            placeholder="KPI、重点指標、観測方針について質問"
+            placeholder="次回ヒアリングや変化の兆候について質問"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             disabled={sending}

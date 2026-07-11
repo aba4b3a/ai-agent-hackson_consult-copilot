@@ -12,7 +12,7 @@ export const ReportChat = () => {
   const { data, isLoading, isError } = useReport();
 
   if (isLoading) return <LoadingState message="Loading..." active="report" />;
-  if (isError || !data) return <LoadingState message="データの取得に失敗しました。" isError active="report" />;
+  if (isError || !data) return <LoadingState message="情報の取得に失敗しました。" isError active="report" />;
 
   return (
     <PhoneFrame>
@@ -46,10 +46,10 @@ export const ReportChat = () => {
           <SectionTitle>{data.extraction.title}</SectionTitle>
           <div className="mt-3 space-y-1.5">
             <p className="text-[10px] font-extrabold leading-relaxed text-slate-600 md:text-xs">
-              <span className="text-slate-950">Observation:</span> {data.extraction.observation}
+              <span className="text-slate-950">観測:</span> {data.extraction.observation}
             </p>
             <p className="text-[10px] font-extrabold leading-relaxed text-slate-600 md:text-xs">
-              <span className="text-slate-950">Entities:</span> {data.extraction.entities}
+              <span className="text-slate-950">関連する知識:</span> {data.extraction.entities}
             </p>
           </div>
         </Card>

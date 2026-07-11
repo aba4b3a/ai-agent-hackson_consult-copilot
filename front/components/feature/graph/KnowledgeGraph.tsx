@@ -136,7 +136,7 @@ export const KnowledgeGraphSection = () => {
     return <p className="rounded-lg bg-white px-4 py-6 text-center text-sm font-bold text-slate-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">Loading...</p>;
   }
   if (isError || !data) {
-    return <p className="rounded-lg bg-white px-4 py-6 text-center text-sm font-bold text-rose-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">データの取得に失敗しました。</p>;
+    return <p className="rounded-lg bg-white px-4 py-6 text-center text-sm font-bold text-rose-500 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">ナレッジの取得に失敗しました。</p>;
   }
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -241,7 +241,7 @@ export const KnowledgeGraphSection = () => {
         </Card>
 
         <Card className="mt-3">
-          <SectionTitle>Graph Views</SectionTitle>
+          <SectionTitle>見方を切り替える</SectionTitle>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {data.views.map((view) => (
               <button
@@ -269,7 +269,7 @@ export const KnowledgeGraphSection = () => {
         </Card>
 
         <Card className="mt-3">
-          <SectionTitle>Knowledge Lens</SectionTitle>
+          <SectionTitle>ナレッジの見どころ</SectionTitle>
           <dl className="mt-3 space-y-2">
             {data.lens.map((item) => (
               <div key={item.id} className="flex gap-1 text-[11px] font-extrabold leading-relaxed md:text-sm">
