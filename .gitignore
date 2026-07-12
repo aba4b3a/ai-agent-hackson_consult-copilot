@@ -37,9 +37,8 @@ dist/
 .firebase/
 firebase-debug.log
 service-account*.json
-secret.json
-# GCP console/gcloud key downloads default to <project_id>-<key_id>.json
-nttd-platformtec01-*.json
+secret*.json
+
 
 # Local artifacts
 tmp/
