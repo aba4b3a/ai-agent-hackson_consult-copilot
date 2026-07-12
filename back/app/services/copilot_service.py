@@ -30,6 +30,20 @@ def _agent_url() -> str:
     return os.getenv('AGENT_BASE_URL', 'http://localhost:8080')
 
 
+# フロントのチャットバブル（ChatMarkdown）が対応している語彙に出力を寄せる。
+# agent側プロンプト（prompts.py）ではなくここで付与するのは、この形式が
+# チャットUI経由の会話にだけ必要で、オンボーディング等の他のagent呼び出しに
+# 影響させないため。
+_REPLY_FORMAT_INSTRUCTION = (
+    "\n\n---\n"
+    "回答フォーマット: 回答は日本語のMarkdownで書くこと。"
+    "見出しは ### まで、強調・箇条書き・番号リストは使ってよい。"
+    "HTMLタグとコードブロックは使わない。"
+    "Wikiやデータを参照した場合は、参照したファイルパスやテーブル名を末尾に箇条書きで明記する。"
+    "回答は簡潔に、長くても300字程度にまとめる。"
+)
+
+
 class CopilotService:
     async def chat(self, company_id: str, message: str, session_id: str | None = None) -> dict:
         agent_url = _agent_url()
@@ -39,7 +53,7 @@ class CopilotService:
             "app_name": "agents",
             "user_id": company_id,
             "session_id": sid,
-            "new_message": {"role": "user", "parts": [{"text": message}]},
+            "new_message": {"role": "user", "parts": [{"text": message + _REPLY_FORMAT_INSTRUCTION}]},
             "streaming": False,
         }
 

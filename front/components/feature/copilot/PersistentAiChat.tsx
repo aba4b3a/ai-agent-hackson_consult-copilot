@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
+import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 import { getKnowledgeData } from "@/services/knowledge-service";
 import { sendCopilotMessage } from "@/services/report-copilot-service";
 import { listWikiFiles, readWikiFile, toRelativeWikiPath } from "@/services/wiki-service";
@@ -234,11 +235,11 @@ export const PersistentAiChat = () => {
               key={`${message.role}-${index}`}
               className={`rounded-lg px-3 py-2.5 text-sm font-semibold leading-6 ${
                 message.role === "user"
-                  ? "ml-8 bg-blue-600 text-white"
+                  ? "ml-8 whitespace-pre-line bg-blue-600 text-white"
                   : "mr-8 border border-slate-200 bg-slate-50 text-slate-800"
               }`}
             >
-              {message.text}
+              {message.role === "assistant" ? <ChatMarkdown text={message.text} /> : message.text}
             </div>
           ))}
           {sending ? (
