@@ -167,7 +167,20 @@ def render_wiki_files(
     """status is "draft" right after initial intake (before the onboarding
     follow-up questions are answered) or "confirmed" once the wiki has been
     re-rendered with those answers folded in. Recorded in manifest.json so
-    anything reading the wiki can tell which stage produced it."""
+    anything reading the wiki can tell which stage produced it.
+
+    company_profile must be built by you from the answers before calling
+    this tool — it is not derived from kpi_candidates/focus_metric_candidates.
+    Provide these string keys (all optional, but each left out renders as
+    "TBD" in company_profile.md, so fill in everything you can support from
+    the answers): "business_summary" (何を商売にしているか), "customer_summary"
+    (主な顧客層), "product_service_summary" (主力商品・サービス),
+    "competition_summary" (競合・差別化要因), "operation_summary"
+    (日々の運営体制・業務プロセス), "current_issues" (list[str] of the company's
+    current problems/concerns), "confidence" (float 0-1, your confidence in
+    this profile given the answers), "source_refs" (list[str] of response_id
+    values that back this profile).
+    """
     return {
         "company_profile.md": render_company_profile_markdown(company_profile),
         "kpi_definitions.yaml": render_kpi_definitions_yaml(kpi_candidates),

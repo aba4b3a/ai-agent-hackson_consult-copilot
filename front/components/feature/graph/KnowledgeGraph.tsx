@@ -197,7 +197,7 @@ export const KnowledgeGraphSection = () => {
                     x2={targetPoint.x}
                     y2={targetPoint.y}
                     className={edgeToneClass[edge.tone]}
-                    strokeWidth={Math.max(2, Math.round(edge.strength * 7))}
+                    strokeWidth={Math.max(1, edge.strength * 2.5)}
                     strokeLinecap="round"
                     strokeDasharray={edge.hypothesis ? "6 4" : undefined}
                   />

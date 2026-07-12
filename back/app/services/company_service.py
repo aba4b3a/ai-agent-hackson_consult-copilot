@@ -133,6 +133,23 @@ class CompanyService:
         rows = bigquery_crud.query_rows(sql)
         return _row_to_dict(rows[0]) if rows else None
 
+    def list_active(self) -> list[dict]:
+        """Companies visible in the company switcher — everything not
+        logically deleted via deactivate(). Used by GET /companies, the
+        registry the front end's company list is sourced from (rather than
+        the browser's own localStorage, which doesn't survive a new device
+        or a cleared profile)."""
+        _ensure_table()
+        if settings.dry_run:
+            return []
+        sql = (
+            f"SELECT * FROM `{_table()}` "
+            f"WHERE active_status IS NULL OR active_status != 'inactive' "
+            f"ORDER BY created_at DESC"
+        )
+        rows = bigquery_crud.query_rows(sql)
+        return [_row_to_dict(row) for row in rows]
+
     def update_onboarding_status(
         self, company_id: str, onboarding_status: str, onboarding_error: str | None = None
     ) -> None:

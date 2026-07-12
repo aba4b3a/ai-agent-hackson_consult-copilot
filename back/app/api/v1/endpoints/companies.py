@@ -16,6 +16,11 @@ def prepare_onboarding(company_id: str, data: CompanyOnboardingPrepareRequest):
     return onboarding_service.prepare(company_id, data)
 
 
+@router.get('', response_model=list[CompanyRecord])
+def list_companies():
+    return company_service.list_active()
+
+
 @router.post('', response_model=CompanyRecord)
 def create_company(data: CompanyCreate):
     try:
