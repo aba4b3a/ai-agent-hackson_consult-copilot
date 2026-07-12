@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
-import { useInitialSurvey, useInitialSurveyStatus, useRetryOnboarding, useSubmitInitialSurvey } from "@/hooks/use-intake";
+import { useInitialSurvey, useInitialSurveyStatus, useIntakeAssist, useRetryOnboarding, useSubmitInitialSurvey } from "@/hooks/use-intake";
 import type { InitialSurveyStatus, OnboardingStatus, SurveyAnswerPayload, SurveyQuestion, SurveyTemplate } from "@/services/intake-service";
 import { OnboardingFollowupStep } from "./OnboardingFollowupStep";
 
@@ -26,19 +26,6 @@ const categoryLabels: Record<string, string> = {
 const serializeAnswer = (value: AnswerValue | undefined) => {
   if (Array.isArray(value)) return value.join(", ");
   return value ?? "";
-};
-
-const buildFollowupPrompt = (question: SurveyQuestion) => {
-  if (question.answer_type === "numeric") {
-    return `${question.short_label}について、数値の集計期間や単位も分かれば教えてください。`;
-  }
-  if (question.question_category === "competition") {
-    return "競合名、比較された観点、最終的な購買結果が分かると分析しやすいです。";
-  }
-  if (question.question_category === "current_kpi") {
-    return "その数値を誰が、どの頻度で、どの判断に使っているかも分かると観測指標にしやすいです。";
-  }
-  return "具体例、頻度、関係する商品・顧客層が分かれば追加で教えてください。";
 };
 
 const QuestionInput = ({
@@ -303,15 +290,23 @@ const AnsweredSurveySummary = ({
 const FollowupChat = ({
   question,
   messages,
+  sending,
+  answerDraft,
+  onApplyDraft,
   onClose,
   onSend,
 }: {
   question: SurveyQuestion;
   messages: ChatMessage[];
+  sending: boolean;
+  answerDraft: string | null;
+  onApplyDraft: () => void;
   onClose: () => void;
   onSend: (text: string) => void;
 }) => {
   const [text, setText] = useState("");
+  // まとめの反映先は自由記述の回答欄に限る（選択式・数値には文章を書けない）
+  const canApplyDraft = question.answer_type === "text" || question.answer_type === "long_text";
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/35 px-4 py-6 backdrop-blur-sm">
@@ -333,24 +328,51 @@ const FollowupChat = ({
               </div>
             </div>
           ))}
+          {sending ? (
+            <div className="flex justify-start">
+              <div className="max-w-[82%] rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold leading-relaxed text-slate-400">
+                考え中...
+              </div>
+            </div>
+          ) : null}
         </div>
+        {answerDraft && canApplyDraft && !sending ? (
+          <div className="border-t border-slate-100 px-4 py-3">
+            <button
+              type="button"
+              className="w-full rounded-full bg-teal-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-teal-500"
+              onClick={onApplyDraft}
+            >
+              回答欄に反映する
+            </button>
+            <p className="mt-1.5 text-center text-[10px] font-bold text-slate-400">
+              回答欄の内容がまとめ文章で置き換わります
+            </p>
+          </div>
+        ) : null}
         <form
           className="flex gap-2 border-t border-slate-100 p-3"
           onSubmit={(event) => {
             event.preventDefault();
             const trimmed = text.trim();
-            if (!trimmed) return;
+            if (!trimmed || sending) return;
             onSend(trimmed);
             setText("");
           }}
         >
           <input
-            className="min-w-0 flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="min-w-0 flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50"
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="補足を入力"
+            disabled={sending}
           />
-          <button className="grid h-10 w-10 place-items-center rounded-full bg-blue-600 text-white" type="submit" aria-label="送信">
+          <button
+            className="grid h-10 w-10 place-items-center rounded-full bg-blue-600 text-white disabled:bg-slate-300"
+            type="submit"
+            aria-label="送信"
+            disabled={sending || !text.trim()}
+          >
             →
           </button>
         </form>
@@ -364,11 +386,14 @@ export const InitialSurveyForm = () => {
   const { data: status, isLoading: isStatusLoading } = useInitialSurveyStatus();
   const submitSurvey = useSubmitInitialSurvey();
   const retryOnboarding = useRetryOnboarding();
+  const intakeAssist = useIntakeAssist();
   const [step, setStep] = useState(0);
   const [respondentRole, setRespondentRole] = useState("owner");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [chatQuestionId, setChatQuestionId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
+  // AIが3往復ごとに生成する「回答欄に貼れるまとめ」。質問IDごとに最新のものを保持
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = useState(false);
 
   const question = data?.questions[step];
@@ -377,6 +402,43 @@ export const InitialSurveyForm = () => {
     if (!data) return 0;
     return data.questions.filter((item) => serializeAnswer(answers[item.question_id]).trim().length > 0).length;
   }, [answers, data]);
+
+  const appendChatMessage = (questionId: string, message: ChatMessage) => {
+    setChatMessages((prev) => ({
+      ...prev,
+      [questionId]: [...(prev[questionId] ?? []), message],
+    }));
+  };
+
+  const sendAssistMessage = async (target: SurveyQuestion, text: string) => {
+    const questionId = target.question_id;
+    const history = chatMessages[questionId] ?? [];
+    appendChatMessage(questionId, { role: "user", text });
+    try {
+      const result = await intakeAssist.mutateAsync({
+        question_id: questionId,
+        question_text: target.question_text,
+        purpose: target.purpose,
+        current_answer: serializeAnswer(answers[questionId]),
+        chat_history: history,
+        user_message: text,
+      });
+      if (result.mode === "summary" && result.answer_draft) {
+        setAnswerDrafts((prev) => ({ ...prev, [questionId]: result.answer_draft as string }));
+        appendChatMessage(questionId, {
+          role: "assistant",
+          text: `ここまでの内容をまとめました。\n\n${result.answer_draft}`,
+        });
+      } else {
+        appendChatMessage(questionId, { role: "assistant", text: result.reply });
+      }
+    } catch {
+      appendChatMessage(questionId, {
+        role: "assistant",
+        text: "一時的に応答できませんでした。補足はそのまま回答欄に書き足していただいても大丈夫です。",
+      });
+    }
+  };
 
   if (isLoading || isStatusLoading) return <LoadingState message="Loading..." active="intake" />;
   if (isError || !data || !question) return <LoadingState message="質問定義を取得できませんでした。" isError active="intake" />;
@@ -415,7 +477,7 @@ export const InitialSurveyForm = () => {
     setChatQuestionId(target.question_id);
     setChatMessages((prev) => ({
       ...prev,
-      [target.question_id]: prev[target.question_id] ?? [{ role: "assistant", text: buildFollowupPrompt(target) }],
+      [target.question_id]: prev[target.question_id] ?? [{ role: "assistant", text: target.question_text }],
     }));
   };
 
@@ -562,12 +624,17 @@ export const InitialSurveyForm = () => {
         <FollowupChat
           question={chatQuestion}
           messages={chatMessages[chatQuestion.question_id] ?? []}
+          sending={intakeAssist.isPending}
+          answerDraft={answerDrafts[chatQuestion.question_id] ?? null}
+          onApplyDraft={() => {
+            const draft = answerDrafts[chatQuestion.question_id];
+            if (!draft) return;
+            setAnswers((prev) => ({ ...prev, [chatQuestion.question_id]: draft }));
+            setChatQuestionId(null);
+          }}
           onClose={() => setChatQuestionId(null)}
           onSend={(text) => {
-            setChatMessages((prev) => ({
-              ...prev,
-              [chatQuestion.question_id]: [...(prev[chatQuestion.question_id] ?? []), { role: "user", text }],
-            }));
+            void sendAssistMessage(chatQuestion, text);
           }}
         />
       ) : null}

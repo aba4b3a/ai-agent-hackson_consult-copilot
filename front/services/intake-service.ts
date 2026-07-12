@@ -105,3 +105,27 @@ export const submitInitialSurvey = (body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+
+export type IntakeAssistChatMessage = { role: "assistant" | "user"; text: string };
+
+export const sendIntakeAssistMessage = (
+  body: {
+    question_id: string;
+    question_text: string;
+    purpose?: string | null;
+    current_answer: string;
+    chat_history: IntakeAssistChatMessage[];
+    user_message: string;
+  },
+  targetCompanyId = companyId,
+): Promise<{
+  company_id: string;
+  question_id: string;
+  reply: string;
+  mode: "followup" | "summary";
+  answer_draft?: string | null;
+}> =>
+  apiFetch(`/api/v1/companies/${encodeURIComponent(targetCompanyId)}/survey/initial/assist`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

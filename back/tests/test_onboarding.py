@@ -6,6 +6,7 @@ from app.services.onboarding_service import (
     _answers_payload,
     _build_stage1_message,
     _build_stage2_message,
+    _chat_supplement,
     onboarding_service,
 )
 
@@ -29,6 +30,34 @@ def _answer(response_id: str | None = None) -> SurveyAnswerCreate:
         raw_answer='地元の常連客向けの美容室です。',
         response_id=response_id,
     )
+
+
+def test_answers_payload_includes_chat_supplement():
+    answer = _answer('resp_abc123')
+    answer.answer_json = {
+        'chat_messages': [
+            {'role': 'assistant', 'text': '具体例が分かれば教えてください。'},
+            {'role': 'user', 'text': '常連さんが売上の8割です。'},
+            {'role': 'user', 'text': '新規は月に数人程度。'},
+        ]
+    }
+
+    payload = _answers_payload([answer])
+
+    # AIの発言は含めず、回答者の補足だけを1本にまとめる
+    assert payload[0]['supplement'] == '常連さんが売上の8割です。 / 新規は月に数人程度。'
+    # Stage1プロンプトにも補足が乗る
+    message = _build_stage1_message('SMB-1042', '田中美容室', payload)
+    assert '常連さんが売上の8割です。' in message
+
+
+def test_chat_supplement_handles_json_string_and_empty():
+    # BigQuery経由では answer_json が JSON 文字列で来ることがある
+    as_string = '{"chat_messages": [{"role": "user", "text": "補足です"}]}'
+    assert _chat_supplement(as_string) == '補足です'
+    assert _chat_supplement({}) is None
+    assert _chat_supplement(None) is None
+    assert _chat_supplement('broken json') is None
 
 
 def test_stage1_message_instructs_graph_extraction():
