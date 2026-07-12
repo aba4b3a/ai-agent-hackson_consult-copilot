@@ -107,12 +107,15 @@ WHERE q.company_id = {sql_literal(company_id)} AND q.origin = 'onboarding'
 def _chat_supplement(answer_json: dict | str | None) -> str | None:
     """「AIに補足する」チャットで回答者が入力した補足テキストを1本にまとめる。
     answer_json は BigQuery 経由だと JSON 文字列で来ることがあるため両対応。"""
+    parsed: dict | None
     if isinstance(answer_json, str):
         try:
-            answer_json = json.loads(answer_json)
+            parsed = json.loads(answer_json)
         except ValueError:
             return None
-    messages = (answer_json or {}).get('chat_messages') or []
+    else:
+        parsed = answer_json
+    messages = (parsed or {}).get('chat_messages') or []
     user_texts = [
         m.get('text', '').strip()
         for m in messages
