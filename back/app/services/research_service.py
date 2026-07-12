@@ -499,6 +499,31 @@ LIMIT 1
 """.strip()
         return bool(bigquery_crud.query_rows(sql))
 
+    def _infer_target_role(self, company_id: str, source_answer_event_ids: list[str] | None) -> str:
+        """Route the follow-up back to whichever role actually supplied the
+        evidence behind this candidate, instead of always asking the owner.
+        source_answer_event_ids holds response_id-style values (see
+        agent/tools/bigquery_tools.py's _source_refs_to_columns), so this
+        looks them up against survey_responses; falls back to "owner" when
+        there's nothing to go on (e.g. the candidate predates that field, or
+        every source answer really did come from the owner)."""
+        if not source_answer_event_ids:
+            return "owner"
+        id_list = ", ".join(sql_literal(rid) for rid in source_answer_event_ids)
+        sql = f"""
+SELECT respondent_role, COUNT(*) AS c
+FROM `{_table(company_id, "survey_responses")}`
+WHERE response_id IN ({id_list}) AND respondent_role IS NOT NULL
+GROUP BY respondent_role
+ORDER BY c DESC
+LIMIT 1
+""".strip()
+        try:
+            rows = bigquery_crud.query_rows(sql)
+        except NotFound:
+            return "owner"
+        return rows[0]["respondent_role"] if rows else "owner"
+
     def _create_gap_question(
         self,
         company_id: str,
@@ -507,6 +532,7 @@ LIMIT 1
         candidate_name: str,
         confidence: float | None,
         missing_prompts: list[str],
+        source_answer_event_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         if missing_prompts:
             question_text = f"「{candidate_name}」について教えてください。{' '.join(missing_prompts)}"
@@ -518,7 +544,7 @@ LIMIT 1
             followup_question_id=_new_id("fq"),
             question_text=question_text,
             question_category=target["category"],
-            target_role="owner",
+            target_role=self._infer_target_role(company_id, source_answer_event_ids),
             reason=reason,
             priority_score=round(1.0 - (confidence or 0.0), 2),
             expected_answer_format="自由記述",
@@ -536,7 +562,7 @@ LIMIT 1
         _ensure_tables(company_id)
         created: list[dict[str, Any]] = []
         for target in _GAP_TARGETS:
-            columns = [target["id_field"], target["name_field"], "confidence"] + [
+            columns = [target["id_field"], target["name_field"], "confidence", "source_answer_event_ids"] + [
                 field for field, _ in target["checked_fields"]
             ]
             sql = f"""
@@ -565,7 +591,8 @@ WHERE company_id = {sql_literal(company_id)} AND approval_status = 'proposed'
                     continue
                 created.append(
                     self._create_gap_question(
-                        company_id, target, candidate_id, candidate_name, confidence, missing_prompts
+                        company_id, target, candidate_id, candidate_name, confidence, missing_prompts,
+                        row.get("source_answer_event_ids"),
                     )
                 )
         return {"created_count": len(created), "items": created}

@@ -18,20 +18,3 @@ export const consultantCompanies: CompanyOption[] = [
 ];
 
 export const authSessionStorageKey = "knowledge-farmer.auth-session";
-export const customCompaniesStorageKey = "knowledge-farmer.custom-companies";
-
-export const loadCustomCompanies = (): CompanyOption[] => {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(customCompaniesStorageKey);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as CompanyOption[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveCustomCompanies = (companies: CompanyOption[]) => {
-  window.localStorage.setItem(customCompaniesStorageKey, JSON.stringify(companies));
-};

@@ -1,14 +1,20 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   authSessionStorageKey,
   consultantCompanies,
-  loadCustomCompanies,
-  saveCustomCompanies,
   type AuthSession,
   type CompanyOption,
 } from "@/lib/auth-session";
+import { listCompanies } from "@/services/company-service";
+
+const toCompanyOption = (record: { company_id: string; company_name: string; company_size_segment: string | null }): CompanyOption => ({
+  code: record.company_id,
+  name: record.company_name,
+  segment: record.company_size_segment ?? "登録企業",
+});
 
 type RegisterCompanyResult = { ok: true } | { ok: false; error: string };
 
@@ -32,29 +38,43 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [customCompanies, setCustomCompanies] = useState<CompanyOption[]>([]);
+  // Companies just registered in this tab, shown immediately while the
+  // POST /companies write (fired separately by useProvisionCompany) is
+  // still in flight — reconciled away once the companies query below
+  // refetches and the real backend row appears in its place.
+  const [pendingCompanies, setPendingCompanies] = useState<CompanyOption[]>([]);
 
-  const companies = useMemo(() => [...consultantCompanies, ...customCompanies], [customCompanies]);
+  const queryClient = useQueryClient();
+  const companiesQuery = useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => (await listCompanies()).map(toCompanyOption),
+  });
+
+  const companies = useMemo(() => {
+    const backendCompanies = companiesQuery.data ?? [];
+    const knownCodes = new Set([...consultantCompanies, ...backendCompanies].map((c) => c.code));
+    const stillPending = pendingCompanies.filter((c) => !knownCodes.has(c.code));
+    return [...consultantCompanies, ...backendCompanies, ...stillPending];
+  }, [companiesQuery.data, pendingCompanies]);
 
   useEffect(() => {
-    const loadedCustomCompanies = loadCustomCompanies();
     // localStorage is only readable client-side; this app is a static export
     // (no per-request SSR), so reading it in an effect (post-mount, post-hydration)
     // rather than a lazy useState initializer avoids a hydration mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCustomCompanies(loadedCustomCompanies);
-
     const storedSession = window.localStorage.getItem(authSessionStorageKey);
 
     if (storedSession) {
       try {
         const parsed = JSON.parse(storedSession) as AuthSession;
-        const allCompanies = [...consultantCompanies, ...loadedCustomCompanies];
-        const companyExists = allCompanies.some((company) => company.code === parsed.companyCode);
+        // The companies list (backend-sourced) hasn't necessarily loaded yet
+        // at this point, so the stored company code is trusted as-is here;
+        // activeCompany below falls back to the default demo company once
+        // the list resolves if it turns out not to exist anymore.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSession({
           consultantName: parsed.consultantName?.trim() || "Consultant",
           email: parsed.email?.trim() || "",
-          companyCode: companyExists ? parsed.companyCode : fallbackCompany.code,
+          companyCode: parsed.companyCode || fallbackCompany.code,
         });
       } catch {
         window.localStorage.removeItem(authSessionStorageKey);
@@ -114,9 +134,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const nextCompany: CompanyOption = { code, name, segment: input.segment.trim() || "新規登録企業" };
-      const nextCustomCompanies = [...customCompanies, nextCompany];
-      setCustomCompanies(nextCustomCompanies);
-      saveCustomCompanies(nextCustomCompanies);
+      setPendingCompanies((prev) => [...prev, nextCompany]);
 
       if (options?.switchTo !== false && session) {
         persistSession({ ...session, companyCode: nextCompany.code });
@@ -124,12 +142,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { ok: true };
     },
-    [companies, customCompanies, persistSession, session],
+    [companies, persistSession, session],
   );
 
   const isCustomCompany = useCallback(
-    (companyCode: string) => customCompanies.some((company) => company.code === companyCode),
-    [customCompanies],
+    (companyCode: string) => !consultantCompanies.some((company) => company.code === companyCode),
+    [],
   );
 
   const removeCompany = useCallback(
@@ -138,18 +156,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { ok: false, error: "この企業は削除できません。" };
       }
 
-      const nextCustomCompanies = customCompanies.filter((company) => company.code !== companyCode);
-      setCustomCompanies(nextCustomCompanies);
-      saveCustomCompanies(nextCustomCompanies);
+      // The backend row is already gone by the time this is called (see
+      // CompanySwitcher's handleDeleteCompany) — just drop any optimistic
+      // pending entry and refetch so the real (now-shorter) list replaces it.
+      setPendingCompanies((prev) => prev.filter((company) => company.code !== companyCode));
+      void queryClient.invalidateQueries({ queryKey: ["companies"] });
 
       if (session?.companyCode === companyCode) {
-        const nextActive = [...consultantCompanies, ...nextCustomCompanies][0] ?? fallbackCompany;
+        const remaining = companies.filter((company) => company.code !== companyCode);
+        const nextActive = remaining[0] ?? fallbackCompany;
         persistSession({ ...session, companyCode: nextActive.code });
       }
 
       return { ok: true };
     },
-    [customCompanies, isCustomCompany, persistSession, session],
+    [companies, isCustomCompany, persistSession, queryClient, session],
   );
 
   const activeCompany = useMemo(() => {

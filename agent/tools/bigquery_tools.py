@@ -568,7 +568,16 @@ def insert_survey_response(
 
 
 def insert_onboarding_answer_events(company_id: str, records: list[dict]) -> dict:
-    """Insert initial 18-question answer events into the tenant table."""
+    """Insert initial 18-question answer events into the tenant table.
+
+    Each record requires the exact keys "answer_event_id" and "question_id".
+    This tool does not generate answer_event_id for you — invent a new
+    unique string per record yourself (e.g. "ans_" followed by the
+    question_id and an index). Optional keys: question_version,
+    question_text, respondent_role, answered_at, answer_text,
+    answer_payload, extracted_summary, extracted_entities,
+    extracted_signals, source_gcs_uri, source_file_generation, created_at.
+    """
     table = _company_qualified(company_id, "onboarding_answer_events")
     now = _now_iso()
     rows = []
@@ -692,7 +701,17 @@ def insert_focus_metric_candidates(company_id: str, records: list[dict]) -> dict
 
 def insert_observation_signals(company_id: str, records: list[dict]) -> dict:
     """Insert proposed observation signals. Approval to a signal is recorded
-    via the back HITL pipeline (approval_status remains 'proposed' here)."""
+    via the back HITL pipeline (approval_status remains 'proposed' here).
+
+    Each record requires the exact keys "observation_signal_id" (invent a
+    new unique string per record yourself — this tool does not generate
+    it for you) and "signal_name". Optional keys: signal_category,
+    description, related_focus_metric_candidate_ids,
+    related_kpi_candidate_ids, detection_rule, expected_source,
+    expected_frequency, severity, reason, source_answer_event_ids,
+    source_followup_answer_event_ids, source_gcs_uris, confidence,
+    approval_status.
+    """
     table = _company_qualified(company_id, "observation_signals")
     now = _now_iso()
     rows = []
@@ -897,13 +916,41 @@ WHEN NOT MATCHED THEN INSERT ROW
     return result
 
 
+def _existing_node_ids(company_id: str) -> set[str]:
+    """Active node_ids for this company, used by upsert_knowledge_edges to
+    reject edges pointing at nodes that were never actually upserted (e.g.
+    the model names a node it only described in text, or references a
+    node_id from a different/earlier attempt whose upsert_knowledge_nodes
+    call never ran) — such edges would otherwise sit permanently as
+    unrenderable dangling rows, since node_id/edge_id have no FK
+    enforcement in BigQuery."""
+    if settings.dry_run:
+        return set()
+    table = f"`{_company_qualified(company_id, 'knowledge_nodes')}`"
+    sql = f"SELECT node_id FROM {table} WHERE status = 'active'"
+    from google.api_core.exceptions import NotFound
+
+    client = _client()
+    try:
+        return {row["node_id"] for row in client.query(sql).result()}
+    except NotFound:
+        return set()
+
+
 def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
     if not edges:
         return {"skipped": True, "reason": "no edges"}
     required_keys = ("edge_id", "source_node_id", "target_node_id", "edge_type")
     complete_edges = [edge for edge in edges if all(edge.get(key) for key in required_keys)]
-    valid_edges = [edge for edge in complete_edges if edge["edge_type"] in KNOWLEDGE_EDGE_TYPES]
+    typed_edges = [edge for edge in complete_edges if edge["edge_type"] in KNOWLEDGE_EDGE_TYPES]
     unknown_types = sorted({edge["edge_type"] for edge in complete_edges if edge["edge_type"] not in KNOWLEDGE_EDGE_TYPES})
+    existing_node_ids = _existing_node_ids(company_id)
+    valid_edges = [
+        edge for edge in typed_edges
+        if not existing_node_ids
+        or (edge["source_node_id"] in existing_node_ids and edge["target_node_id"] in existing_node_ids)
+    ]
+    dangling_edges = [edge for edge in typed_edges if edge not in valid_edges]
     invalid_count = len(edges) - len(valid_edges)
     if not valid_edges:
         return {
@@ -911,6 +958,12 @@ def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
             "reason": (
                 f"all {len(edges)} edge(s) rejected: missing required field(s) {required_keys}"
                 + (f" or unknown edge_type {unknown_types}" if unknown_types else "")
+                + (
+                    f" or reference a source_node_id/target_node_id not found among this "
+                    f"company's existing active nodes (call upsert_knowledge_nodes for them first): "
+                    f"{[e['edge_id'] for e in dangling_edges]}"
+                    if dangling_edges else ""
+                )
             ),
             "allowed_edge_types": sorted(KNOWLEDGE_EDGE_TYPES),
         }
@@ -952,6 +1005,16 @@ WHEN NOT MATCHED THEN INSERT ROW
         if unknown_types:
             result["skipped_unknown_edge_types"] = unknown_types
             result["allowed_edge_types"] = sorted(KNOWLEDGE_EDGE_TYPES)
+        if dangling_edges:
+            result["skipped_dangling_edges"] = [
+                {"edge_id": e["edge_id"], "source_node_id": e["source_node_id"], "target_node_id": e["target_node_id"]}
+                for e in dangling_edges
+            ]
+            result["dangling_edge_hint"] = (
+                "These edges reference node_ids not found among this company's existing "
+                "active nodes. Call upsert_knowledge_nodes for the missing node(s) first, "
+                "then retry upsert_knowledge_edges."
+            )
     return result
 
 

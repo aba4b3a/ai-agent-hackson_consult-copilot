@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -18,4 +20,6 @@ class ExecuteDdlResponse(BaseModel):
 class GraphQueryResponse(BaseModel):
     company_id: str
     graph_query: str
+    executed: bool
+    results: list[Any]
     note: str

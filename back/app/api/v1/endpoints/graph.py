@@ -46,5 +46,15 @@ def get_graph_node_detail(company_id: str, node_id: str):
 
 
 @router.get('/{company_id}/graph/query', response_model=GraphQueryResponse)
-def get_graph_query(company_id: str, keyword: str | None = Query(default=None)):
-    return bigquery_service.graph_query(company_id, keyword)
+def get_graph_query(
+    company_id: str,
+    keyword: str | None = Query(default=None),
+    node_type: str | None = Query(default=None, description='起点ノードの node_type（例: Signal, KPI）'),
+    target_type: str | None = Query(default=None, description='終点ノードの node_type'),
+    edge_type: str | None = Query(default=None, description='edge_type（例: LEADING_INDICATOR_OF）'),
+    hops: int = Query(default=1, ge=1, le=3),
+):
+    return bigquery_service.graph_query(
+        company_id, keyword=keyword, node_type=node_type, target_type=target_type,
+        edge_type=edge_type, hops=hops,
+    )
