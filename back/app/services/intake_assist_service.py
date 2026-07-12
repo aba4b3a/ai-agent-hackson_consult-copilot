@@ -18,6 +18,7 @@ ONBOARDING_STAGE1_COMPLETE と同じマーカー方式）。マーカーが欠�
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from app.schemas.survey import IntakeAssistRequest, IntakeAssistResponse
 from app.services import agent_client
@@ -95,7 +96,7 @@ def _is_summary_turn(data: IntakeAssistRequest) -> bool:
     return user_message_count % _SUMMARY_EVERY_N_USER_MESSAGES == 0
 
 
-def _parse_reply(raw_reply: str, expected_summary: bool) -> tuple[str, str, str | None]:
+def _parse_reply(raw_reply: str, expected_summary: bool) -> tuple[Literal['followup', 'summary'], str, str | None]:
     """マーカーを解析して (mode, reply, answer_draft) を返す。
 
     モデルがマーカーを守らなかった場合は安全側に倒す:

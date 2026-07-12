@@ -54,6 +54,8 @@ export type CompanyCreateRequest = {
   size_hint?: string | null;
 };
 
+export const listCompanies = (): Promise<CompanyRecord[]> => apiFetch(`/api/v1/companies`);
+
 export const createCompanyMaster = (body: CompanyCreateRequest): Promise<CompanyRecord> =>
   apiFetch(`/api/v1/companies`, {
     method: "POST",

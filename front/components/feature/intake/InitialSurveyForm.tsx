@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
 import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
@@ -26,6 +26,14 @@ const categoryLabels: Record<string, string> = {
 const serializeAnswer = (value: AnswerValue | undefined) => {
   if (Array.isArray(value)) return value.join(", ");
   return value ?? "";
+};
+
+// Single-line <input> submits its enclosing <form> on Enter by default
+// (standard HTML behavior) — on the last question that's the 送信 button,
+// so pressing Enter here fires the real submit without the user ever
+// clicking it. Blocked so 送信 only ever happens from an explicit click.
+const preventEnterSubmit = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === "Enter") event.preventDefault();
 };
 
 const QuestionInput = ({
@@ -107,6 +115,7 @@ const QuestionInput = ({
           type="number"
           value={typeof value === "string" ? value : ""}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={preventEnterSubmit}
           placeholder={question.placeholder ?? undefined}
         />
         {question.validation.unit ? <span className="shrink-0 text-xs font-black text-slate-500">{question.validation.unit}</span> : null}
@@ -115,7 +124,15 @@ const QuestionInput = ({
   }
 
   if (question.answer_type === "date") {
-    return <input className={baseInput} type="date" value={typeof value === "string" ? value : ""} onChange={(event) => onChange(event.target.value)} />;
+    return (
+      <input
+        className={baseInput}
+        type="date"
+        value={typeof value === "string" ? value : ""}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={preventEnterSubmit}
+      />
+    );
   }
 
   if (question.answer_type === "long_text" || question.answer_type === "json") {
@@ -139,6 +156,7 @@ const QuestionInput = ({
       type="text"
       value={typeof value === "string" ? value : ""}
       onChange={(event) => onChange(event.target.value)}
+      onKeyDown={preventEnterSubmit}
       placeholder={question.placeholder ?? undefined}
     />
   );

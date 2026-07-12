@@ -107,12 +107,15 @@ WHERE q.company_id = {sql_literal(company_id)} AND q.origin = 'onboarding'
 def _chat_supplement(answer_json: dict | str | None) -> str | None:
     """「AIに補足する」チャットで回答者が入力した補足テキストを1本にまとめる。
     answer_json は BigQuery 経由だと JSON 文字列で来ることがあるため両対応。"""
+    parsed: dict | None
     if isinstance(answer_json, str):
         try:
-            answer_json = json.loads(answer_json)
+            parsed = json.loads(answer_json)
         except ValueError:
             return None
-    messages = (answer_json or {}).get('chat_messages') or []
+    else:
+        parsed = answer_json
+    messages = (parsed or {}).get('chat_messages') or []
     user_texts = [
         m.get('text', '').strip()
         for m in messages
@@ -154,6 +157,13 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
 5. 上記の回答内容から企業構造のナレッジグラフを抽出し、upsert_knowledge_nodes / upsert_knowledge_edges で保存する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。各ノード・エッジの source_response_id には、根拠となった回答の response_id(上記JSONに含まれる)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
 6. 上記の回答内容から、この企業についてさらに深掘りすべき固有の追加質問を2〜5件考え、insert_research_followup_question_events で登録する。各質問の origin は必ず "onboarding" にすること(これは継続的な収集用の定期質問ではなく、Wikiを確定する前に一度だけ回答してもらう質問です)。
 
+   target_role の付け方(重要): 全ての質問を経営者(owner)向けにしないこと。質問の内容が
+   現場のオペレーション・接客・作業手順に関するものなら target_role="staff"、営業・顧客対応に
+   関するものなら "sales"、店舗や部門の管理に関するものなら "manager" にする。経営判断・全体戦略
+   に関するものだけ "owner" にする。上記の回答が全て同じ respondent_role から提出されている場合
+   でも、質問の内容から見て本来別の役割の人が答えるべき質問には、その役割を target_role に指定
+   すること(回答者が違う場合は別の人に転送されるだけなので、実際に詳しい人に聞く方がよい)。
+
    質問文の書き方(重要): 回答者はITや経営の専門知識を持たない事業主・現場担当者です。
    「原価管理」「データ基盤」「システム」「KPI」「指標」のような業務・IT用語を使った
    質問は絶対に避け、初期アンケートの質問(例:「顧客が御社を選ぶ一番の理由は何だと思いますか？」)
@@ -165,7 +175,7 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
      ありますか？それはなぜそう感じますか？」
    1問につき1つのことだけを聞き、回答者が1分程度で答えられる長さにすること。
 
-7. 上記の内容をもとに render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files で保存する。
+7. 上記の回答内容から、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files で保存する。
 
 途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。手順5〜7は
 実際にツールを呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で
@@ -192,7 +202,7 @@ def _build_stage2_message(
 1. 上記すべての回答を踏まえて、KPI候補・重点管理指標候補を見直し、必要であれば insert_kpi_candidates / insert_focus_metric_candidates で追加・更新登録する。
 2. 上記すべての回答(追加質問への回答を含む)を踏まえてナレッジグラフを見直し、upsert_knowledge_nodes / upsert_knowledge_edges で追加・更新する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。初期アンケート回答由来のノード・エッジには source_response_id(上記JSONの response_id)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
 3. 継続的な収集が必要な指標があれば、create_research_collection_table と register_research_schedule_item で収集用テーブルと収集スケジュールを用意する。
-4. 上記の内容をもとに render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files で保存して確定する。
+4. 初期アンケート回答と追加質問への回答の両方を踏まえて、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ直し、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files で保存して確定する。
 
 途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。write_wiki_files は
 実際に呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で捏造しては
@@ -208,11 +218,19 @@ def _build_stage2_message(
 # knowledge_agent takes over after the orchestrator's handoff). This is a
 # real model-reliability limitation with this many tools/complex schemas, not
 # something back-end retry logic can fully paper over; 3 attempts trades a
-# meaningfully better success rate for proportionally higher LLM cost. A
-# retry uses a fresh session so the model starts the chain over; the
-# table-creation/write tools it re-runs are idempotent (CREATE TABLE IF NOT
-# EXISTS, MERGE-based upserts), except onboarding_answer_events, which may
-# get a harmless duplicate append row on retry.
+# meaningfully better success rate for proportionally higher LLM cost. Each
+# attempt uses a fresh session so the model starts the chain over — this
+# must hold across separate *invocations* too (e.g. retry_failed_onboarding
+# calling finalize_onboarding again after all 3 attempts already failed
+# once), not just across attempts within one invocation: ADK sessions are
+# stateful, so reusing a session_id from an already-crashed attempt resumes
+# that same poisoned conversation (the unresolved malformed function call
+# still sits in its history) instead of starting clean, and the model keeps
+# crashing identically every retry (observed directly). run_token (below)
+# makes every invocation's session_ids unique. The table-creation/write
+# tools re-run here are idempotent (CREATE TABLE IF NOT EXISTS, MERGE-based
+# upserts), except onboarding_answer_events, which may get a harmless
+# duplicate append row on retry.
 _MAX_ATTEMPTS = 3
 
 
@@ -248,13 +266,16 @@ class OnboardingService:
         company_service.update_onboarding_status(company_id, 'processing')
         message = _build_stage1_message(company_id, company_name, _answers_payload(answers))
         started_at = time.time()
+        run_token = int(started_at * 1000)
 
         last_error: Exception | None = None
         for attempt in range(_MAX_ATTEMPTS):
             reply = ''
             try:
                 reply = await agent_client.run_agent_turn(
-                    user_id=company_id, session_id=f'onboarding_stage1_{company_id}_{attempt}', message=message
+                    user_id=company_id,
+                    session_id=f'onboarding_stage1_{company_id}_{run_token}_{attempt}',
+                    message=message,
                 )
                 last_error = None
             except Exception as exc:
@@ -304,13 +325,16 @@ class OnboardingService:
         followup_qa = _onboarding_followup_qa(company_id)
         message = _build_stage2_message(company_id, company_name, answers_payload, followup_qa)
         started_at = time.time()
+        run_token = int(started_at * 1000)
 
         last_error: Exception | None = None
         for attempt in range(_MAX_ATTEMPTS):
             reply = ''
             try:
                 reply = await agent_client.run_agent_turn(
-                    user_id=company_id, session_id=f'onboarding_stage2_{company_id}_{attempt}', message=message
+                    user_id=company_id,
+                    session_id=f'onboarding_stage2_{company_id}_{run_token}_{attempt}',
+                    message=message,
                 )
                 last_error = None
             except Exception as exc:

@@ -6,13 +6,14 @@ on:
       - develop
   workflow_dispatch:
 
+# ai-review / security-check jobs (reusable workflows from
+# aba4b3a/ai-agent-hackason_ai-common) are temporarily removed: GitHub
+# rejects the whole workflow file with "workflow was not found" when it
+# can't resolve them (private repo, no cross-repo Actions access from a
+# personal-account repo), which was blocking front/back/agent too since
+# GitHub validates every reusable-workflow reference in a file before
+# running any job in it. Re-add once that repo's access is sorted out.
 jobs:
-  ai-review:
-    uses: aba4b3a/ai-agent-hackason_ai-common/.github/workflows/ai-review.yml@5620f881413f5a961e6f956ff8f73db255e46cdb
-
-  security-check:
-    uses: aba4b3a/ai-agent-hackason_ai-common/.github/workflows/security-check.yml@5620f881413f5a961e6f956ff8f73db255e46cdb
-
   front:
     runs-on: ubuntu-latest
     defaults:

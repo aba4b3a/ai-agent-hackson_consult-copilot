@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createCompanyCoreTables,
   createCompanyMaster,
@@ -9,6 +9,8 @@ import {
 } from "@/services/company-service";
 
 export const useProvisionCompany = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async ({ companyId, ...body }: CompanyOnboardingPrepareRequest & { companyId: string }) => {
       const [onboarding] = await Promise.all([
@@ -22,6 +24,12 @@ export const useProvisionCompany = () => {
         }),
       ]);
       return onboarding;
+    },
+    onSuccess: () => {
+      // The company switcher's list is backend-sourced (see AuthProvider);
+      // refetch it now so the just-created company shows up as a real
+      // entry instead of relying solely on AuthProvider's optimistic one.
+      void queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
   });
 };
