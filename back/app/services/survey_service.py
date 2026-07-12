@@ -67,7 +67,7 @@ class SurveyService:
             survey_responses = settings.qualified_table(company_id, 'survey_responses')
             ids_sql = ', '.join(f"'{qid}'" for qid in question_ids)
             sql = f"""
-                SELECT question_id, question_text, answer_type, respondent_role,
+                SELECT response_id, question_id, question_text, answer_type, respondent_role,
                        raw_answer, numeric_value, answer_json, collected_at
                 FROM `{survey_responses}`
                 WHERE question_id IN ({ids_sql})
@@ -108,6 +108,7 @@ class SurveyService:
                 numeric_value=row.get('numeric_value'),
                 answer_json=row.get('answer_json') or {},
                 collected_at=collected_at or '',
+                response_id=row.get('response_id'),
             )
             existing = latest_by_question.get(answer.question_id)
             if not existing or answer.collected_at >= existing.collected_at:

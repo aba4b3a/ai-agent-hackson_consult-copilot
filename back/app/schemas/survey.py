@@ -77,6 +77,10 @@ class SurveyAnswerCreate(BaseModel):
     raw_answer: str
     numeric_value: float | None = None
     answer_json: dict[str, Any] = Field(default_factory=dict)
+    # 保存済み survey_responses.response_id。提出エンドポイントが保存後に採番を
+    # 書き戻し、エージェントがナレッジグラフの source_response_id（証拠レイヤー
+    # への参照）として使う。
+    response_id: str | None = None
 
 
 class SurveySubmissionCreate(BaseModel):
@@ -130,6 +134,7 @@ class SurveyAnswerRead(BaseModel):
     numeric_value: float | None = None
     answer_json: dict[str, Any] = Field(default_factory=dict)
     collected_at: str
+    response_id: str | None = None
 
 
 class InitialSurveyStatus(BaseModel):

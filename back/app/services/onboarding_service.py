@@ -112,6 +112,7 @@ def _answers_payload(answers: list[SurveyAnswerCreate]) -> list[dict]:
             "respondent_role": a.respondent_role,
             "raw_answer": a.raw_answer,
             "numeric_value": a.numeric_value,
+            "response_id": a.response_id,
         }
         for a in answers
     ]
@@ -130,7 +131,8 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
 2. create_tenant_tables(company_id="{company_id}") で、KPI候補・重点管理指標候補などのテナント用テーブルを作成する。
 3. insert_onboarding_answer_events は、上記の回答すべてを1つの records 配列にまとめて1回だけ呼び出す(回答1件ごとに個別に呼び出さないこと)。
 4. 上記の回答内容を分析し、KPI候補・重点管理指標候補を抽出して insert_kpi_candidates / insert_focus_metric_candidates で登録する。
-5. 上記の回答内容から、この企業についてさらに深掘りすべき固有の追加質問を2〜5件考え、insert_research_followup_question_events で登録する。各質問の origin は必ず "onboarding" にすること(これは継続的な収集用の定期質問ではなく、Wikiを確定する前に一度だけ回答してもらう質問です)。
+5. 上記の回答内容から企業構造のナレッジグラフを抽出し、upsert_knowledge_nodes / upsert_knowledge_edges で保存する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。各ノード・エッジの source_response_id には、根拠となった回答の response_id(上記JSONに含まれる)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
+6. 上記の回答内容から、この企業についてさらに深掘りすべき固有の追加質問を2〜5件考え、insert_research_followup_question_events で登録する。各質問の origin は必ず "onboarding" にすること(これは継続的な収集用の定期質問ではなく、Wikiを確定する前に一度だけ回答してもらう質問です)。
 
    質問文の書き方(重要): 回答者はITや経営の専門知識を持たない事業主・現場担当者です。
    「原価管理」「データ基盤」「システム」「KPI」「指標」のような業務・IT用語を使った
@@ -143,9 +145,9 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
      ありますか？それはなぜそう感じますか？」
    1問につき1つのことだけを聞き、回答者が1分程度で答えられる長さにすること。
 
-6. 上記の内容をもとに render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files で保存する。
+7. 上記の内容をもとに render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files で保存する。
 
-途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。手順5と6は
+途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。手順5〜7は
 実際にツールを呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で
 捏造してはいけません。最後の返信の1行目は、全ての手順が完了した場合は必ず
 「ONBOARDING_STAGE1_COMPLETE」、途中で続行できない手順がある場合は
@@ -168,8 +170,9 @@ def _build_stage2_message(
 
 実行してほしい手順:
 1. 上記すべての回答を踏まえて、KPI候補・重点管理指標候補を見直し、必要であれば insert_kpi_candidates / insert_focus_metric_candidates で追加・更新登録する。
-2. 継続的な収集が必要な指標があれば、create_research_collection_table と register_research_schedule_item で収集用テーブルと収集スケジュールを用意する。
-3. 上記の内容をもとに render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files で保存して確定する。
+2. 上記すべての回答(追加質問への回答を含む)を踏まえてナレッジグラフを見直し、upsert_knowledge_nodes / upsert_knowledge_edges で追加・更新する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。初期アンケート回答由来のノード・エッジには source_response_id(上記JSONの response_id)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
+3. 継続的な収集が必要な指標があれば、create_research_collection_table と register_research_schedule_item で収集用テーブルと収集スケジュールを用意する。
+4. 上記の内容をもとに render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files で保存して確定する。
 
 途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。write_wiki_files は
 実際に呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で捏造しては
@@ -273,6 +276,7 @@ class OnboardingService:
                 "respondent_role": a.respondent_role,
                 "raw_answer": a.raw_answer,
                 "numeric_value": a.numeric_value,
+                "response_id": a.response_id,
             }
             for a in survey_service.get_initial_survey_status(company_id).answers
         ]
@@ -337,6 +341,7 @@ class OnboardingService:
                 raw_answer=a.raw_answer,
                 numeric_value=a.numeric_value,
                 answer_json=a.answer_json,
+                response_id=a.response_id,
             )
             for a in survey_status.answers
         ]

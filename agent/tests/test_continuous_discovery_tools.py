@@ -3,7 +3,10 @@ import pytest
 from tools.bigquery_tools import (
     insert_kpi_candidates,
     insert_research_followup_question_events,
+    list_knowledge_nodes,
     upsert_current_kpi_definition,
+    upsert_knowledge_edges,
+    upsert_knowledge_nodes,
 )
 from tools.storage_tools import write_wiki_files
 from tools.survey_tools import generate_common_initial_survey
@@ -54,6 +57,58 @@ def test_insert_research_followup_question_events_is_dry_run_safe() -> None:
     assert result["dry_run"] is True
     assert result["rows"][0]["status"] == "proposed"
     assert result["rows"][0]["priority_score"] == 0.0
+
+
+def test_list_knowledge_nodes_is_dry_run_safe() -> None:
+    result = list_knowledge_nodes("company_001")
+
+    assert result["dry_run"] is True
+    assert result["nodes"] == []
+
+
+def test_upsert_knowledge_nodes_rejects_unknown_node_type() -> None:
+    result = upsert_knowledge_nodes(
+        "company_001",
+        [{"node_id": "node_foo_bar", "node_type": "FooType", "label": "x"}],
+    )
+
+    assert result["skipped"] is True
+    assert "FooType" in result["reason"]
+    assert "KPI" in result["allowed_node_types"]
+
+
+def test_upsert_knowledge_nodes_keeps_valid_rows_and_reports_unknown_types() -> None:
+    result = upsert_knowledge_nodes(
+        "company_001",
+        [
+            {"node_id": "node_kpi_repeat_rate", "node_type": "KPI", "label": "リピート率"},
+            {"node_id": "node_foo_bar", "node_type": "FooType", "label": "x"},
+        ],
+    )
+
+    assert result["dry_run"] is True
+    assert result["skipped_invalid_count"] == 1
+    assert result["skipped_unknown_node_types"] == ["FooType"]
+    assert "node_kpi_repeat_rate" in result["sql"]
+    assert "node_foo_bar" not in result["sql"]
+
+
+def test_upsert_knowledge_edges_rejects_unknown_edge_type() -> None:
+    result = upsert_knowledge_edges(
+        "company_001",
+        [
+            {
+                "edge_id": "edge_a_related_to_b",
+                "source_node_id": "node_a",
+                "target_node_id": "node_b",
+                "edge_type": "RELATED_TO",
+            }
+        ],
+    )
+
+    assert result["skipped"] is True
+    assert "RELATED_TO" in result["reason"]
+    assert "KNOWS" in result["allowed_edge_types"]
 
 
 def test_current_kpi_definition_requires_approval() -> None:

@@ -1541,3 +1541,40 @@ back の copilot は agent 到達不能時に**サンプル応答へフォール
 - 注意: **DRY_RUN=true では intake 提出は BigQuery に書き込まれない**（原文 JSON の
   ローカル保存のみ）。グラフへ反映して確認する場合は DRY_RUN=false ＋エミュレータ起動
   ＋ `seed_emulator.py` 投入が必要。
+
+### 23.5 オンボーディング時のナレッジグラフ LLM 抽出（2026-07-12 実装）
+
+§6.2 Knowledge Agent の責務のうち未実装だった「entities / relationships の LLM 抽出」を
+オンボーディング Stage 1/2 に組み込んだ（ブランチ `bugfix/initial_intake_with_ai`）。
+従来は intake ルール抽出（§23.4、固定36語の辞書ベース）のみがグラフを構築していた。
+
+- **エージェントへの指示**: `agent/prompts/prompts.py` の knowledge_agent 指示に
+  「ナレッジグラフの抽出」節を追加。§10.1/10.2 の正式語彙（10ノード型・7エッジ型）、
+  `LEADING_INDICATOR_OF` の仮説区分（`properties.hypothesis=true`）、node_id 命名規則
+  （`node_<型>_<スラッグ>`）、1回の抽出で新規ノード最大15個（§10.0 の「絞った構造理解」
+  を担保）、`properties.extractor="knowledge_agent_llm"` の刻印（AD-004 の抽出元
+  メタデータ。ルール抽出の `rule_based_mvp` と判別可能）を規定。
+- **Stage 1/2 プロンプト**: `back/app/services/onboarding_service.py` の
+  `_build_stage1_message` に手順5（グラフ抽出→upsert）を挿入し、
+  `_build_stage2_message` にも追加回答を踏まえたグラフ見直し手順を追加。
+- **名寄せツール**: `agent/tools/bigquery_tools.py` に `list_knowledge_nodes` を新設
+  （active ノード最大300件）。抽出前に既存ノードを確認し、同一実体は既存 node_id を
+  再利用させることでルール抽出由来ノードとの重複を防ぐ（§10.2 の分断防止方針を
+  LLM 抽出側にも適用）。
+- **語彙 enum 化**: §10.1 注記の推奨に従い、`upsert_knowledge_nodes` /
+  `upsert_knowledge_edges` に正式語彙のバリデーションを追加。未知の型は行単位で
+  スキップし、許可語彙リストを返してエージェントの自己修正を促す。
+- **証拠レイヤー参照（§10.0/10.6）**: 提出時に採番される `survey_responses.response_id`
+  を回答ペイロードに同梱してエージェントへ渡し（`back/app/schemas/survey.py` /
+  `back/app/api/v1/endpoints/survey.py` / `back/app/services/survey_service.py`）、
+  抽出ノード・エッジの `source_response_id` に設定させる。リトライ経路も対応。
+- グラフ抽出の成否はオンボーディング成功判定（追加質問生成数・Wiki 書き込み）に
+  **含めない**（ベストエフォート）。ツールチェーン延長による既知の
+  MALFORMED_FUNCTION_CALL リスクを既存の3回リトライで吸収する。
+- テスト: enum 拒否・部分スキップ・名寄せツールの dry-run 安全性（agent 側）、
+  プロンプト内容・response_id 伝搬（back 側）を追加。back 23件 / agent 10件パス。
+  ローカル（ホスト）で agent テストを実行する際は `agent/.env` の実行用設定に
+  上書きされないよう `DRY_RUN=true GOOGLE_APPLICATION_CREDENTIALS= uv run pytest`。
+- 注意: **実機 E2E（Gemini が実際にノード・エッジを upsert するか）は未確認**。
+  確認手順: dev プロファイルで初期ヒアリングを提出し、`{company}_knowledge_nodes` に
+  `properties.extractor="knowledge_agent_llm"` の行が入りグラフ画面に反映されること。
