@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
+import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { useInitialSurvey, useInitialSurveyStatus, useRetryOnboarding, useSubmitInitialSurvey } from "@/hooks/use-intake";
@@ -327,8 +328,8 @@ const FollowupChat = ({
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[82%] rounded-lg px-3 py-2 text-sm font-semibold leading-relaxed ${message.role === "user" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
-                {message.text}
+              <div className={`max-w-[82%] rounded-lg px-3 py-2 text-sm font-semibold leading-relaxed ${message.role === "user" ? "whitespace-pre-line bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
+                {message.role === "assistant" ? <ChatMarkdown text={message.text} /> : message.text}
               </div>
             </div>
           ))}

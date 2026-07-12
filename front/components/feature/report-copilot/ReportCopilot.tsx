@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BottomNav } from "@/components/feature/discovery/BottomNav";
 import { Card } from "@/components/ui/Card";
+import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -174,13 +175,13 @@ export const ReportCopilot = () => {
               {chat.map((entry, i) => (
                 <div
                   key={i}
-                  className={`rounded-2xl px-3 py-2 text-[11px] font-extrabold md:text-sm ${
+                  className={`rounded-2xl px-3 py-2 text-[11px] md:text-sm ${
                     entry.role === "user"
-                      ? "ml-6 bg-blue-50 text-blue-900"
-                      : "mr-6 bg-slate-100 text-slate-800"
+                      ? "ml-6 whitespace-pre-line bg-blue-50 font-extrabold text-blue-900"
+                      : "mr-6 bg-slate-100 font-semibold text-slate-800"
                   }`}
                 >
-                  {entry.text}
+                  {entry.role === "assistant" ? <ChatMarkdown text={entry.text} /> : entry.text}
                 </div>
               ))}
               {sending && (
