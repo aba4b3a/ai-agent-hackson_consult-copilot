@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { FiMessageCircle, FiX } from "react-icons/fi";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
 import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 import { getKnowledgeData } from "@/services/knowledge-service";
@@ -38,6 +39,20 @@ const loadStoredChat = (companyCode: string): StoredChat | null => {
 
 const saveStoredChat = (companyCode: string, state: StoredChat) => {
   window.localStorage.setItem(chatStorageKey(companyCode), JSON.stringify(state));
+};
+
+// デスクトップ(xl以上)のパネル幅。CSS変数 --copilot-w を通じて PhoneFrame の
+// 本文余白と連動させる（ドラッグ中はReactを再レンダリングせずCSS変数だけ更新
+// することで、全画面分の本文をスムーズに追従させる）。
+const DEFAULT_PANEL_WIDTH_PX = 416; // 26rem = 従来の固定幅
+const MIN_PANEL_WIDTH_PX = 320;
+const PANEL_WIDTH_STORAGE_KEY = "knowledge-farmer.copilot-width";
+
+const clampPanelWidth = (width: number) =>
+  Math.min(Math.max(width, MIN_PANEL_WIDTH_PX), Math.min(640, Math.floor(window.innerWidth * 0.5)));
+
+const applyPanelWidthVar = (width: number) => {
+  document.documentElement.style.setProperty("--copilot-w", `${width}px`);
 };
 
 const starterPrompts = [
@@ -204,8 +219,66 @@ export const PersistentAiChat = () => {
     void ask(input);
   };
 
-  return (
-    <aside className="fixed inset-y-0 right-0 z-30 hidden w-[26rem] border-l border-slate-200 bg-white text-slate-950 shadow-[-18px_0_40px_rgba(15,23,42,0.08)] xl:flex xl:flex-col">
+  // ---- xl未満: フローティングボタン＋ボトムシートの開閉 ----
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileOpen]);
+
+  // ---- xl以上: 左端ドラッグによるパネル幅の変更 ----
+  const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH_PX);
+  const isResizingRef = useRef(false);
+
+  useEffect(() => {
+    // localStorage はクライアントでのみ読める。静的エクスポートのため
+    // マウント後に復元する（NavVisibilityProvider と同じ流儀）。
+    const stored = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(stored) && stored > 0) {
+      const width = clampPanelWidth(stored);
+      panelWidthRef.current = width;
+      applyPanelWidthVar(width);
+    }
+  }, []);
+
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    isResizingRef.current = true;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  };
+
+  const moveResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isResizingRef.current) return;
+    const width = clampPanelWidth(window.innerWidth - event.clientX);
+    panelWidthRef.current = width;
+    applyPanelWidthVar(width);
+  };
+
+  const endResize = () => {
+    if (!isResizingRef.current) return;
+    isResizingRef.current = false;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(panelWidthRef.current));
+  };
+
+  const resetPanelWidth = () => {
+    panelWidthRef.current = DEFAULT_PANEL_WIDTH_PX;
+    applyPanelWidthVar(DEFAULT_PANEL_WIDTH_PX);
+    window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(DEFAULT_PANEL_WIDTH_PX));
+  };
+
+  // デスクトップの右固定パネルとモバイルのボトムシートで同じ中身を使う。
+  // state はコンポーネント直下で共有しているため、画面幅が変わっても会話は継続する。
+  const renderPanelBody = (onClose?: () => void) => (
+    <>
       <header className="border-b border-slate-100 px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -213,7 +286,18 @@ export const PersistentAiChat = () => {
             <h2 className="mt-1 text-lg font-black">Knowledge Farmer</h2>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{activeCompany.code} / {activeCompany.name}</p>
           </div>
-          <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">PC</span>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="チャットを閉じる"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+            >
+              <FiX aria-hidden="true" className="h-4 w-4" />
+            </button>
+          ) : (
+            <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">PC</span>
+          )}
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -285,6 +369,59 @@ export const PersistentAiChat = () => {
           </button>
         </form>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* xl以上: 右固定パネル（左端ドラッグで幅変更、ダブルクリックでリセット） */}
+      <aside className="fixed inset-y-0 right-0 z-30 hidden w-[var(--copilot-w,26rem)] border-l border-slate-200 bg-white text-slate-950 shadow-[-18px_0_40px_rgba(15,23,42,0.08)] xl:flex xl:flex-col">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="チャットパネルの幅を変更"
+          title="ドラッグで幅を変更 / ダブルクリックでリセット"
+          className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize bg-transparent transition hover:bg-blue-300 active:bg-blue-400"
+          onPointerDown={startResize}
+          onPointerMove={moveResize}
+          onPointerUp={endResize}
+          onPointerCancel={endResize}
+          onDoubleClick={resetPanelWidth}
+        />
+        {renderPanelBody()}
+      </aside>
+
+      {/* xl未満: フローティングボタン */}
+      {!isMobileOpen ? (
+        <button
+          type="button"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="AIチャットを開く"
+          className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(15,23,42,0.35)] transition hover:bg-slate-800 md:bottom-6 xl:hidden"
+        >
+          <FiMessageCircle aria-hidden="true" className="h-5 w-5" />
+          AI
+        </button>
+      ) : null}
+
+      {/* xl未満: ボトムシート（サイドナビの開閉トグル(z-40)より上に重ねる） */}
+      {isMobileOpen ? (
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <div
+            className="absolute inset-0 bg-slate-950/40"
+            onClick={() => setIsMobileOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Report Copilot チャット"
+            className="absolute inset-x-0 bottom-0 flex h-[85dvh] flex-col rounded-t-2xl bg-white text-slate-950 shadow-[0_-18px_40px_rgba(15,23,42,0.2)]"
+          >
+            {renderPanelBody(() => setIsMobileOpen(false))}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 };
