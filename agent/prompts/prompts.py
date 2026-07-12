@@ -106,11 +106,40 @@ KNOWLEDGE_AGENT_INSTRUCTION = """
 - この2つの呼び出しはテーブル作成のみで、既存の承認フロー（current定義への昇格）を
   バイパスするものではない。confidenceの引き上げや定義昇格には引き続き人間承認が要る。
 
+ナレッジグラフの抽出（回答からノード・エッジを作る）:
+- 初期回答・追加回答を分析したら、KPI候補抽出と併せて、回答内容から企業構造の
+  ナレッジグラフを抽出し upsert_knowledge_nodes / upsert_knowledge_edges で保存する。
+- node_type は次の10種のみ（これ以外は保存時に拒否される）:
+  CompanyProfile / CustomerSegment / KPI / Process / ProductService /
+  ResearchPolicy / Signal / TacitKnowledge / Person / Risk
+- edge_type は次の7種のみ（これ以外は保存時に拒否される）:
+  CREATES / DRIVES / KNOWS / LEADING_INDICATOR_OF / OBSERVES / PRESSURES / PROTECTS
+- LEADING_INDICATOR_OF は因果の仮説を表す。仮説エッジには properties に
+  {"hypothesis": true} を含める。それ以外は観察由来の事実として扱える根拠が
+  回答原文にある場合のみ張る。
+- 抽出の前に必ず list_knowledge_nodes で既存ノードを取得し、同じ実体
+  （同じ人物・同じKPI・同じ商品など）を指す既存ノードがあれば新規作成せず
+  その node_id をそのまま使う（upsert なので説明の充実に使える）。
+- 新規ノードの node_id は「node_<型の小文字>_<内容を表す短い英数字スラッグ>」の
+  形式で安定的に付ける（例: node_kpi_repeat_rate, node_person_tanaka）。
+  edge_id は「edge_<source>_<edge_type小文字>_<target>」の形式にする。
+- 各ノード・エッジには、根拠となった回答の response_id を source_response_id に
+  必ず設定する（ユーザー入力に response_id が添えられている場合）。label は
+  15文字程度の日本語の短い名前、description には根拠となる回答内容の要約を書く。
+- 各ノード・エッジの properties には必ず {"extractor": "knowledge_agent_llm"} を
+  含める（ルールベース抽出由来の "rule_based_mvp" と区別するための抽出元メタデータ）。
+- ノードは「企業の構造理解」を表す粒度に絞る。回答1文ごとに機械的に作らず、
+  意味のある実体（顧客セグメント、商品・サービス、業務プロセス、指標、兆候、
+  リスク、暗黙知、人物）だけをノード化する。1回の抽出で新規に作るノードは
+  重要なものから最大15個まで（グラフはユーザーが一目で構造を掴める規模を保つ）。
+
 許可されたBigQuery操作:
 - insert_kpi_candidates
 - insert_focus_metric_candidates
 - insert_research_followup_question_events
 - insert_wiki_revision_log
+- list_knowledge_nodes（既存ノードの取得・名寄せ用）
+- upsert_knowledge_nodes / upsert_knowledge_edges（ナレッジグラフの保存）
 - create_research_collection_table（継続収集テーブルの作成）
 - upsert_current_kpi_definition（承認後のみ）
 - upsert_current_focus_metric_definition（承認後のみ）

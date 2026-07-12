@@ -786,16 +786,75 @@ def insert_wiki_revision_log(company_id: str, records: list[dict]) -> dict:
     }
 
 
+# design §10.1（ノード10型）/ §10.2（エッジ7型）の正式語彙。
+# 抽出出力に自由語彙が混入しないよう upsert 側で enum として強制する。
+KNOWLEDGE_NODE_TYPES = frozenset({
+    "CompanyProfile",
+    "CustomerSegment",
+    "KPI",
+    "Process",
+    "ProductService",
+    "ResearchPolicy",
+    "Signal",
+    "TacitKnowledge",
+    "Person",
+    "Risk",
+})
+
+KNOWLEDGE_EDGE_TYPES = frozenset({
+    "CREATES",
+    "DRIVES",
+    "KNOWS",
+    "LEADING_INDICATOR_OF",
+    "OBSERVES",
+    "PRESSURES",
+    "PROTECTS",
+})
+
+
+def list_knowledge_nodes(company_id: str, limit: int = 300) -> dict:
+    """List this company's active knowledge-graph nodes (node_id / node_type /
+    label). Call this BEFORE upserting extracted nodes so you can reuse the
+    node_id of an existing node that refers to the same entity (名寄せ) instead
+    of creating a duplicate."""
+    limit = max(1, min(int(limit), 500))
+    table = f"`{_company_qualified(company_id, 'knowledge_nodes')}`"
+    sql = f"""
+SELECT node_id, node_type, label
+FROM {table}
+WHERE status = 'active'
+ORDER BY updated_at DESC
+LIMIT {limit}
+""".strip()
+    if settings.dry_run:
+        return {"dry_run": True, "company_id": company_id, "nodes": []}
+    from google.api_core.exceptions import NotFound
+
+    client = _client()
+    try:
+        rows = [dict(row) for row in client.query(sql).result()]
+    except NotFound:
+        # core tables not created yet — an empty graph, not an error
+        rows = []
+    return {"dry_run": False, "company_id": company_id, "count": len(rows), "nodes": rows}
+
+
 def upsert_knowledge_nodes(company_id: str, nodes: list[dict]) -> dict:
     if not nodes:
         return {"skipped": True, "reason": "no nodes"}
     required_keys = ("node_id", "node_type")
-    valid_nodes = [node for node in nodes if all(node.get(key) for key in required_keys)]
+    complete_nodes = [node for node in nodes if all(node.get(key) for key in required_keys)]
+    valid_nodes = [node for node in complete_nodes if node["node_type"] in KNOWLEDGE_NODE_TYPES]
+    unknown_types = sorted({node["node_type"] for node in complete_nodes if node["node_type"] not in KNOWLEDGE_NODE_TYPES})
     invalid_count = len(nodes) - len(valid_nodes)
     if not valid_nodes:
         return {
             "skipped": True,
-            "reason": f"all {len(nodes)} node(s) missing required field(s) {required_keys}",
+            "reason": (
+                f"all {len(nodes)} node(s) rejected: missing required field(s) {required_keys}"
+                + (f" or unknown node_type {unknown_types}" if unknown_types else "")
+            ),
+            "allowed_node_types": sorted(KNOWLEDGE_NODE_TYPES),
         }
     table = f"`{_company_qualified(company_id, 'knowledge_nodes')}`"
     rows_sql = []
@@ -832,6 +891,9 @@ WHEN NOT MATCHED THEN INSERT ROW
     result = execute_sql(sql)
     if invalid_count:
         result["skipped_invalid_count"] = invalid_count
+        if unknown_types:
+            result["skipped_unknown_node_types"] = unknown_types
+            result["allowed_node_types"] = sorted(KNOWLEDGE_NODE_TYPES)
     return result
 
 
@@ -839,12 +901,18 @@ def upsert_knowledge_edges(company_id: str, edges: list[dict]) -> dict:
     if not edges:
         return {"skipped": True, "reason": "no edges"}
     required_keys = ("edge_id", "source_node_id", "target_node_id", "edge_type")
-    valid_edges = [edge for edge in edges if all(edge.get(key) for key in required_keys)]
+    complete_edges = [edge for edge in edges if all(edge.get(key) for key in required_keys)]
+    valid_edges = [edge for edge in complete_edges if edge["edge_type"] in KNOWLEDGE_EDGE_TYPES]
+    unknown_types = sorted({edge["edge_type"] for edge in complete_edges if edge["edge_type"] not in KNOWLEDGE_EDGE_TYPES})
     invalid_count = len(edges) - len(valid_edges)
     if not valid_edges:
         return {
             "skipped": True,
-            "reason": f"all {len(edges)} edge(s) missing required field(s) {required_keys}",
+            "reason": (
+                f"all {len(edges)} edge(s) rejected: missing required field(s) {required_keys}"
+                + (f" or unknown edge_type {unknown_types}" if unknown_types else "")
+            ),
+            "allowed_edge_types": sorted(KNOWLEDGE_EDGE_TYPES),
         }
     table = f"`{_company_qualified(company_id, 'knowledge_edges')}`"
     rows_sql = []
@@ -881,6 +949,9 @@ WHEN NOT MATCHED THEN INSERT ROW
     result = execute_sql(sql)
     if invalid_count:
         result["skipped_invalid_count"] = invalid_count
+        if unknown_types:
+            result["skipped_unknown_edge_types"] = unknown_types
+            result["allowed_edge_types"] = sorted(KNOWLEDGE_EDGE_TYPES)
     return result
 
 

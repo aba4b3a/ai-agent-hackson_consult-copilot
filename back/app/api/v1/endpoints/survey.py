@@ -33,6 +33,11 @@ def create_initial_survey_submission(
     company_id: str, data: SurveySubmissionCreate, background_tasks: BackgroundTasks
 ):
     result = response_service.create_submission(company_id, data)
+    # create_submission processes answers in order, so response_results aligns
+    # 1:1 with data.answers. The agent uses these ids as source_response_id on
+    # extracted knowledge-graph nodes/edges (evidence-layer reference).
+    for answer, response_result in zip(data.answers, result.response_results):
+        answer.response_id = response_result['response']['response_id']
     background_tasks.add_task(onboarding_service.run_agent_onboarding, company_id, data.answers)
     return result
 
