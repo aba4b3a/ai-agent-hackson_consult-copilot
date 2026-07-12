@@ -104,6 +104,23 @@ WHERE q.company_id = {sql_literal(company_id)} AND q.origin = 'onboarding'
         return []
 
 
+def _chat_supplement(answer_json: dict | str | None) -> str | None:
+    """「AIに補足する」チャットで回答者が入力した補足テキストを1本にまとめる。
+    answer_json は BigQuery 経由だと JSON 文字列で来ることがあるため両対応。"""
+    if isinstance(answer_json, str):
+        try:
+            answer_json = json.loads(answer_json)
+        except ValueError:
+            return None
+    messages = (answer_json or {}).get('chat_messages') or []
+    user_texts = [
+        m.get('text', '').strip()
+        for m in messages
+        if isinstance(m, dict) and m.get('role') == 'user' and m.get('text', '').strip()
+    ]
+    return ' / '.join(user_texts) or None
+
+
 def _answers_payload(answers: list[SurveyAnswerCreate]) -> list[dict]:
     return [
         {
@@ -113,6 +130,9 @@ def _answers_payload(answers: list[SurveyAnswerCreate]) -> list[dict]:
             "raw_answer": a.raw_answer,
             "numeric_value": a.numeric_value,
             "response_id": a.response_id,
+            # 回答中の「AIに補足する」チャットで得た追加情報。raw_answer と
+            # 併せて KPI 候補・グラフ・追加質問の分析材料にする
+            "supplement": _chat_supplement(a.answer_json),
         }
         for a in answers
     ]
@@ -122,7 +142,7 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
     return f"""企業ID: {company_id}
 企業名: {company_name}
 
-以下は初期アンケート(18問)の回答です。この内容をもとに、この企業のオンボーディング処理の第一段階を実行してください。
+以下は初期アンケート(18問)の回答です。各回答の supplement は、回答者が「AIに補足する」チャットで追加入力した補足情報です(nullの場合は補足なし)。raw_answer と併せて分析に使ってください。この内容をもとに、この企業のオンボーディング処理の第一段階を実行してください。
 
 {json.dumps(answers_payload, ensure_ascii=False, indent=2)}
 
@@ -277,6 +297,7 @@ class OnboardingService:
                 "raw_answer": a.raw_answer,
                 "numeric_value": a.numeric_value,
                 "response_id": a.response_id,
+                "supplement": _chat_supplement(a.answer_json),
             }
             for a in survey_service.get_initial_survey_status(company_id).answers
         ]

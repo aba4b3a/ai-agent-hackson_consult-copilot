@@ -145,3 +145,30 @@ class InitialSurveyStatus(BaseModel):
     answers: list[SurveyAnswerRead] = Field(default_factory=list)
     onboarding_status: str | None = None
     onboarding_error: str | None = None
+
+
+class IntakeAssistChatMessage(BaseModel):
+    role: Literal['assistant', 'user']
+    text: str
+
+
+class IntakeAssistRequest(BaseModel):
+    """「AIに補足する」チャットの1送信。回答提出前のためBQには何も書かず、
+    会話の材料はすべてクライアントから受け取る。"""
+
+    question_id: str
+    question_text: str
+    purpose: str | None = None
+    current_answer: str = ''
+    chat_history: list[IntakeAssistChatMessage] = Field(default_factory=list)
+    user_message: str
+
+
+class IntakeAssistResponse(BaseModel):
+    company_id: str
+    question_id: str
+    reply: str
+    # followup: 深掘り質問（従来挙動） / summary: 回答欄にそのまま貼れるまとめ。
+    # summary のとき answer_draft に反映用テキストが入る
+    mode: Literal['followup', 'summary'] = 'followup'
+    answer_draft: str | None = None

@@ -2,7 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/feature/auth/AuthProvider";
-import { getInitialSurvey, getInitialSurveyStatus, retryOnboarding, submitInitialSurvey } from "@/services/intake-service";
+import {
+  getInitialSurvey,
+  getInitialSurveyStatus,
+  retryOnboarding,
+  sendIntakeAssistMessage,
+  submitInitialSurvey,
+} from "@/services/intake-service";
 
 export const useInitialSurvey = () => {
   const { activeCompany } = useAuth();
@@ -40,6 +46,15 @@ export const useSubmitInitialSurvey = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["initial-survey-status", activeCompany.code] });
     },
+  });
+};
+
+export const useIntakeAssist = () => {
+  const { activeCompany } = useAuth();
+
+  return useMutation({
+    mutationFn: (body: Parameters<typeof sendIntakeAssistMessage>[0]) =>
+      sendIntakeAssistMessage(body, activeCompany.code),
   });
 };
 

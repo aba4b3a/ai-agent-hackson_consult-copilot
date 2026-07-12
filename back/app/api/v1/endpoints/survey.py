@@ -1,11 +1,14 @@
 from fastapi import APIRouter, BackgroundTasks
 from app.schemas.survey import (
     InitialSurveyStatus,
+    IntakeAssistRequest,
+    IntakeAssistResponse,
     SurveyResponseCreate,
     SurveyResponseCreateResult,
     SurveySubmissionCreate,
     SurveySubmissionResult,
 )
+from app.services.intake_assist_service import intake_assist_service
 from app.services.onboarding_service import onboarding_service
 from app.services.response_service import response_service
 from app.services.survey_service import survey_service
@@ -40,6 +43,13 @@ def create_initial_survey_submission(
         answer.response_id = response_result['response']['response_id']
     background_tasks.add_task(onboarding_service.run_agent_onboarding, company_id, data.answers)
     return result
+
+
+@router.post('/{company_id}/survey/initial/assist', response_model=IntakeAssistResponse)
+async def intake_assist(company_id: str, data: IntakeAssistRequest):
+    """「AIに補足する」チャットの1往復。提出前のためBQには書き込まない —
+    会話は提出時に chat_messages / chat_transcript として保存される。"""
+    return await intake_assist_service.assist(company_id, data)
 
 
 @router.post('/{company_id}/survey/initial/onboarding/retry')
