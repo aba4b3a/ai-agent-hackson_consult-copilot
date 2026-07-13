@@ -2,14 +2,14 @@
 
 2026-07-07 のトラブルシュートで確定した内容。agent（ADK）で実 Gemini を使うための設定と、ハマりどころの記録。
 
-## 動作確認済みの構成（Vertex express・APIキー方式）
+## 動作確認済みの構成（Vertex Express・APIキー方式）
 
 `agent/.env` に以下を設定する（キーの実値はコミットしない）:
 
 ```bash
 MODEL_ID=gemini-3.1-flash-lite        # ← モデル選択はこの変数のみが有効
 GOOGLE_GENAI_USE_VERTEXAI=true        # ← Vertex AI バックエンドに切替
-GEMINI_API_KEY=AQ.xxxx...             # ← Vertex express キー（AQ. で始まる53文字）
+GEMINI_API_KEY=AQ.xxxx...             # ← Vertex Express キー（AQ. で始まる53文字）
 ```
 
 - ADK の `Agent(model=settings.model_id)` → google-genai SDK が環境変数を読んで接続する。

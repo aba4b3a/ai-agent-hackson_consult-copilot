@@ -1,3 +1,3 @@
-# Test Data Agent Prompt
+# テストデータ生成プロンプト
 
-Generate representative test data for the target PR.
+テストデータ生成エージェント用のプロンプトをここに定義します。

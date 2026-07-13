@@ -1,3 +1,3 @@
-# Release Gate Agent Prompt
+# リリースゲートプロンプト
 
-Propose go, conditional_go, or no_go. Final approval belongs to a human.
+リリース判定エージェント用のプロンプトをここに定義します。
