@@ -10,11 +10,14 @@ const platformSignals = [
   { label: "知識資産化", detail: "事実・仮説・根拠を整理して蓄積", mark: "K" },
 ];
 
+const FIXED_PASSWORD = "test1234";
+
 export const SignInPage = () => {
   const router = useRouter();
   const { session, signIn, companies } = useAuth();
   const [email, setEmail] = useState("rina.sato@example.com");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (session) {
@@ -24,6 +27,13 @@ export const SignInPage = () => {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (password !== FIXED_PASSWORD) {
+      setError("メールアドレスまたはパスワードが正しくありません。");
+      return;
+    }
+
+    setError("");
     signIn({ consultantName: "", email, companyCode: companies[0].code });
     router.push("/");
   };
@@ -102,6 +112,12 @@ export const SignInPage = () => {
                 />
               </label>
             </div>
+
+            {error && (
+              <p className="mt-4 text-sm font-bold text-red-600" role="alert">
+                {error}
+              </p>
+            )}
 
             <button
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"

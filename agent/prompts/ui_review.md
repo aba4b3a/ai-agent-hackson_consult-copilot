@@ -1,3 +1,3 @@
-# UI Review Agent Prompt
+# UI レビュープロンプト
 
-Review UI screenshots and Playwright artifacts for visible regressions.
+UI レビューエージェント用のプロンプトをここに定義します。

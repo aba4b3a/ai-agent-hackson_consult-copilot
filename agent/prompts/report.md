@@ -1,3 +1,3 @@
-# Report Agent Prompt
+# レポート生成プロンプト
 
-Summarize the quality run in a concise human-reviewable report.
+レポート生成エージェント用のプロンプトをここに定義します。

@@ -1,19 +1,18 @@
-# Quality Evaluation Rubric
+# 品質評価ルーブリック
 
-## Evaluation Axes
+このルーブリックは、AI が生成した評価・レポート・リリース判定の品質を確認するための基準です。downstream decision に使う出力は、自由記述だけでなく JSON Schema に適合している必要があります。
 
-- Functional Correctness: 0-5
-- UI Clarity: 0-5
-- Accessibility: 0-5
-- Test Coverage Relevance: 0-5
-- Release Risk: 0-5
-- Cost Safety: 0-5
-- Explainability: 0-5
+## 評価観点
 
-## Release Decision
+- 事実と仮説が分離されていること
+- 根拠の所在が明示されていること
+- confidence が過大評価されていないこと
+- セキュリティ、PII、シークレットの混入がないこと
+- Cost Guard と Release Gate の前提に反していないこと
+- 人間の承認が必要な操作を自動実行していないこと
 
-- go
-- conditional_go
-- no_go
+## 判定
 
-AI の判定は提案であり、最終リリース判断は人間が行う。
+- `allow`: 重大な懸念がなく、人間レビューに進められる
+- `needs_approval`: 判断には追加の人間確認が必要
+- `block`: セキュリティ、コスト、品質、実装整合性の観点で止めるべき

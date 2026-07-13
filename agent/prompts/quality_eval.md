@@ -1,3 +1,3 @@
-# Quality Evaluation Agent Prompt
+# 品質評価プロンプト
 
-Evaluate release quality using the project rubric.
+品質評価エージェント用のプロンプトをここに定義します。

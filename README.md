@@ -1,47 +1,37 @@
 # ai-agent-hackson_consult-copilot
 
-## Current Development Flow
+Consult Copilot / Continuous Discovery Agent の実装リポジトリです。中小企業や支援先企業の現場にある暗黙知を継続的に収集し、企業ナレッジ、KPI 候補、重点観測項目、月次レポート、Copilot 画面へつなげる AI エージェントアプリケーションです。
 
-Use Dev Containers or VS Code Server / Remote SSH with the host Docker Engine,
-then run services with Docker Compose from this `repo-base/` directory. Docker
-in Docker is not required for local development.
+## 開発フロー
+
+Dev Containers または VS Code Server / Remote SSH と、ホスト側の Docker Engine を使います。Docker in Docker は不要です。通常のセットアップ、lint、test、build は Makefile 経由で Docker Compose 内に閉じます。
 
 ```bash
 make setup
 make dev
 ```
 
-The Makefile runs setup, lint, tests, and builds through Docker Compose, so the
-host only needs Docker and Compose for the normal workflow. When using Dev
-Containers, the container uses the host Docker socket through
-`docker-outside-of-docker`.
-
-各種システム開発のベースとして利用するための初期開発資材です。
-
-`doc\architecture\base-architecture\ai_qualityops_architecture_design.md` の構成をもとにしていますが、このディレクトリ自体は特定の 1 システムに閉じた実装ではなく、フロントエンド、バックエンド、AI エージェント、インフラ、CI、ローカル開発環境をまとめた再利用可能な土台として扱います。
-
 ## 構成
 
 ```text
-front/   Next.js 16 + React 19.2 + TypeScript
+front/   Next.js 16.2.9 + React 19.2.7 + TypeScript
 back/    Python 3.12 + FastAPI
-agent/   Python 3.12 の AI エージェント用スケルトン
+agent/   Python 3.12 + Google ADK エージェント実装
 infra/   Terraform / Cloud Build / Firebase Hosting / Cloud Run
-docs/    設計、ローカル開発、コスト、セキュリティ、デモ手順
+docs/    設計、ローカル開発、コスト、セキュリティ、デモ、ADR
 ```
 
 ## 技術スタック
 
-### Frontend
+### フロントエンド
 
 - Node.js 24 LTS
-- Next.js 16.0.0
-- React 19.2.0
+- Next.js 16.2.9
+- React 19.2.7
 - TypeScript
 - Static Export
-- Firebase Hosting 想定
 
-### Backend
+### バックエンド
 
 - Python 3.12
 - FastAPI
@@ -50,14 +40,15 @@ docs/    設計、ローカル開発、コスト、セキュリティ、デモ�
 - Cloud Run 想定
 - ローカル検証用 BigQuery Emulator
 
-### Agent
+### エージェント
 
 - Python 3.12
-- Pydantic による構造化出力
+- Google ADK
+- Pydantic による構造化入出力
 - prompt / tool / eval の初期配置
-- Gemini / ADK 連携は保留
+- Gemini / Vertex AI 連携は設定で切り替え
 
-### Infra
+### インフラ
 
 - Terraform
 - Cloud Build
@@ -68,33 +59,29 @@ docs/    設計、ローカル開発、コスト、セキュリティ、デモ�
 
 ## セットアップ
 
-Dev Containers または VS Code Server / Remote SSH とホスト側 Docker Engine を使います。Docker in Docker は不要です。
-
 ホスト側に以下を用意します。
 
 - Docker Desktop
 - Visual Studio Code
 - VS Code 拡張機能: Dev Containers
 
-Windows でパッケージマネージャーを使う場合は、Chocolatey だけでなく winget でも構いません。
+Windows では `winget` または Chocolatey を使えます。
 
 ```powershell
 winget install Docker.DockerDesktop
 winget install Microsoft.VisualStudioCode
 ```
 
-Chocolatey を使う場合の例:
-
 ```powershell
 choco install docker-desktop vscode -y
 ```
 
-セットアップ手順:
+手順:
 
 1. Docker Desktop を起動します。
-2. VS Code でこのリポジトリの `repo-base/` ディレクトリを開きます。
+2. VS Code でこのリポジトリを開きます。
 3. Dev Container を使う場合は `Dev Containers: Reopen in Container` を実行します。
-4. `repo-base/` でセットアップを実行します。
+4. リポジトリルートでセットアップします。
 
 ```bash
 make setup
@@ -102,7 +89,7 @@ make setup
 
 ## ローカル起動
 
-ホスト側に Node.js、Python、uv、BigQuery Emulator を個別に入れる必要はありません。Docker Compose が各サービスを起動します。Dev Container 内から実行する場合も、Docker daemon はホスト側のものを使います。
+ホスト側に Node.js、Python、uv、BigQuery Emulator を個別に入れる必要はありません。Docker Compose が各サービスを起動します。
 
 ```bash
 make dev
@@ -114,7 +101,7 @@ make dev
 - Report: http://localhost:3000/report
 - Backend API: http://localhost:8000
 - Backend health: http://localhost:8000/healthz
-- Backend OpenAPI定義： http://localhost:8000/docs
+- Backend OpenAPI: http://localhost:8000/docs
 - BigQuery Emulator: http://localhost:9050
 
 ## 画面と操作手順
@@ -129,9 +116,11 @@ make dev
 
 ### 0. サインイン（`/signin`）
 
-メールアドレスを入力してサインインします（デモ用途のため、パスワード照合や
-本番認証は行いません）。サインイン後は最初に登録されている企業が選択された状態で
+メールアドレスを入力してサインインします（デモ用途のため、メールアドレスは入力済みのもので、パスワードは固定で「test1234」にしてあります。）。
+サインイン後は最初に登録されている企業が選択された状態で
 トップ画面（`/`）に遷移します。
+
+![signin画面](/docs/images/siginin.png)
 
 ### 企業の切り替え・新規登録
 
@@ -142,10 +131,15 @@ make dev
 （`DELETE /api/v1/companies/{id}` は物理削除ではなく `active_status` を
 `inactive` にする論理削除で、一覧から消えるだけです）。
 
+![company](/docs/images/company.png)
+
 ### 1. 発見（`/`, ホーム）
 
 Discovery Feed。直近の変化の兆候（Signal/Risk など）と、次に深掘りすべき観測
 テーマの一覧を表示します。企業の状態を俯瞰する起点画面です。
+(デフォルトでは事前に用意されたデータが表示されます)
+
+![home画面](/docs/images/home.png)
 
 ### 2. 初期把握（`/intake`, タブ「初期把握」）
 
@@ -169,6 +163,12 @@ Discovery Feed。直近の変化の兆候（Signal/Risk など）と、次に深
 途中で失敗した場合（一時的な通信エラーなど）は、画面に「再試行する」ボタンが
 表示されるので、回答をやり直す必要なくその場で再試行できます。
 
+![home画面_回答前](/docs/images/intake-pre.png)
+
+なお、新規企業の場合は質問解答画面に遷移しますが、回答済みの場合は回答内容が表示されます。
+
+![home画面_回答済み](/docs/images/intake-after.png)
+
 ### 3. 質問（`/research`, タブ「質問」）
 
 初期把握が完了したあとの継続的なヒアリング画面です。まだ裏付けが弱い
@@ -176,12 +176,20 @@ KPI・重点管理指標・観測シグナルについて、AIが平易な言葉
 します。回答者の役割ごとにタブが分かれており（経営者・管理者・営業・現場）、
 自分の役割のタブに割り当てられた質問だけに回答します。
 
+![home画面_回答済み](/docs/images/intake-after.png)
+
 ### 4. 知識（`/knowledge`, タブ「知識」。旧 `/graph` は自動で `/knowledge` に転送されます）
 
 企業のナレッジグラフ（顧客セグメント・KPI・業務プロセス・兆候・リスク・
 暗黙知・人物などのノードと、その関係性を表す線）と、KPI の推移・健全度スコア
-を表示します。ノード同士の線は BigQuery のナレッジグラフ（knowledge_nodes /
+を表示します。
+
+![knowledge画面1](/docs/images/knowledge_1.png)
+
+ノード同士の線は BigQuery のナレッジグラフ（knowledge_nodes /
 knowledge_edges）から実データで描画されます。
+
+![knowledge画面2](/docs/images/knowledge_2.png)
 
 ### 5. 記録（`/wiki`, タブ「記録」）
 
@@ -190,12 +198,15 @@ knowledge_edges）から実データで描画されます。
 `draft`（追加質問の回答待ち）、追加質問がすべて回答されたあとは `confirmed`
 の状態になります。
 
+![wiki画面](/docs/images/wiki.png)
+
 ### 6. 確認（`/approvals`, タブ「確認」）
 
 人間確認キュー。AIが提案したKPIの新規採用・廃止・大幅変更など、確信度が
 低い項目や重要な変更はここに集まります。内容を確認し、承認条件や差し戻し
 理由をコメントしたうえで「承認する」「差し戻す」を選びます。承認されるまで、
 本番のKPI/重点管理指標定義（current 定義）には反映されません。
+※現状、開発中のため、一部のみ実装
 
 ### 7. 月次（`/report`, タブ「月次」）
 
@@ -210,13 +221,171 @@ BigQuery の `knowledge_nodes` / `survey_responses`、または DRY_RUN 用の s
 グラフ、事実と仮説を分けたハイライト、根拠スニペット、Copilot 質問欄（レポートの
 内容について自然文で追加質問できるチャット）を表示します。
 
+![report画面](/docs/images/report.png)
+
+## ナレッジ形成における AI エージェントのワークフロー
+
+`front` の3ステップ表示（初期ヒアリング → 追加ヒアリング → 知識資産化、[SignInPage.tsx](../front/components/feature/auth/SignInPage.tsx) の `platformSignals`）が、実際にどのコードで実現されているかを一枚にまとめたものです。
+
+個別の詳細は既存資料を参照してください。本ドキュメントは「全体の流れ」を俯瞰する位置づけで、内容が重複する箇所は既存資料を正としています。
+
+- エージェント構成・tool 一覧の詳細 → [agent-configuration-summary.md](./agent-configuration-summary.md)
+- システム全体アーキテクチャ・簡易シーケンス図 → [protopedia-system-architecture.md](./protopedia-system-architecture.md)
+- ナレッジグラフのデータモデル設計（2層モデル） → [spec/continuous_discovery_agent_design.md](./spec/continuous_discovery_agent_design.md) §10.0
+- プロダクトコンセプト → [usage/consultant_copilot.md](./usage/consultant_copilot.md)
+
+## 1. エージェント構成
+
+`agent/agents/agent.py` で定義される ADK multi-agent 構成です。
+
+```mermaid
+flowchart LR
+    O["orchestrator_agent\n(root_agent)"] -->|"追加質問の生成を指示"| R["research_agent"]
+    O -->|"回答から企業ナレッジを形成"| K["knowledge_agent"]
+    R -->|"handoff_to_knowledge_agent"| K
+
+    subgraph tools_O["orchestrator の主な tool"]
+        direction TB
+        t1["ensure_shared_dataset / create_*_tables"]
+        t2["write_raw_answer"]
+        t3["insert_research_followup_question_events"]
+    end
+
+    subgraph tools_R["research の主な tool"]
+        direction TB
+        t4["generate_common_initial_survey"]
+        t5["insert_survey_response"]
+        t6["insert_research_followup_question_events\n(最大3問/回)"]
+    end
+
+    subgraph tools_K["knowledge の主な tool"]
+        direction TB
+        t7["insert_kpi_candidates\ninsert_focus_metric_candidates"]
+        t8["upsert_knowledge_nodes\nupsert_knowledge_edges"]
+        t9["render_wiki_files / write_wiki_files"]
+        t10["create_research_collection_table\nregister_research_schedule_item"]
+    end
+
+    O -.-> tools_O
+    R -.-> tools_R
+    K -.-> tools_K
+```
+
+`orchestrator_agent` には意図的に `write_wiki_files` や `insert_kpi_candidates` を持たせていません。司令塔が分析なしに空の成果物を shortcut 生成しないよう、分析・成果物生成は `knowledge_agent` に寄せる設計です（[agent-configuration-summary.md](./agent-configuration-summary.md#L52)）。
+
+## 2. 初期ヒアリング → 追加ヒアリング → 知識資産化の全体フロー
+
+`back/app/services/onboarding_service.py` を中心とした、Stage 1（初期ヒアリング後）→ 追加ヒアリング回答 → Stage 2（知識資産化・確定）の流れです。
+
+```mermaid
+sequenceDiagram
+    actor U as User(現場・経営者)
+    participant F as Frontend
+    participant B as Backend (FastAPI)
+    participant A as ADK Agent
+    participant Q as BigQuery
+    participant S as Cloud Storage (Wiki)
+
+    rect rgb(240, 249, 245)
+        Note over U,S: Stage 1: 初期ヒアリング
+        U->>F: InitialSurveyForm に18問回答
+        F->>B: POST /companies/{id}/survey/initial/submissions
+        B->>B: run_agent_onboarding をバックグラウンド起動
+        B->>A: Stage1メッセージ (回答一括 + 実行手順)
+        A->>Q: テーブル作成・回答イベント保存
+        A->>Q: KPI候補 / 重点指標候補 / knowledge_nodes・edges 抽出
+        A->>Q: 追加ヒアリング用の質問を2〜5件登録
+        A->>S: draft Wiki 保存
+        B->>Q: 追加質問が作られたか / Wikiが書かれたか確認
+        B-->>F: status = awaiting_followup (または追加質問なしで completed)
+    end
+
+    rect rgb(240, 246, 255)
+        Note over U,S: 追加ヒアリング
+        F->>U: ResearchInbox に未回答の追加質問を表示
+        U->>F: 追加質問に回答
+        F->>B: POST /{id}/research/answers
+        B->>B: 未回答の追加質問が0件か確認
+        alt 全て回答済み
+            B->>A: Stage2 finalize_onboarding をバックグラウンド起動
+        else まだ未回答あり
+            B-->>F: 引き続き awaiting_followup
+        end
+    end
+
+    rect rgb(255, 247, 237)
+        Note over U,S: Stage 2: 知識資産化
+        A->>Q: 初期回答+追加回答でKPI候補・knowledge_nodes/edgesを再評価
+        A->>Q: 継続収集が必要な項目の収集テーブル・schedule作成
+        A->>S: confirmed Wiki を再生成・保存
+        B->>S: Wiki更新を確認
+        B-->>F: status = completed
+        F-->>U: KnowledgeDashboard / WikiViewer で確認可能に
+    end
+```
+
+ポイントは、**backend が agent の自然言語応答を信用せず、BigQuery / Cloud Storage への実際の書き込みを確認してから状態遷移する**ことです（`onboarding_service.py` の `run_agent_onboarding` / `finalize_onboarding`）。LLM が「完了しました」と答えても tool 呼び出しが失敗している場合があるため、side effect の有無で成否を判定します。
+
+## 3. オンボーディング状態遷移
+
+```mermaid
+stateDiagram-v2
+    [*] --> processing: 初期アンケート送信
+    processing --> awaiting_followup: 追加質問が登録された
+    processing --> completed: 追加質問不要と判定
+    awaiting_followup --> awaiting_followup: 追加質問が一部未回答
+    awaiting_followup --> processing: 全て回答済み → Stage2起動
+    processing --> completed: confirmed Wiki 保存確認
+    processing --> failed: 3回リトライしても side effect なし
+    failed --> processing: retry_failed_onboarding
+    completed --> [*]
+```
+
+- Stage 1 / Stage 2 とも、モデルの malformed function call 対策として**セッションを毎回作り直しながら最大3回リトライ**します。
+- リトライは「まだ追加質問が1件も無いか」で Stage 1 失敗 / Stage 2 失敗を判別し、ユーザーに再回答を求めずに再実行します。
+
+## 4. 知識資産化で扱うデータの二層構造
+
+`knowledge_agent` が形成するナレッジは、**構造（グラフ）と根拠（エビデンス）を分離した2層モデル**です（[spec/continuous_discovery_agent_design.md](./spec/continuous_discovery_agent_design.md) §10.0）。
+
+```mermaid
+flowchart TB
+    subgraph evidence["エビデンス層"]
+        SR["survey_responses\n(生の回答テキスト・回答者役割・response_id)"]
+    end
+
+    subgraph graph["構造層 (BigQuery Graph)"]
+        N["knowledge_nodes\nCompanyProfile / CustomerSegment / KPI /\nProcess / ProductService / ResearchPolicy /\nSignal / TacitKnowledge / Person / Risk"]
+        E["knowledge_edges\nCREATES / DRIVES / KNOWS /\nLEADING_INDICATOR_OF / OBSERVES /\nPRESSURES / PROTECTS"]
+        N --- E
+    end
+
+    SR -->|"source_response_id で参照"| N
+    SR -->|"source_response_id で参照"| E
+    E -->|"properties.hypothesis = true\nなら仮説扱い"| Fact["事実 / 仮説の判定"]
+```
+
+「事実」か「仮説」かは専用ノード種別ではなく、`edge_type` と `properties.hypothesis` で表現されます。すべてのノード・エッジは `source_response_id` を通じて、どの生回答（誰が・いつ・何と答えたか）に基づくかを追跡できます。
+
+## 5. 承認ゲート（人間承認前提の箇所）
+
+- KPI / 重点管理指標は、まず `kpi_candidates` / `focus_metric_candidates` として登録され、`current` 定義テーブルへの昇格には `approved=True` が必須です（未承認だと `PermissionError`）。
+- confidence が 0.7 未満の情報や、Wiki の企業理解を大きく変える更新は人間承認対象としてプロンプト上明記されています。
+
+## 6. 未実装・注意点
+
+- `cost_guard_agent.py` / `quality_eval_agent.py` / `release_gate_agent.py` / `report_agent.py` / `test_data_agent.py` / `ui_review_agent.py` は `agent/agents/` 配下にあるものの、`root_agent` に未配線のプレースホルダです。上記フローには含まれません。
+- LLM ベースのグラフ抽出（`upsert_knowledge_nodes` / `upsert_knowledge_edges`）は 2026-07-12 追加分で、実機 Gemini による E2E 動作は未確認（`spec/continuous_discovery_agent_design.md` §23.5）。
+- グラフ抽出の成否は onboarding の成功判定には使われていません（追加質問件数と Wiki 書き込みのみで判定、ベストエフォート扱い）。
+
+
 ## よく使うコマンド
 
 ```bash
 make setup
 make dev
 make lint
-make test
+make test  # 現状 front の test:e2e script が未定義のため、必要に応じて個別実行
 make build
 make clean
 ```
@@ -227,7 +396,7 @@ Makefile 経由で Docker Compose サービス内のツールを実行します�
 
 ```bash
 make lint
-make test
+make test  # 現状 front の test:e2e script が未定義のため、必要に応じて個別実行
 make build
 ```
 
@@ -237,7 +406,7 @@ make build
 - MVP では SSR、Server Actions、API Routes は使いません。
 - API 呼び出しは `NEXT_PUBLIC_API_BASE_URL` 経由で `back/` に寄せます。
 - `package-lock.json` と `uv.lock` はコミット対象です。
-- AI の判定は提案に留め、最終承認は人間が行います。
+- AI の判断は提案に留め、最終承認は人間が行います。
 - `.env`、サービスアカウントキー、その他シークレットはコミットしません。
 
 ## 現在の状態
@@ -248,4 +417,5 @@ make build
 - Quality run placeholder API: 配置済み
 - Agent evaluation skeleton: 配置済み
 - Cloud Build / Terraform skeleton: 配置済み
-- Gemini / ADK integration: 保留
+- Gemini / ADK integration: 設定で切り替え
+- `front/package.json` には `test:e2e` script が未定義のため、Playwright は `npx playwright test` で直接実行する状態

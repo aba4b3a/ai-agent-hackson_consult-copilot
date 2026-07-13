@@ -39,7 +39,7 @@ Docker Compose で以下の主要サービスが起動します。
 
 ## 3. 技術スタック（設定ファイル基準）
 
-### Frontend
+### フロントエンド
 
 - Next.js 16.2.9
 - React 19.2.7
@@ -51,7 +51,7 @@ Docker Compose で以下の主要サービスが起動します。
 - `front/package.json`
 - `front/next.config.ts`
 
-### Backend
+### バックエンド
 
 - Python 3.12系（開発想定）
 - FastAPI
@@ -63,7 +63,7 @@ Docker Compose で以下の主要サービスが起動します。
 - `back/pyproject.toml`
 - `back/app/main.py`
 
-### Agent
+### エージェント
 
 - Python 3.12
 - google-adk
