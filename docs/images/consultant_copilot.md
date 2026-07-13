@@ -1,4 +1,4 @@
-# Continuous Discovery Agent
+# 継続的発見エージェント
 
 ## オフラインナレッジ形成による組織学習支援プラットフォーム
 
@@ -126,7 +126,7 @@
 
 # 5. システムアーキテクチャ
 
-## Discovery Setup Agent
+## 発見セットアップエージェント
 
 ### 役割
 
@@ -150,7 +150,7 @@
 
 ---
 
-## Research Agent
+## 調査エージェント
 
 ### 役割
 
@@ -181,7 +181,7 @@ Push型情報収集
 
 ---
 
-## Competitive Intelligence Agent
+## 競合情報エージェント
 
 ### 役割
 
@@ -201,7 +201,7 @@ Push型情報収集
 
 ---
 
-## Knowledge Curator Agent
+## ナレッジ整理エージェント
 
 ### 役割
 
@@ -221,7 +221,7 @@ Push型情報収集
 
 ---
 
-## Knowledge Formation Agent
+## ナレッジ形成エージェント
 
 ### 役割
 
@@ -244,7 +244,7 @@ Push型情報収集
 
 ---
 
-## Observation Agent
+## 観測エージェント
 
 ### 役割
 
@@ -265,7 +265,7 @@ Push型情報収集
 
 ---
 
-## Discovery Agent
+## 発見エージェント
 
 ### 役割
 
@@ -280,7 +280,7 @@ Push型情報収集
 
 ---
 
-## Strategy Copilot Agent
+## 戦略コパイロットエージェント
 
 ### 役割
 
@@ -312,7 +312,7 @@ Push型情報収集
 
 ---
 
-## Execution Tracking Agent
+## 実行追跡エージェント
 
 ### 役割
 
@@ -367,7 +367,7 @@ Push型情報収集
 
 ## 週次
 
-Discovery Report
+月次発見レポート
 
 ### 発見
 
@@ -391,7 +391,7 @@ Discovery Report
 
 ## 月次
 
-Monthly Discovery Report
+発見レポート
 
 前月の Report は Cloud Storage の以下の path を正本として扱う。
 
@@ -408,13 +408,13 @@ tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json
 
 画面に含める内容:
 
-* Executive summary
-* Observed facts / Hypotheses / Evidence / Avg. confidence
+* エグゼクティブサマリ
+* 観測事実 / 仮説 / 根拠 / 平均信頼度
 * 月次指標グラフ
 * 事実と仮説を分けたハイライト
 * 根拠スニペット
 * 次月の推奨観測テーマ
-* Report Copilot への質問欄
+* レポートコパイロットへの質問欄
 
 ---
 
@@ -432,7 +432,7 @@ tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json
 
 ---
 
-## Continuous Discovery Agent
+## 継続的発見エージェント
 
 ```text
 観測

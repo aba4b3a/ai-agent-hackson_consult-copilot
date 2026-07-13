@@ -1,131 +1,69 @@
-# Frontend Architecture
+# フロントエンド設計
+
+`front/` は Consult Copilot の画面実装です。Next.js 16.2.9、React 19.2.7、TypeScript を使い、MVP では Static Export を前提にします。
 
 ## 概要
-本プロジェクトは、Next.js 16 (App Router) を使用したWebアプリケーションです。
-保守性、テスト容易性、およびデータ取得の効率化を目的として、以下のアーキテクチャとライブラリを採用しています。
 
-- **Static Export (SSG)**: Firebase Hosting に対応した構成
-- **TanStack Query**: API/データ取得のキャッシュ管理・状態管理
-- **レイヤードアーキテクチャ**: 責務を分離したクリーンなディレクトリ構成
+- UI は `components/feature/*` に機能単位で配置します。
+- API 呼び出しは `services/` に集約します。
+- TanStack Query の hook は `hooks/` に置きます。
+- バックエンドの接続先は `NEXT_PUBLIC_API_BASE_URL` で切り替えます。
 
-## フォルダ構成と役割
+## フォルダ構成
 
 ```text
-├── app/          # ルーティング、ページUI、レイアウト、プロバイダー設定
-├── components/   # UIパーツ
-│   ├── feature/  # 特定の業務機能を持つUIコンポーネント
-│   └── ui/       # 再利用可能な汎用UIパーツ (Button, Input等)
-├── hooks/        # カスタムフック: TanStack Query等を使用したデータ取得・状態操作
-├── lib/          # ライブラリ設定: APIクライアント、TanStack Query設定、型定義
-├── services/     # ビジネスロジック: 外部API通信、Firebase SDK等のデータ操作
-├── utils/        # ユーティリティ: 汎用的な純粋関数 (日付変換、計算等)
-└── tests/        # テストコード (e2e 等)
+app/          App Router のページ
+components/   共通 UI と feature UI
+hooks/        TanStack Query hooks
+lib/          API client などの共通処理
+services/     backend API 呼び出し
 ```
-
----
 
 ## アーキテクチャ・ルール
 
-### 1. データの流れ (依存関係)
-レイヤーの逆流を防ぐため、以下の方向を守ってください。
-> **Components** → **Hooks** → **Services** → **Lib/API**
+### データの流れ
 
-- **Components**: UI表示に専念。直接サービス層を呼ばず、`hooks/` を経由する。
-- **Hooks**: `useQuery` 等を使用して、データ取得状態を管理。UIに提供。
-- **Services**: データ取得・加工などの業務ロジック。UIやHooksの存在を知らない。
-- **Lib**: 設定や共通の型定義。プロジェクト全体で利用可能。
+```text
+page / component -> hook -> service -> lib/api-client -> backend API
+```
 
-### 2. TanStack Query の利用
-すべてのデータ取得は `TanStack Query` を通して行います。
-- `lib/react-query.ts` で初期設定を行っています。
-- `app/layout.tsx` の `QueryClientProvider` により、アプリ全体でキャッシュが共有されます。
+UI から直接 `fetch` せず、service 層に寄せます。
 
----
+### TanStack Query
+
+- query key は feature ごとに一貫した名前にします。
+- mutation 後は関連 query を invalidate します。
+- loading / error / empty state を画面側で明示します。
 
 ## 実装ガイドライン
 
-### サービス層 (`services/`)
-```typescript
-// services/user-service.ts
-import { apiClient } from "@/lib/api-client";
+### services/
 
-export const getDashboardData = async () => {
-  const { data } = await apiClient.get("/dashboard");
-  return data;
-};
-```
+- endpoint path と response 型をここに集約します。
+- `api-client.ts` を通して `NEXT_PUBLIC_API_BASE_URL` を使います。
+- 画面都合の整形は services ではなく hook または component 側に寄せます。
 
-### フック層 (`hooks/`)
-```typescript
-// hooks/use-dashboard.ts
-import { useQuery } from "@tanstack/react-query";
-import { getDashboardData } from "@/services/user-service";
+### hooks/
 
-export const useDashboard = () => {
-  return useQuery({
-    queryKey: ['dashboard'],
-    queryFn: getDashboardData,
-  });
-};
-```
+- API 呼び出しの cache、retry、enabled 条件を管理します。
+- component は hook の戻り値を表示に使うだけにします。
 
-### UIコンポーネント (`components/`)
-```tsx
-// components/feature/Dashboard.tsx
-"use client";
-import { useDashboard } from "@/hooks/use-dashboard";
+### components/
 
-export const Dashboard = () => {
-  const { data, isLoading } = useDashboard();
-  if (isLoading) return <div>Loading...</div>;
-  return <div>{data.summary}</div>;
-};
-```
-
----
-
-## 開発・運用ルール
-
-1.  **Static Export の制約**: API Routes (`app/api`) は使用不可です。外部API通信は必ずクライアントサイド（サービス層）から行ってください。
-2.  **型安全**: `lib/schemas.ts` に API のリクエスト/レスポンス型を一元管理してください。
-3.  **コンポーネントの分割**: 
-    - 複雑なロジックを持つUIは `components/feature/` へ。
-    - デザインのみに依存する小さなパーツは `components/ui/` へ。
-
----
+- feature ごとに責務を分けます。
+- 画面間 navigation は `components/feature/discovery/BottomNav.tsx` に集約します。
+- Static Export 前提のため、SSR 専用 API に依存しません。
 
 ## Report 画面
 
-`app/report/page.tsx` は `components/feature/report-copilot/ReportCopilot.tsx` を表示します。
-この画面は Report Copilot のチャットだけでなく、前月分の Monthly Discovery Report を
-報告書として読むためのビューです。
-
-データ取得の流れ:
-
-```text
-ReportCopilot.tsx
-  -> hooks/use-report-copilot.ts
-  -> services/report-copilot-service.ts
-  -> GET /api/v1/companies/{company_id}/report/monthly
-```
-
-表示する主な要素:
-
-- Cloud Storage から読み込んだか、未存在のため生成したかの status
-- レポート期間と保存 path
-- Executive summary
-- 事実、仮説、根拠件数、平均 confidence のメトリクス
-- 月次指標の棒グラフ
-- 事実と仮説を分けたハイライト
-- Evidence snippets
-- Report Copilot への質問欄
-
-`ReportCopilotData` の型は `lib/schemas.ts` に集約されています。API レスポンスを変更する場合は、
-先にこの型と画面表示の両方を更新してください。
-
----
+`/report` は `GET /api/v1/companies/{company_id}/report/monthly` を呼び、保存済みまたは生成済みの Monthly Discovery Report を表示します。事実、仮説、根拠、confidence、次月の推奨観測、Report Copilot への質問導線を扱います。
 
 ## コマンド
-- 開発サーバー: `npm run dev`
-- ビルド (Static): `npm run build`
-- テスト実行: `npx playwright test`
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+Playwright の E2E テストは `front/tests/e2e/` にありますが、現状 `package.json` に `test:e2e` script はありません。必要な場合は `npx playwright test` を直接実行します。

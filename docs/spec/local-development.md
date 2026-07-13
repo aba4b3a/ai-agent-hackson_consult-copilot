@@ -1,369 +1,191 @@
-# Local Development
+# ローカル開発
 
-This project supports Dev Containers and VS Code Server / Remote SSH with the
-host Docker Engine. Docker in Docker is not required.
+このドキュメントは、Consult Copilot / Continuous Discovery Agent をローカルで起動・検証するための手順です。原則としてホストには Docker と VS Code だけを置き、言語ランタイムやエミュレータは Docker Compose 内で動かします。
 
-## Architecture
-
-The project consists of three main components:
-
-- **Front**: Next.js 16 frontend (http://localhost:3000)
-- **Back**: FastAPI backend (http://localhost:8000)
-- **Agent**: Python AI agent (http://localhost:8080)
-
-Local development uses:
-- BigQuery Emulator for database operations
-- Ollama for LLM inference
-
-Production deployment uses:
-- Google Cloud BigQuery
-- Gemini Enterprise API
-
-## Prerequisites
-
-- Docker Engine or Docker Desktop (with Docker Compose v2)
-- VS Code connected to this machine by Dev Containers, Remote SSH, or VS Code Server
-- 4GB+ RAM for running all services
-
-You do not need to install Node.js, Python, uv, Ollama, or BigQuery Emulator on the host
-for the normal compose-based workflow.
-
-## Dev Container
-
-Open `repo-base/` in VS Code and run:
+## 構成
 
 ```text
-Dev Containers: Reopen in Container
+front/   Next.js 開発サーバー
+back/    FastAPI
+agent/   Google ADK api_server
+infra/   nginx / Cloud Run sidecar 再現用設定
+docs/    補足資料
 ```
 
-The Dev Container uses `docker-outside-of-docker`, so Docker commands inside the
-container talk to the host Docker Engine instead of starting a nested Docker
-daemon. `LOCAL_WORKSPACE_FOLDER` is passed into the container so compose bind
-mounts resolve to host-side paths.
+通常開発では `dev` profile、本番 Cloud Run の sidecar 構成を再現したい場合は `sidecar` profile を使います。
 
-## Start
+## 前提
 
-### Step 1: Setup
+- Docker Desktop
+- Visual Studio Code
+- Dev Containers 拡張機能
+- Git
 
-Run setup from the repository root:
+Dev Container を使う場合でも Docker daemon はホスト側のものを使います。
+
+## 初回セットアップ
 
 ```bash
 make setup
 ```
 
-This will build all Docker images and install dependencies.
+このコマンドは依存関係の同期、ローカル検証に必要な初期化、各パッケージの準備を行います。
 
-### Step 2: Start Services
+## 開発サーバー起動
 
 ```bash
 make dev
 ```
 
-Or run compose directly:
+主な確認先:
 
-```bash
-docker compose --profile dev up --build
-```
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Backend health: http://localhost:8000/healthz
+- Backend OpenAPI: http://localhost:8000/docs
+- Monthly Report: http://localhost:3000/report
+- BigQuery Emulator: http://localhost:9050
+- Ollama: http://localhost:11434
 
-The following services will start:
+## Cloud Run sidecar 再現
 
-- **Frontend**: http://localhost:3000
-- **Report screen**: http://localhost:3000/report
-- **Backend API**: http://localhost:8000
-- **Backend OpenAPI**: http://localhost:8000/docs
-- **Backend health**: http://localhost:8000/api/v1/health
-- **BigQuery Emulator**: http://localhost:9050
-- **Ollama**: http://localhost:11434
-
-### (Optional) Sidecar mode — Cloud Run reproduction
-
-To verify the production Cloud Run sidecar routing locally (nginx +
-back + agent on a single host port :8080, sharing localhost like Cloud
-Run's multi-container service does):
+Cloud Run の multi-container 構成に近い状態をローカルで検証する場合は、次を使います。
 
 ```bash
 make sidecar
-# or:
-docker compose --profile sidecar up --build
 ```
 
-Endpoints from the host:
+確認例:
 
 ```bash
-curl http://localhost:8080/                 # front static (served by nginx)
-curl http://localhost:8080/api/v1/health    # back via nginx reverse proxy
-curl http://localhost:8080/agent/list-apps  # agent via nginx reverse proxy
+curl http://localhost:8080/
+curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/agent/list-apps
 ```
 
-The dev profile and sidecar profile both bind port 8080; do not run them
-at the same time. Switch modes with `docker compose --profile <mode> down`
-first, then `up` the other.
+`nginx` が public ingress になり、`/api` を backend、`/agent` を ADK agent runtime へ proxy します。
 
-### Step 3: Setup Ollama Models
+## Ollama モデル準備
 
-In a new terminal, pull an LLM model:
+ローカル LLM を使う場合は、起動後に必要なモデルを pull します。
 
 ```bash
-docker exec -it ollama-ai ollama pull llama2
+docker compose exec ollama ollama pull gemma4:12b
 ```
 
-Available models:
-- `llama2` (lightweight, recommended for dev)
-- `mistral`
-- `neural-chat`
-- `dolphin-mixtral`
+Gemini / Vertex AI を使う場合は `agent/GEMINI_SETUP.md` を参照してください。
 
-Model download time: 2-10 minutes depending on model size.
-
-### Step 4: Verify Setup
-
-Check that all services are healthy:
+## よく使うコマンド
 
 ```bash
-# Frontend
-curl http://localhost:3000
-
-# Backend API
-curl http://localhost:8000/api/v1/health
-
-# Expected response
-# {"status": "ok", "app": "Continuous Discovery Agent API", "dry_run": true}
-
-# Previous-month report.
-# When no saved JSON exists, the backend generates one and stores it under
-# tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json.
-curl http://localhost:8000/api/v1/companies/SMB-1042/report/monthly
-
-# Ollama
-curl http://localhost:11434/api/tags
-```
-
-## Common Commands
-
-```bash
+make setup
+make dev
+make sidecar
 make lint
-make test
+make test  # front の test:e2e script は未定義。必要に応じて個別実行
 make build
 make clean
 ```
 
-The Makefile runs application checks inside docker compose services, so the host
-only needs Docker.
-
-## Development Workflow
-
-### View Logs
+ログ確認:
 
 ```bash
-# All services
-docker compose --profile dev logs -f
-
-# Specific service
-docker compose --profile dev logs -f back
-docker compose --profile dev logs -f front
-docker compose --profile dev logs -f agent
+docker compose logs -f
+docker compose logs -f back
+docker compose logs -f agent
+docker compose logs -f front
 ```
 
-### Restart Services
+サービス再起動:
 
 ```bash
-# Specific service
-docker compose --profile dev up --build back
-
-# All services
-docker compose --profile dev up --build
+docker compose restart back
+docker compose restart agent
+docker compose restart front
 ```
 
-### Execute Commands
+コンテナ内でのコマンド実行:
 
 ```bash
-# Backend (Python)
-docker compose exec back python -m pytest
-
-# Backend (Database)
-docker compose exec back python -c "from app.db.bigquery import get_bigquery_client; print(get_bigquery_client())"
-
-# Frontend (Node)
+docker compose exec back pytest
+docker compose exec back ruff check app
 docker compose exec front npm run lint
-
-# Agent
-docker compose exec agent python -m pytest
+docker compose exec front npm run typecheck
+docker compose exec agent pytest
 ```
 
-### Reset Development Environment
+## 環境変数
 
-```bash
-# Stop all services
-docker compose down
+ローカルでは `.env.local` または Docker Compose の environment を使います。シークレットはコミットしません。
 
-# Remove volumes (clears all data)
-docker compose down -v
+主な値:
 
-# Start fresh
-docker compose --profile dev up --build
-```
-
-## Environment Configuration
-
-### Local Environment (.env.local)
-
-```bash
-# Location: ./. env.local
+```text
 APP_ENV=local
-GCP_PROJECT=local-project
+DRY_RUN=true
+PROJECT_ID=local-project
+BQ_DATASET_PREFIX=consultant_copilot
 BIGQUERY_EMULATOR_HOST=http://bigquery-emulator:9050
-MODEL_ID=llama2
-OLLAMA_HOST=http://ollama:11434
+AGENT_BASE_URL=http://agent:8080
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-### Production Environment
+本番相当では BigQuery Emulator を無効化し、Secret Manager と Workload Identity Federation を前提にします。
 
-Create `.env.prod` with Google Cloud credentials:
+## 現状の注意点
+
+- `Makefile` の `test` target は `front npm run test:e2e` を呼びますが、現状 `front/package.json` に `test:e2e` script はありません。Playwright を実行する場合は `front/` で `npx playwright test` を使います。
+- `Makefile` の `lint` target は `front npm run typecheck` を呼びます。こちらは `front/package.json` に定義済みです。
+
+## トラブルシュート
+
+### ポートが使用中
 
 ```bash
-APP_ENV=production
-GCP_PROJECT=<your-gcp-project-id>
-MODEL_ID=gemini-3.1-pro
-# BigQuery Emulator disabled (uses real BigQuery)
-BIGQUERY_EMULATOR_HOST=
+netstat -ano | findstr :3000
+netstat -ano | findstr :8000
 ```
 
-## Troubleshooting
+該当プロセスを停止するか、Docker Compose 側のポートを変更します。
 
-### Port Already in Use
-
-```bash
-# Find process on port
-lsof -i :3000
-
-# Kill process
-kill -9 <PID>
-```
-
-### BigQuery Emulator Connection Refused
+### BigQuery Emulator に接続できない
 
 ```bash
-# Verify emulator is running
 docker compose ps bigquery-emulator
-
-# Check logs
-docker compose logs bigquery-emulator
-
-# Restart
-docker compose --profile dev up --build bigquery-emulator
+docker compose logs -f bigquery-emulator
+docker compose restart bigquery-emulator
 ```
 
-### Ollama Connection Issues
+### Ollama に接続できない
 
 ```bash
-# Verify Ollama is running
 docker compose ps ollama
-
-# Check Ollama status
-curl http://localhost:11434/api/tags
-
-# Pull a model if none exist
-docker exec -it ollama-ai ollama pull llama2
+docker compose logs -f ollama
+docker compose exec ollama ollama list
 ```
 
-### Out of Memory (OOM)
+### メモリ不足
 
-Reduce Ollama memory usage:
+Ollama や大きめのモデルを使う場合は、Docker Desktop の割り当てメモリを増やします。必要に応じて `docker-compose.yaml` の resource limit も調整します。
 
-```bash
-# Edit docker-compose.yaml
-# Uncomment deploy section:
-# deploy:
-#   resources:
-#     limits:
-#       memory: 4G
-```
+## API の主な確認先
 
-## API Endpoints
+- `GET /healthz`
+- `GET /api/v1/companies`
+- `GET /api/v1/companies/{company_id}/report/monthly`
+- `GET /api/v1/companies/{company_id}/wiki/current`
+- `GET /api/v1/companies/{company_id}/knowledge/graph`
+- `POST /api/v1/companies/{company_id}/copilot/chat`
 
-### Health & Status
+## 本番移行時の注意
 
-- `GET /api/v1/health` - Health check
+- `DRY_RUN=false` にする前に、Cost Guard と Release Gate の確認を行います。
+- Terraform apply、IAM 変更、Cloud Run deploy は人間の明示承認後に実施します。
+- Secret Manager の値をエージェントが直接読み取らない運用を維持します。
 
-### Companies
+## 関連資料
 
-- `GET /companies` - List companies
-- `POST /companies` - Create company
-- `GET /companies/{company_id}` - Get company
-
-### BigQuery Operations
-
-- `GET /companies/{company_id}/bigquery/ddl` - Generate DDL
-- `POST /companies/{company_id}/bigquery/execute` - Execute SQL
-
-### Survey
-
-- `POST /companies/{company_id}/survey/response` - Submit survey response
-
-### Knowledge Graph
-
-- `GET /companies/{company_id}/graph/query` - Query knowledge graph
-
-### Wiki
-
-- `GET /companies/{company_id}/wiki` - Get wiki content
-
-### Reports
-
-- `GET /companies/{company_id}/report/monthly` - Load previous-month report from Cloud Storage/local storage, or generate and save it when missing
-- `GET /companies/{company_id}/report/weekly` - Legacy weekly report endpoint retained for compatibility
-
-See http://localhost:8000/docs for full API documentation.
-
-## Database Schema
-
-The BigQuery emulator creates the following dataset/tables:
-
-- Dataset: `cda_<company_id>`
-- Tables:
-  - `survey_responses`
-  - `knowledge_nodes`
-  - `knowledge_edges`
-  - `KnowledgeGraph` (property graph)
-
-## Performance
-
-### Local Development Tips
-
-1. Use lightweight Ollama model (`llama2`) during development
-2. Enable caching in Next.js for faster rebuilds
-3. Use Docker layer caching for faster rebuilds
-4. Monitor Docker memory usage: `docker stats`
-
-### Scaling for Load Testing
-
-1. Increase Docker resource limits in `docker-compose.yaml`
-2. Enable auto-scaling in production (Cloud Run)
-3. Configure BigQuery slots for higher throughput
-
-## Migration to Production
-
-### Steps
-
-1. Create Google Cloud project
-2. Update `.env.prod` with GCP credentials
-3. Run `gcloud auth application-default login`
-4. Deploy with Terraform: `cd infra && terraform apply`
-5. Verify: `curl https://<deployed-url>/api/v1/health`
-
-### Configuration Differences
-
-| Config | Local | Production |
-|--------|-------|-----------|
-| APP_ENV | local | production |
-| MODEL_ID | llama2 | gemini-3.1-pro |
-| BigQuery | Emulator | Cloud BigQuery |
-| Auth | None | GCP Service Account |
-| Compute | Docker Compose | Cloud Run |
-
-## Related Documentation
-
-- [Architecture](./architecture.md)
-- [Continuous Discovery Agent Design](./spec/continuous_discovery_agent_design.md)
-- [Cost Plan](./cost-plan.md)
-- [Security](./security.md)
+- [デプロイ手順](deploy.md)
+- [技術構成サマリ](technical-architecture-summary.md)
+- [セキュリティ](security.md)
+- [コスト計画](cost-plan.md)

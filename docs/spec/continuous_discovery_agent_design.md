@@ -1,532 +1,124 @@
-# Design Document: Continuous Discovery Agent MVP
+# 設計書: Continuous Discovery Agent MVP
 
-## 1. Introduction
+## 1. はじめに
 
-This document defines the technical design for **Continuous Discovery Agent MVP**, based on `continuous_discovery_agent_requirements.md`.
+この文書は `continuous_discovery_agent_requirements.md` に基づく技術設計です。MVP は、定性的な業務情報を構造化し、企業ナレッジ、BigQuery Graph、LLM Wiki、月次レポートへ変換することを目的にします。
 
-The MVP is a hackathon-oriented organizational learning platform that collects qualitative business information from URL forms, voice input, sales notes, consultant notes, competitive intelligence inputs, and KPI files. It converts unstructured inputs into structured observations, entities, relationships, hypotheses, discovery signals, and periodic reports.
+## 2. 設計目標
 
-The design follows a Kiro-like flow:
+- 観測、ナレッジ形成、発見、仮説、追加観測、組織学習のループを保つ。
+- 完全な正確性よりも、素早い知識形成と後からの訂正可能性を優先する。
+- 観測事実と仮説をデータモデル、UI、レポートで分離する。
+- BigQuery を分析用の中核保存先として使う。
+- BigQuery Graph を関係性分析に使う。
+- 人間の承認が必要な更新を AI が単独で確定しない。
+
+## 3. システム構成
 
 ```text
-requirements.md
-  ↓
-design.md
-  ↓
-tasks.md
+Frontend
+  -> Backend API
+  -> Agent Runtime
+  -> BigQuery / Cloud Storage
 ```
 
-This document is intended to be converted into `tasks.md` in the next phase.
+- `front/`: Next.js 16.2.9 + React 19.2.7。Static Export 前提。
+- `back/`: FastAPI。画面向け API、レポート生成、agent runtime 呼び出し、永続化確認を担当。
+- `agent/`: Google ADK。`orchestrator_agent`、`research_agent`、`knowledge_agent` の 3 体構成。
+- `infra/`: Terraform、Cloud Build、nginx、Cloud Run 関連設定。
 
-## 2. Design Goals
+## 4. エージェント設計
 
-### 2.1 Primary Goals
+### orchestrator_agent
 
-1. Preserve the product's core loop:
+全体の司令塔です。初期アンケート、基盤テーブル作成、回答保存、research / knowledge agent への handoff を制御します。Wiki や KPI 候補の最終生成は knowledge agent に寄せます。
 
-   ```text
-   Observation
-   → Knowledge Formation
-   → Discovery
-   → Hypothesis
-   → Additional Observation
-   → Organizational Learning
-   ```
+### research_agent
 
-2. Prioritize fast knowledge formation over perfect correctness.
-3. Clearly separate observed facts from hypotheses.
-4. Use BigQuery as the analytical source of truth.
-5. Use Elasticsearch as the search and evidence retrieval layer.
-6. Use BigQuery Graph for relationship analysis, accepting higher latency.
-7. Keep the architecture small enough for a hackathon MVP.
-8. Avoid Spanner in the MVP due to cost constraints.
-9. Keep logical agents to four or fewer.
-10. Make the design directly translatable into implementation tasks.
+追加質問を生成します。1 回の実行で最大 3 問程度に絞り、回答者が短時間で答えられる質問にします。KPI や重点観測項目を確定しません。
 
-### 2.2 Non-Goals
+### knowledge_agent
 
-The MVP will not implement:
+回答や観測情報から企業ナレッジを形成します。KPI 候補、重点観測項目候補、research plan、Wiki、BigQuery node / edge を生成します。
 
-- Spanner or Spanner Graph.
-- Low-latency operational graph traversal.
-- Production-grade multi-tenant isolation.
-- Full privacy/compliance hardening.
-- Full CRM, Slack, Teams, Google Workspace, or email integration.
-- Advanced anomaly detection ML models.
-- Strict approval workflows before AI-extracted knowledge becomes usable.
-- Automated business decision execution.
+## 5. データ設計
 
-### 2.3 Spanner Design Note
+### BigQuery
 
-Spanner and Spanner Graph are intentionally excluded from the MVP because of cost and complexity. If the product later requires low-latency graph traversal from an operational application, Spanner Graph may be reconsidered as a future architecture option. For the MVP, graph analysis will use BigQuery Graph over BigQuery entity and relationship tables.
+主なテーブル:
 
-## 3. External Platform Assumptions
+- `companies`
+- `onboarding_question_master`
+- `{company_id}_onboarding_answer_events`
+- `{company_id}_research_followup_question_events`
+- `{company_id}_kpi_candidates`
+- `{company_id}_focus_metric_candidates`
+- `{company_id}_current_kpi_definitions`
+- `{company_id}_current_focus_metric_definitions`
+- `{company_id}_knowledge_nodes`
+- `{company_id}_knowledge_edges`
 
-This design relies on the following platform capabilities:
+候補テーブルと current 定義テーブルを分け、承認前の候補が本番定義へ直接混ざらないようにします。
 
-- Kiro-style specs are structured around requirements gathering, technical design, and implementation planning.
-- BigQuery Graph allows data to be modeled as nodes and edges and queried with GQL over BigQuery data.
-- Elasticsearch can support lexical search and vector-based semantic search, enabling hybrid retrieval for evidence search and RAG-like workflows.
-- Gemini structured output can produce JSON-schema-like extraction results, which is suitable for extracting observations, entities, relationships, hypotheses, and evidence references from unstructured text.
+### Cloud Storage
 
-Reference URLs are listed in [Section 20](#20-references).
-
-## 4. High-Level Architecture
-
-```mermaid
-flowchart TB
-    subgraph INPUT[Input Channels]
-        A1[URL Daily Report Form]
-        A2[Voice Input]
-        A3[Sales Notes Upload]
-        A4[Consultant Notes Upload]
-        A5[Competitive Intelligence Input]
-        A6[KPI CSV Upload]
-    end
-
-    subgraph API[Cloud Run APIs]
-        B1[frontend-api]
-        B2[intake-api]
-        B3[search-api]
-        B4[graph-api]
-        B5[copilot-api]
-    end
-
-    subgraph INGEST[Event and Processing Layer]
-        C1[Cloud Storage Raw Sources]
-        C2[Pub/Sub Topics]
-        C3[extraction-worker]
-        C4[indexing-worker]
-        C5[discovery-worker]
-        C6[report-worker]
-        C7[wiki-worker]
-    end
-
-    subgraph AI[AI Services]
-        D1[Gemini Structured Extraction]
-        D2[Gemini Report Generation]
-        D3[Gemini Copilot Answering]
-        D4[Speech-to-Text]
-    end
-
-    subgraph STORES[Knowledge Stores]
-        E1[BigQuery Structured Knowledge]
-        E2[BigQuery Graph]
-        E3[Elasticsearch Evidence Index]
-        E4[Cloud Storage Evidence Files]
-        E5[LLM Wiki Markdown]
-    end
-
-    subgraph UI[User Interfaces]
-        F1[Setup Screen]
-        F2[Daily Report Form]
-        F3[Search UI]
-        F4[Knowledge Graph Viewer]
-        F5[Monthly Discovery Report]
-        F6[Report Copilot]
-    end
-
-    F1 --> B1
-    F2 --> B1
-    F3 --> B3
-    F4 --> B4
-    F5 --> B1
-    F6 --> B5
-
-    B1 --> B2
-    A1 --> B2
-    A2 --> D4
-    D4 --> B2
-    A3 --> B2
-    A4 --> B2
-    A5 --> B2
-    A6 --> B2
-
-    B2 --> C1
-    B2 --> C2
-    C2 --> C3
-    C3 --> D1
-    D1 --> E1
-    D1 --> E3
-    D1 --> C4
-    C4 --> E3
-    D1 --> C7
-    C7 --> E5
-
-    E1 --> E2
-    E1 --> C5
-    E2 --> C5
-    E3 --> C5
-    C5 --> E1
-    C5 --> C6
-    C6 --> D2
-    D2 --> E1
-    D2 --> E5
-
-    B3 --> E3
-    B4 --> E2
-    B5 --> E5
-    B5 --> E1
-    B5 --> E3
-    B5 --> D3
-```
-
-## 5. Architecture Decisions
-
-### AD-001: BigQuery is the Structured Analytical Source of Truth
-
-**Decision:** BigQuery stores observations, entities, relationships, hypotheses, discovery signals, KPI snapshots, reports, and correction records.
-
-**Reasoning:** BigQuery is better suited than Elasticsearch for analytical aggregation, time-series metrics, weekly discovery detection, and graph-derived analytical data.
-
-**Implications:**
-
-- All structured business facts and hypotheses are persisted in BigQuery.
-- Elasticsearch may contain copies of selected fields, but those copies are search indexes only.
-- Reports and graph analysis should be generated from BigQuery whenever analytical correctness matters.
-
-### AD-002: Elasticsearch is Search and Evidence Retrieval Only
-
-**Decision:** Elasticsearch indexes source text, observation summaries, evidence snippets, tags, and embeddings for search and evidence exploration.
-
-**Reasoning:** Elasticsearch is strong for keyword search, filtering, snippets, faceted search, and hybrid retrieval. It should not become a second analytical source of truth.
-
-**Implications:**
-
-- Elasticsearch powers Search UI and evidence retrieval for Copilot/report generation.
-- Elasticsearch records contain BigQuery IDs and Cloud Storage URIs for traceability.
-- If BigQuery and Elasticsearch overlap, the design chooses BigQuery for aggregation and Elasticsearch for text retrieval.
-
-### AD-003: BigQuery Graph is Used for Relationship Analysis
-
-**Decision:** BigQuery Graph is used over BigQuery entity and relationship tables.
-
-**Reasoning:** Spanner is excluded, but the MVP still needs relationship analysis among customer segments, issues, products, competitors, KPIs, observations, and hypotheses. BigQuery Graph fits analytical graph exploration with acceptable latency.
-
-**Implications:**
-
-- Graph visualization may not be real-time.
-- Queries should limit nodes and edges for demo clarity.
-- The UI should use cached or precomputed graph slices when possible.
-
-### AD-004: LLM Extraction is Stored Without Mandatory Human Review
-
-**Decision:** AI-extracted knowledge is stored immediately with confidence, source reference, and extraction metadata.
-
-**Reasoning:** The MVP's value is easy knowledge formation. Human data entry also contains errors, so the system tolerates some extraction error and supports later correction/supersession.
-
-**Implications:**
-
-- Every extracted object includes `confidence`, `source_id`, `extraction_model`, and timestamps.
-- The system supports correction, merge, deprecation, and supersession.
-- Reports should show confidence and evidence when helpful.
-
-### AD-005: Facts and Hypotheses Are Separate First-Class Objects
-
-**Decision:** Observed facts and hypotheses are separate tables, schemas, UI sections, and report sections.
-
-**Reasoning:** The product must not blur what happened with what may explain it.
-
-**Implications:**
-
-- Observations are factual records extracted from source data.
-- Hypotheses are possible explanations linked to supporting or contradicting observations.
-- The Report Copilot must phrase causal explanations as hypotheses unless confirmed by explicit evidence.
-
-### AD-006: Four Logical Agents Only
-
-**Decision:** The MVP uses four logical agents:
-
-1. Intake Agent
-2. Knowledge Agent
-3. Discovery Agent
-4. Report Copilot
-
-**Reasoning:** This preserves the concept while keeping one Requirements document and one hackathon-scale architecture.
-
-## 6. Logical Agent Design
-
-### 6.1 Intake Agent
-
-**Purpose:** Collect initial company setup, URL form reports, voice input, sales notes, consultant notes, KPI files, and competitive intelligence inputs.
-
-**Responsibilities:**
-
-- Create company workspace.
-- Create initial company model.
-- Generate URL-based daily report forms.
-- Accept text form submissions.
-- Accept audio uploads or recordings.
-- Trigger transcription for voice input.
-- Store raw sources in Cloud Storage.
-- Publish ingestion events to Pub/Sub.
-- Generate concise follow-up questions when input is vague and important context is missing.
-
-**Primary Components:**
-
-- `intake-api`
-- `frontend-api`
-- `Speech-to-Text`
-- `Cloud Storage`
-- `Pub/Sub`
-
-### 6.2 Knowledge Agent
-
-**Purpose:** Convert unstructured source text into structured business knowledge.
-
-**Responsibilities:**
-
-- Run Gemini structured extraction.
-- Extract observations.
-- Extract or infer entities.
-- Extract relationships.
-- Create hypotheses separately from facts.
-- Attach evidence references.
-- Store structured records in BigQuery.
-- Index searchable source and evidence snippets in Elasticsearch.
-- Update LLM Wiki pages with summary-level knowledge.
-
-**Primary Components:**
-
-- `extraction-worker`
-- `indexing-worker`
-- `wiki-worker`
-- `Gemini Structured Extraction`
-- `BigQuery`
-- `Elasticsearch`
-- `Cloud Storage`
-
-### 6.3 Discovery Agent
-
-**Purpose:** Detect changes and update observation focus using rule-based statistical logic.
-
-**Responsibilities:**
-
-- Calculate weekly counts and baselines.
-- Detect previous-week increases.
-- Detect rolling-average increases when history exists.
-- Detect new entity appearances.
-- Detect co-occurrence between competitive events and issue increases.
-- Generate discovery signals.
-- Link signals to graph entities and evidence counts.
-- Suggest next observation topics.
-
-**Primary Components:**
-
-- `discovery-worker`
-- `BigQuery SQL`
-- `BigQuery Graph`
-- `Elasticsearch evidence lookup`
-
-### 6.4 Report Copilot
-
-**Purpose:** Generate reports and answer consultant questions with evidence while avoiding final business decisions.
-
-**Responsibilities:**
-
-- Generate Monthly Discovery Reports.
-- Answer questions using LLM Wiki, BigQuery metrics, and Elasticsearch evidence retrieval.
-- Separate observed facts and hypotheses in all outputs.
-- Provide evidence snippets and source references.
-- Suggest additional observation topics.
-- Avoid unsupported causal claims.
-
-**Primary Components:**
-
-- `report-worker`
-- `copilot-api`
-- `Gemini Report Generation`
-- `Gemini Copilot Answering`
-- `BigQuery`
-- `Elasticsearch`
-- `LLM Wiki`
-
-## 7. Service Decomposition
-
-| Service | Runtime | Responsibility |
-|---|---|---|
-| `frontend-app` | Static hosting or Cloud Run | Setup screen, form UI, search UI, graph viewer, report viewer, copilot UI |
-| `frontend-api` | Cloud Run | Backend-for-frontend API aggregation |
-| `intake-api` | Cloud Run | Workspace setup, report form submission, file upload registration |
-| `search-api` | Cloud Run | Search requests to Elasticsearch and result formatting |
-| `graph-api` | Cloud Run | Graph slice API backed by BigQuery Graph or BigQuery queries |
-| `copilot-api` | Cloud Run | Conversational question answering orchestration |
-| `extraction-worker` | Cloud Run Job or Cloud Run service | Gemini extraction from source text |
-| `indexing-worker` | Cloud Run Job or Cloud Run service | Elasticsearch indexing and reindexing |
-| `discovery-worker` | Cloud Run Job | Weekly/daily rule-based discovery signal detection |
-| `report-worker` | Cloud Run Job | Monthly Discovery Report generation |
-| `wiki-worker` | Cloud Run Job or service | LLM Wiki Markdown creation/update |
-
-## 8. Event Flow
-
-### 8.1 Ingestion and Extraction Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant UI as Daily Report Form / Upload UI
-    participant API as intake-api
-    participant GCS as Cloud Storage
-    participant PS as Pub/Sub
-    participant EX as extraction-worker
-    participant GEM as Gemini
-    participant BQ as BigQuery
-    participant ES as Elasticsearch
-    participant WIKI as LLM Wiki
-
-    U->>UI: Submit text, audio, note, or file
-    UI->>API: POST source submission
-    API->>GCS: Store raw source
-    API->>PS: Publish source.created
-    PS->>EX: Trigger extraction
-    EX->>GCS: Load source text or transcript
-    EX->>GEM: Request structured extraction
-    GEM-->>EX: JSON extraction result
-    EX->>BQ: Insert observations/entities/relationships/hypotheses
-    EX->>ES: Index source/evidence snippets
-    EX->>WIKI: Update summary knowledge if needed
-```
-
-### 8.2 Weekly Discovery Flow
-
-```mermaid
-sequenceDiagram
-    participant SCH as Scheduler
-    participant DW as discovery-worker
-    participant BQ as BigQuery
-    participant BG as BigQuery Graph
-    participant ES as Elasticsearch
-    participant RW as report-worker
-    participant GEM as Gemini
-    participant REP as Report Store
-
-    SCH->>DW: Weekly scheduled run
-    DW->>BQ: Query weekly metrics and baselines
-    DW->>BG: Query related graph nodes and edges
-    DW->>ES: Retrieve representative evidence snippets
-    DW->>BQ: Store discovery signals
-    DW->>RW: Trigger report generation
-    RW->>BQ: Load signals, observations, hypotheses, KPIs
-    RW->>ES: Load evidence snippets
-    RW->>GEM: Generate report with facts/hypotheses separated
-    GEM-->>RW: Discovery Report Markdown/JSON
-    RW->>REP: Store report record and Markdown output
-```
-
-### 8.3 Copilot Answer Flow
-
-```mermaid
-flowchart LR
-    Q[User Question] --> R[Query Router]
-    R -->|Company context| W[LLM Wiki]
-    R -->|Metrics and trends| BQ[BigQuery]
-    R -->|Text evidence| ES[Elasticsearch]
-    R -->|Relationships| BG[BigQuery Graph]
-    W --> C[Copilot Context Builder]
-    BQ --> C
-    ES --> C
-    BG --> C
-    C --> G[Gemini Answer Generator]
-    G --> A[Answer with Facts, Hypotheses, Evidence]
-```
-
-## 9. Data Model
-
-### 9.1 BigQuery Dataset
-
-Dataset name:
+主な保存先:
 
 ```text
-continuous_discovery
+tenants/{company_id}/raw/fiscal_year={year}/answers/*
+tenants/{company_id}/derived/fiscal_year={year}/*
+tenants/{company_id}/wiki/current/*
+tenants/{company_id}/wiki/versions/{timestamp}/*
+tenants/{company_id}/reports/monthly/{YYYY-MM}/report.json
 ```
 
-Recommended table naming convention:
+ローカルでは filesystem storage fallback を使えるようにします。
 
-```text
-workspaces
-sources
-observations
-entities
-relationships
-hypotheses
-discovery_signals
-kpi_definitions
-kpi_snapshots
-reports
-corrections
-wiki_pages
-processing_errors
-```
+## 6. API 設計
 
-All analytical tables include:
+代表的な endpoint:
 
-```text
-workspace_id STRING NOT NULL
-created_at TIMESTAMP NOT NULL
-updated_at TIMESTAMP
-```
+- `GET /healthz`
+- `GET /api/v1/companies`
+- `POST /api/v1/companies/{company_id}/survey/response`
+- `GET /api/v1/companies/{company_id}/research`
+- `GET /api/v1/companies/{company_id}/wiki/current`
+- `GET /api/v1/companies/{company_id}/knowledge/graph`
+- `GET /api/v1/companies/{company_id}/report/monthly`
+- `POST /api/v1/companies/{company_id}/copilot/chat`
+- `GET /api/v1/companies/{company_id}/approvals`
 
-### 9.2 Table: `workspaces`
+## 7. UI 設計
 
-| Field | Type | Description |
-|---|---|---|
-| `workspace_id` | STRING | Workspace identifier |
-| `workspace_name` | STRING | Company or project name |
-| `business_description` | STRING | Business overview |
-| `status` | STRING | active, archived |
-| `created_at` | TIMESTAMP | Created time |
-| `updated_at` | TIMESTAMP | Updated time |
+主な画面:
 
-### 9.3 Table: `sources`
+- `/`: Discovery Feed
+- `/intake`: 初期アンケート
+- `/research`: 追加質問
+- `/knowledge`: ナレッジ統計
+- `/graph`: Knowledge Graph
+- `/wiki`: LLM Wiki
+- `/approvals`: 承認キュー
+- `/report`: Monthly Discovery Report / Report Copilot
+- `/report-chat`: レポートチャット
 
-| Field | Type | Description |
-|---|---|---|
-| `source_id` | STRING | Source identifier |
-| `workspace_id` | STRING | Workspace identifier |
-| `source_type` | STRING | daily_report, voice_transcript, sales_note, consultant_note, competitive_event, kpi_csv |
-| `title` | STRING | Source title |
-| `source_uri` | STRING | Cloud Storage URI or external URL |
-| `body_text_uri` | STRING | URI for extracted text |
-| `submitted_by_role` | STRING | owner, consultant, sales, field_staff, unknown |
-| `source_timestamp` | TIMESTAMP | Source event time |
-| `processing_status` | STRING | received, processed, failed |
-| `created_at` | TIMESTAMP | Created time |
+画面間 navigation は `BottomNav.tsx` に集約します。
 
-### 9.4 Table: `observations`
+## 8. 安全設計
 
-| Field | Type | Description |
-|---|---|---|
-| `observation_id` | STRING | Observation identifier |
-| `workspace_id` | STRING | Workspace identifier |
-| `source_id` | STRING | Source identifier |
-| `source_type` | STRING | Source type |
-| `observed_at` | TIMESTAMP | Observation timestamp |
-| `summary` | STRING | Extracted fact summary |
-| `quote` | STRING | Representative quote or snippet |
-| `confidence` | FLOAT64 | Extraction confidence |
-| `related_entity_ids` | ARRAY<STRING> | Related entities |
-| `evidence_uri` | STRING | Cloud Storage source/evidence URI |
-| `extraction_model` | STRING | Model/version used |
-| `status` | STRING | active, corrected, deprecated, deleted |
-| `created_at` | TIMESTAMP | Created time |
+- Secret Manager の値はドキュメント、ログ、プロンプト、PR コメントへ出さない。
+- AI 出力は schema validation を通してから downstream decision に使う。
+- 本番 deploy、Terraform apply、IAM 変更、公開アクセス変更は人間の明示承認が必要。
+- Cost Guard を無効化しない。
+- AI の成功宣言ではなく、BigQuery / GCS の side effect を確認する。
 
-Design rule: `observations` are observed facts. They must not contain speculative causal statements unless the source explicitly states them as a reported fact.
+## 9. ローカル検証
 
-### 9.5 Table: `entities`
+- `make dev` で front / back / agent / BigQuery Emulator / Ollama を起動する。
+- `make sidecar` で Cloud Run multi-container に近い nginx routing を検証する。
+- Playwright は現状 `front/package.json` に `test:e2e` script がないため、必要に応じて `npx playwright test` を直接実行する。
 
-| Field | Type | Description |
-|---|---|---|
-| `entity_id` | STRING | Entity identifier |
-| `workspace_id` | STRING | Workspace identifier |
-| `entity_type` | STRING | CustomerSegment, Product, Issue, Competitor, CompetitiveEvent, KPI, Observation, Hypothesis |
-| `name` | STRING | Canonical name |
-| `aliases` | ARRAY<STRING> | Alternative names |
-| `description` | STRING | Short description |
-| `attributes_json` | JSON | Flexible attributes |
-| `confidence` | FLOAT64 | Extraction/merge confidence |
-| `status` | STRING | active, merged, deprecated |
-| `created_at` | TIMESTAMP | Created time |
-| `updated_at` | TIMESTAMP | Updated time |
+## 10. 既知のギャップ
 
 ### 9.6 Table: `relationships`
 
