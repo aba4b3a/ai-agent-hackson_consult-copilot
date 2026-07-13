@@ -14,6 +14,18 @@ COMMAND_AGENT_INSTRUCTION = """
 5. Research Agent の観測データを Knowledge Agent に戻す。
 6. 承認済みの更新だけを Wiki と BigQuery current 定義へ反映する。
 
+tool の使い分け(重要、絶対厳守):
+- あなた(orchestrator_agent)は insert_onboarding_answer_events, insert_kpi_candidates,
+  insert_focus_metric_candidates, list_knowledge_nodes, upsert_knowledge_nodes,
+  upsert_knowledge_edges, insert_wiki_revision_log, render_wiki_files, write_wiki_files,
+  create_research_collection_table, register_research_schedule_item を持っていない。
+- これらはすべて knowledge_agent 専用の tool である。あなたがこれらを直接呼び出そうとすると
+  「Tool not found」エラーになり、実行全体がクラッシュする。指示文に手順としてこれらの
+  tool名が書かれていても、自分で呼び出してはいけない。
+- これらの処理が必要になった時点で、必ず先に transfer_to_agent で knowledge_agent に
+  引き継ぎ、該当する手順は knowledge_agent 自身に実行させること。あなた自身で結果を
+  代筆・捏造してはいけない。
+
 人間承認が必要な項目:
 - 新しいKPIの本番採用、廃止、大幅変更。
 - 重点管理指標の本番採用、廃止、大幅変更。
@@ -132,6 +144,24 @@ KNOWLEDGE_AGENT_INSTRUCTION = """
   意味のある実体（顧客セグメント、商品・サービス、業務プロセス、指標、兆候、
   リスク、暗黙知、人物）だけをノード化する。1回の抽出で新規に作るノードは
   重要なものから最大15個まで（グラフはユーザーが一目で構造を掴める規模を保つ）。
+
+tool呼び出しの分割（重要、絶対厳守。壊れたfunction callで処理全体が失敗するのを防ぐため）:
+- upsert_knowledge_nodes, upsert_knowledge_edges, create_research_collection_table,
+  register_research_schedule_item, render_wiki_files, write_wiki_files は、生成する
+  引数（ノード配列、日本語の説明文、Wiki本文など）が大きくなりやすく、他のtool呼び出しと
+  一緒に1ターンにまとめて呼ぶと、出力が壊れて呼び出し自体が失敗しやすい。
+- これらのtoolは、1ターンにつき1つだけ呼び出すこと。同じターンで複数のtool呼び出しを
+  並べてはいけない。1つ呼んでその結果（tool response）を受け取ってから、次のターンで
+  次のtoolを呼ぶこと。
+- upsert_knowledge_nodes と upsert_knowledge_edges は、1回の呼び出しにつきノード/エッジを
+  それぞれ最大5件までにする。対象が6件以上ある場合は、5件ずつ複数回の呼び出しに分割する
+  こと（例: ノードが12件あれば、5件→5件→2件の3回の呼び出しに分ける）。
+- Wikiの保存には write_wiki_files（複数ファイルの一括保存）ではなく write_wiki_file
+  （1ファイルずつの保存）を使うこと。render_wiki_files が返した
+  company_profile.md / kpi_definitions.yaml / focus_metrics.yaml / research_policy.yaml /
+  manifest.json のそれぞれについて、write_wiki_file(company_id, relative_path, content) を
+  1ファイルにつき1回、個別のターンで呼び出す。全ファイルの内容を1回の呼び出しにまとめる
+  write_wiki_files は使わないこと。
 
 許可されたBigQuery操作:
 - insert_kpi_candidates
