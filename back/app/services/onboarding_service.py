@@ -149,12 +149,30 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
 
 {json.dumps(answers_payload, ensure_ascii=False, indent=2)}
 
+重要な注意(あなた自身が実行する場合のエラー回避):
+insert_onboarding_answer_events, insert_kpi_candidates, insert_focus_metric_candidates,
+list_knowledge_nodes, upsert_knowledge_nodes, upsert_knowledge_edges, render_wiki_files,
+write_wiki_files は、あなた(orchestrator_agent)自身のtoolには含まれていません。手順3以降で
+これらが必要になったら、あなた自身で呼び出そうとせず、必ず先に transfer_to_agent で
+knowledge_agent に引き継ぎ、knowledge_agent にそのtoolを呼ばせてください。持っていないtoolを
+自分で呼ぶと「Tool not found」エラーになり、この処理全体が失敗します。
+
+もう一つの重要な注意(壊れたfunction callで処理全体が失敗するのを防ぐため):
+upsert_knowledge_nodes, upsert_knowledge_edges, render_wiki_files, write_wiki_files は生成する
+引数が大きくなりやすいtoolです。これらを他のtool呼び出しと同じターンにまとめて呼び出そうと
+すると、出力が壊れてtool呼び出し自体が失敗することが分かっています。1ターンにつきこれらの
+toolは1つだけ呼び出し、結果を受け取ってから次のtoolを呼んでください。また
+upsert_knowledge_nodes / upsert_knowledge_edges は、ノード・エッジがそれぞれ6件以上ある場合、
+1回の呼び出しを最大5件までにして複数回に分けて呼び出してください。Wikiの保存は
+write_wiki_files(複数ファイル一括)ではなく write_wiki_file(1ファイルずつ)を使い、
+render_wiki_files が返した各ファイルを1つずつ個別のターンで保存してください。
+
 実行してほしい手順:
 1. ensure_shared_dataset と create_core_tables(company_id="{company_id}") で、この企業用のBigQuery基本テーブル(survey_responses/knowledge_nodes/knowledge_edges)とプロパティグラフを作成する。
 2. create_tenant_tables(company_id="{company_id}") で、KPI候補・重点管理指標候補などのテナント用テーブルを作成する。
-3. insert_onboarding_answer_events は、上記の回答すべてを1つの records 配列にまとめて1回だけ呼び出す(回答1件ごとに個別に呼び出さないこと)。
-4. 上記の回答内容を分析し、KPI候補・重点管理指標候補を抽出して insert_kpi_candidates / insert_focus_metric_candidates で登録する。
-5. 上記の回答内容から企業構造のナレッジグラフを抽出し、upsert_knowledge_nodes / upsert_knowledge_edges で保存する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。各ノード・エッジの source_response_id には、根拠となった回答の response_id(上記JSONに含まれる)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
+3. (knowledge_agentに引き継いで実行) insert_onboarding_answer_events は、上記の回答すべてを1つの records 配列にまとめて1回だけ呼び出す(回答1件ごとに個別に呼び出さないこと)。
+4. (knowledge_agentに引き継いで実行) 上記の回答内容を分析し、KPI候補・重点管理指標候補を抽出して insert_kpi_candidates / insert_focus_metric_candidates で登録する。
+5. (knowledge_agentに引き継いで実行) 上記の回答内容から企業構造のナレッジグラフを抽出し、upsert_knowledge_nodes / upsert_knowledge_edges で保存する(5件ずつなど分割して呼び出すこと)。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。各ノード・エッジの source_response_id には、根拠となった回答の response_id(上記JSONに含まれる)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
 6. 上記の回答内容から、この企業についてさらに深掘りすべき固有の追加質問を2〜5件考え、insert_research_followup_question_events で登録する。各質問の origin は必ず "onboarding" にすること(これは継続的な収集用の定期質問ではなく、Wikiを確定する前に一度だけ回答してもらう質問です)。
 
    target_role の付け方(重要): 全ての質問を経営者(owner)向けにしないこと。質問の内容が
@@ -175,7 +193,7 @@ def _build_stage1_message(company_id: str, company_name: str, answers_payload: l
      ありますか？それはなぜそう感じますか？」
    1問につき1つのことだけを聞き、回答者が1分程度で答えられる長さにすること。
 
-7. 上記の回答内容から、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files で保存する。
+7. (knowledge_agentに引き継いで実行) 上記の回答内容から、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="draft") でWikiドラフトの各ファイルを生成し、write_wiki_files ではなく write_wiki_file で1ファイルずつ保存する。
 
 途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。手順5〜7は
 実際にツールを呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で
@@ -198,13 +216,33 @@ def _build_stage2_message(
 ## 追加質問への回答
 {json.dumps(followup_qa, ensure_ascii=False, indent=2)}
 
-実行してほしい手順:
-1. 上記すべての回答を踏まえて、KPI候補・重点管理指標候補を見直し、必要であれば insert_kpi_candidates / insert_focus_metric_candidates で追加・更新登録する。
-2. 上記すべての回答(追加質問への回答を含む)を踏まえてナレッジグラフを見直し、upsert_knowledge_nodes / upsert_knowledge_edges で追加・更新する。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。初期アンケート回答由来のノード・エッジには source_response_id(上記JSONの response_id)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
-3. 継続的な収集が必要な指標があれば、create_research_collection_table と register_research_schedule_item で収集用テーブルと収集スケジュールを用意する。
-4. 初期アンケート回答と追加質問への回答の両方を踏まえて、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ直し、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files で保存して確定する。
+重要な注意(あなた自身が実行する場合のエラー回避):
+insert_kpi_candidates, insert_focus_metric_candidates, list_knowledge_nodes,
+upsert_knowledge_nodes, upsert_knowledge_edges, create_research_collection_table,
+register_research_schedule_item, render_wiki_files, write_wiki_files は、あなた
+(orchestrator_agent)自身のtoolには含まれていません。以下の手順であなた自身で呼び出そうと
+せず、必ず先に transfer_to_agent で knowledge_agent に引き継ぎ、knowledge_agent にそのtoolを
+呼ばせてください。持っていないtoolを自分で呼ぶと「Tool not found」エラーになり、この処理
+全体が失敗します(特に手順4のWiki確定は、この最終段階でしか実行されない一度きりの処理なので
+確実に knowledge_agent へ引き継いでください)。
 
-途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。write_wiki_files は
+もう一つの重要な注意(壊れたfunction callで処理全体が失敗するのを防ぐため):
+upsert_knowledge_nodes, upsert_knowledge_edges, render_wiki_files, write_wiki_files は生成する
+引数が大きくなりやすいtoolです。これらを他のtool呼び出しと同じターンにまとめて呼び出そうと
+すると、出力が壊れてtool呼び出し自体が失敗することが分かっています。1ターンにつきこれらの
+toolは1つだけ呼び出し、結果を受け取ってから次のtoolを呼んでください。また
+upsert_knowledge_nodes / upsert_knowledge_edges は、ノード・エッジがそれぞれ6件以上ある場合、
+1回の呼び出しを最大5件までにして複数回に分けて呼び出してください。Wikiの保存は
+write_wiki_files(複数ファイル一括)ではなく write_wiki_file(1ファイルずつ)を使い、
+render_wiki_files が返した各ファイルを1つずつ個別のターンで保存してください。
+
+実行してほしい手順:
+1. (knowledge_agentに引き継いで実行) 上記すべての回答を踏まえて、KPI候補・重点管理指標候補を見直し、必要であれば insert_kpi_candidates / insert_focus_metric_candidates で追加・更新登録する。
+2. (knowledge_agentに引き継いで実行) 上記すべての回答(追加質問への回答を含む)を踏まえてナレッジグラフを見直し、upsert_knowledge_nodes / upsert_knowledge_edges で追加・更新する(5件ずつなど分割して呼び出すこと)。先に list_knowledge_nodes(company_id="{company_id}") で既存ノードを確認し、同じ実体を指すノードがあれば新規作成せずその node_id を使うこと。初期アンケート回答由来のノード・エッジには source_response_id(上記JSONの response_id)を設定すること。node_type と edge_type は指示済みの正式語彙のみを使うこと。
+3. (knowledge_agentに引き継いで実行) 継続的な収集が必要な指標があれば、create_research_collection_table と register_research_schedule_item で収集用テーブルと収集スケジュールを用意する。
+4. (knowledge_agentに引き継いで実行) 初期アンケート回答と追加質問への回答の両方を踏まえて、この企業のプロフィール(business_summary/customer_summary/product_service_summary/competition_summary/operation_summary/current_issues/confidence/source_refs)を自分でまとめ直し、render_wiki_files の company_profile 引数にその内容を渡す(空のdictや省略はしないこと。省略した項目は company_profile.md 上で "TBD" にしかならない)。render_wiki_files(status="confirmed") でWikiの各ファイルを再生成し、write_wiki_files ではなく write_wiki_file で1ファイルずつ保存して確定する。
+
+途中のツール呼び出しが失敗しても構わないので、必ず最後まで進めてください。write_wiki_file は
 実際に呼び出して結果を確認すること — ツールを呼ばずに成功したかのような結果を文章で捏造しては
 いけません。最後の返信の1行目は、全ての手順が完了した場合は必ず「ONBOARDING_COMPLETE」、途中で
 続行できない手順がある場合は「ONBOARDING_FAILED: <理由>」のどちらか一方だけを出力し、その後に

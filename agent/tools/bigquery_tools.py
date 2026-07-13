@@ -888,7 +888,7 @@ SELECT
   {_sql_string(node.get("source_response_id"))} AS source_response_id,
   {float(node.get("confidence", 0.5))} AS confidence,
   CURRENT_TIMESTAMP() AS valid_from,
-  NULL AS valid_to,
+  CAST(NULL AS TIMESTAMP) AS valid_to,
   'active' AS status,
   PARSE_JSON(''' + _sql_string(json.dumps(node.get("properties", {}), ensure_ascii=False)) + ''') AS properties,
   CURRENT_TIMESTAMP() AS created_at,
