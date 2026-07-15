@@ -36,7 +36,9 @@ services:
 
   front:
     profiles: [dev]
-    image: node:24-bookworm
+    build:
+      context: ./front
+      dockerfile: Dockerfile
     working_dir: /workspace/front
     volumes:
       - ./front:/workspace/front

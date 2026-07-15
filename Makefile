@@ -17,12 +17,11 @@ sidecar:
 	docker compose --profile sidecar up --build
 
 lint:
-	$(COMPOSE) run --rm --no-deps front npm run lint
-	$(COMPOSE) run --rm --no-deps front npm run typecheck
-	$(COMPOSE) run --rm --no-deps back ruff check .
-	$(COMPOSE) run --rm --no-deps back mypy app
-	$(COMPOSE) run --rm --no-deps agent ruff check .
-	$(COMPOSE) run --rm --no-deps agent mypy .
+	$(COMPOSE) run --build --rm --no-deps front sh -c "npm ci && npm run lint && npm run typecheck"
+	$(COMPOSE) run --build --rm --no-deps back ruff check .
+	$(COMPOSE) run --build --rm --no-deps back mypy app
+	$(COMPOSE) run --build --rm --no-deps agent ruff check .
+	$(COMPOSE) run --build --rm --no-deps agent mypy .
 
 terraform-check:
 	cd infra/terraform && terraform fmt -check -recursive
@@ -30,9 +29,9 @@ terraform-check:
 	cd infra/terraform/environments/dev && terraform validate
 
 test:
-	$(COMPOSE) run --rm --no-deps front npm run test:e2e
-	$(COMPOSE) run --rm --no-deps back pytest
-	$(COMPOSE) run --rm --no-deps agent pytest
+	$(COMPOSE) run --build --rm --no-deps front sh -c "npm ci && npx playwright install chromium && npm run test:e2e"
+	$(COMPOSE) run --build --rm --no-deps back pytest
+	$(COMPOSE) run --build --rm --no-deps agent pytest
 
 seed-emulator:
 	# The BigQuery emulator has no persistent volume, so its data is lost on
@@ -40,7 +39,7 @@ seed-emulator:
 	$(COMPOSE) run --rm back python scripts/seed_emulator.py
 
 build:
-	$(COMPOSE) run --rm --no-deps front npm run build
+	$(COMPOSE) run --rm --no-deps front sh -c "npm ci && npm run build"
 	docker build -t consult-copilot-back:local ./back
 	docker build -t consult-copilot-agent:local ./agent
 

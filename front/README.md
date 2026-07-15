@@ -63,7 +63,8 @@ UI から直接 `fetch` せず、service 層に寄せます。
 ```bash
 npm run lint
 npm run typecheck
+npm run test:e2e
 npm run build
 ```
 
-Playwright の E2E テストは `front/tests/e2e/` にありますが、現状 `package.json` に `test:e2e` script はありません。必要な場合は `npx playwright test` を直接実行します。
+Playwright の E2E テストは `front/tests/e2e/` にあります。`npm run test:e2e` で実行します。
