@@ -385,7 +385,7 @@ flowchart TB
 make setup
 make dev
 make lint
-make test  # 現状 front の test:e2e script が未定義のため、必要に応じて個別実行
+make test
 make build
 make clean
 ```
@@ -396,7 +396,7 @@ Makefile 経由で Docker Compose サービス内のツールを実行します�
 
 ```bash
 make lint
-make test  # 現状 front の test:e2e script が未定義のため、必要に応じて個別実行
+make test
 make build
 ```
 
@@ -418,4 +418,4 @@ make build
 - Agent evaluation skeleton: 配置済み
 - Cloud Build / Terraform skeleton: 配置済み
 - Gemini / ADK integration: 設定で切り替え
-- `front/package.json` には `test:e2e` script が未定義のため、Playwright は `npx playwright test` で直接実行する状態
+- Playwright E2E: `front/package.json` の `test:e2e` から実行
